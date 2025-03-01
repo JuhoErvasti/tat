@@ -28,7 +28,7 @@ fn main() -> Result<()> {
     };
 
     let terminal = ratatui::init();
-    let result = Tat::new(&ds).run(terminal);
+    let result = Tat::new(ds).run(terminal);
 
     ratatui::restore();
 
