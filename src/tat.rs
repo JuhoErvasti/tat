@@ -2,7 +2,7 @@ use std::{any::Any, io::Result};
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use gdal::{vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, LayerAccess}, Dataset, Metadata};
-use ratatui::{buffer::Buffer, layout::{Constraint, Layout, Rect}, style::Stylize, symbols, text::Line, widgets::{Block, Borders, HighlightSpacing, List, ListItem, ListState, Paragraph, StatefulWidget, Widget}, DefaultTerminal};
+use ratatui::{buffer::Buffer, layout::{Constraint, Layout, Rect}, style::Stylize, symbols, text::Line, widgets::{Block, Borders, HighlightSpacing, List, ListItem, ListState, Paragraph, Row, StatefulWidget, Table, TableState, Widget}, DefaultTerminal};
 
 pub enum Menu {
     LayerSelect,
@@ -15,6 +15,7 @@ pub struct Tat {
     quit: bool,
     dataset: Dataset,
     list_state: ListState,
+    table_state: TableState,
 }
 
 impl Widget for &mut Tat {
@@ -33,11 +34,13 @@ impl Tat {
             quit: false,
             dataset: ds,
             list_state: ListState::default(),
+            table_state: TableState::default(),
         }
     }
 
     pub fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
         self.list_state.select_first();
+        self.table_state.select_first();
         while !self.quit {
             terminal.draw(|frame| frame.render_widget(&mut self, frame.area()))?;
             if let Event::Key(key) = event::read()? {
@@ -45,44 +48,6 @@ impl Tat {
             };
         }
         Ok(())
-    }
-
-    fn render_table(&mut self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
-    }
-
-    fn render_layer_select(&mut self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
-        if self.dataset.layer_count() == 0 {
-            let [header_area, dataset_area, footer_area] = Layout::vertical([
-                Constraint::Length(2),
-                Constraint::Fill(1),
-                Constraint::Length(2),
-            ])
-            .areas(area);
-
-            Tat::render_header(header_area, buf);
-            self.render_dataset_info(dataset_area, buf);
-            Tat::render_footer(footer_area, buf);
-        } else {
-            let [header_area, dataset_area, layer_area, footer_area] = Layout::vertical([
-                Constraint::Length(2),
-                Constraint::Fill(1),
-                Constraint::Fill(3),
-                Constraint::Length(2),
-            ])
-            .areas(area);
-
-            let [list_area, info_area] =
-                Layout::horizontal([
-                    Constraint::Fill(1),
-                    Constraint::Fill(1),
-            ]).areas(layer_area);
-
-            Tat::render_header(header_area, buf);
-            self.render_dataset_info(dataset_area, buf);
-            self.render_layer_list(list_area, buf);
-            self.render_layer_info(info_area, buf);
-            Tat::render_footer(footer_area, buf);
-        }
     }
 
     fn close(&mut self) {
@@ -119,35 +84,59 @@ impl Tat {
     }
 
     fn nav_jump_forward(&mut self) {
-        self.list_state.scroll_down_by(50);
+        match self.current_menu {
+            Menu::LayerSelect => self.list_state.scroll_down_by(50),
+            Menu::Table => self.table_state.scroll_down_by(50),
+        }
     }
 
     fn nav_jump_back(&mut self) {
-        self.list_state.scroll_up_by(50);
+        match self.current_menu {
+            Menu::LayerSelect => self.list_state.scroll_up_by(50),
+            Menu::Table => self.table_state.scroll_up_by(50),
+        }
     }
 
     fn nav_jump_up(&mut self) {
-        self.list_state.scroll_up_by(25);
+        match self.current_menu {
+            Menu::LayerSelect => self.list_state.scroll_up_by(25),
+            Menu::Table => self.table_state.scroll_up_by(25),
+        }
     }
 
     fn nav_jump_down(&mut self) {
-        self.list_state.scroll_down_by(25);
+        match self.current_menu {
+            Menu::LayerSelect => self.list_state.scroll_down_by(25),
+            Menu::Table => self.table_state.scroll_down_by(25),
+        }
     }
 
     fn nav_first(&mut self) {
-        self.list_state.select_first();
+        match self.current_menu {
+            Menu::LayerSelect => self.list_state.select_first(),
+            Menu::Table => self.table_state.select_first(),
+        }
     }
 
     fn nav_last(&mut self) {
-        self.list_state.select_last();
+        match self.current_menu {
+            Menu::LayerSelect => self.list_state.select_last(),
+            Menu::Table => self.table_state.select_last(),
+        }
     }
 
     fn nav_up(& mut self) {
-        self.list_state.select_previous();
+        match self.current_menu {
+            Menu::LayerSelect => self.list_state.select_previous(),
+            Menu::Table => self.table_state.select_previous(),
+        }
     }
 
     fn nav_down(& mut self) {
-        self.list_state.select_next();
+        match self.current_menu {
+            Menu::LayerSelect => self.list_state.select_next(),
+            Menu::Table => self.table_state.select_next(),
+        }
     }
 
     fn render_header(area: Rect, buf: &mut Buffer) {
@@ -223,6 +212,79 @@ impl Tat {
 
         StatefulWidget::render(list, area, buf, &mut self.list_state);
     }
+
+    fn render_table(&mut self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
+        let [header_area, table_area, footer_area] = Layout::vertical([
+            Constraint::Length(2),
+            Constraint::Fill(1),
+            Constraint::Length(2),
+        ])
+        .areas(area);
+
+        let mut layer = self.selected_layer();
+
+        Tat::render_header(header_area, buf);
+        Tat::render_footer(footer_area, buf);
+
+        let block = Block::new()
+            .title(format!(" {} ", layer.name()).bold().underlined())
+            .borders(Borders::ALL)
+            .border_set(symbols::border::ROUNDED);
+
+        let mut rows: Vec<Row> = [].to_vec();
+        let widths = vec![Constraint::Fill(1)];
+
+        for feature in layer.features() {
+            rows.push(Row::new([format!("{}", feature.fid().unwrap())]));
+        }
+
+        let table = Table::new(rows, widths)
+            .block(block)
+            .highlight_symbol(">");
+
+        StatefulWidget::render(table, table_area, buf, &mut self.table_state);
+    }
+
+    fn selected_layer(&self) -> Layer {
+        // TODO: don't use the unwraps
+        self.dataset.layer(self.list_state.selected().unwrap()).unwrap()
+    }
+
+    fn render_layer_select(&mut self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
+        if self.dataset.layer_count() == 0 {
+            let [header_area, dataset_area, footer_area] = Layout::vertical([
+                Constraint::Length(2),
+                Constraint::Fill(1),
+                Constraint::Length(2),
+            ])
+            .areas(area);
+
+            Tat::render_header(header_area, buf);
+            self.render_dataset_info(dataset_area, buf);
+            Tat::render_footer(footer_area, buf);
+        } else {
+            let [header_area, dataset_area, layer_area, footer_area] = Layout::vertical([
+                Constraint::Length(2),
+                Constraint::Fill(1),
+                Constraint::Fill(3),
+                Constraint::Length(2),
+            ])
+            .areas(area);
+
+            let [list_area, info_area] =
+                Layout::horizontal([
+                    Constraint::Fill(1),
+                    Constraint::Fill(1),
+            ]).areas(layer_area);
+
+            Tat::render_header(header_area, buf);
+            self.render_dataset_info(dataset_area, buf);
+            self.render_layer_list(list_area, buf);
+            self.render_layer_info(info_area, buf);
+            Tat::render_footer(footer_area, buf);
+        }
+    }
+
 
     fn render_layer_info(&mut self, area: Rect, buf: &mut Buffer) {
         let block = Block::new()
