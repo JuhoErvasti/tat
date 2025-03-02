@@ -1,7 +1,7 @@
-use std::io::Result;
+use std::{any::Any, io::Result};
 
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
-use gdal::{vector::LayerAccess, Dataset};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use gdal::{vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, LayerAccess}, Dataset, Metadata};
 use ratatui::{buffer::Buffer, layout::{Constraint, Layout, Rect}, style::Stylize, symbols, text::Line, widgets::{Block, Borders, HighlightSpacing, List, ListItem, ListState, Paragraph, StatefulWidget, Widget}, DefaultTerminal};
 
 pub enum Menu {
@@ -19,25 +19,10 @@ pub struct Tat {
 
 impl Widget for &mut Tat {
     fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
-        let [header_area, dataset_area, main_area, footer_area] = Layout::vertical([
-            Constraint::Length(2),
-            Constraint::Fill(1),
-            Constraint::Fill(1),
-            Constraint::Length(2),
-        ])
-        .areas(area);
-
-        let [list_area, info_area] =
-            Layout::horizontal([
-                Constraint::Fill(1),
-                Constraint::Fill(1),
-        ]).areas(main_area);
-
-        Tat::render_header(header_area, buf);
-        Tat::render_dataset_info(self, dataset_area, buf);
-        Tat::render_layer_list(self, list_area, buf);
-        Tat::render_layer_info(self, info_area, buf);
-        Tat::render_footer(footer_area, buf);
+        match self.current_menu {
+            Menu::LayerSelect => self.render_layer_select(area, buf),
+            Menu::Table => self.render_table(area, buf),
+        }
     }
 }
 
@@ -62,14 +47,107 @@ impl Tat {
         Ok(())
     }
 
+    fn render_table(&mut self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
+    }
+
+    fn render_layer_select(&mut self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
+        if self.dataset.layer_count() == 0 {
+            let [header_area, dataset_area, footer_area] = Layout::vertical([
+                Constraint::Length(2),
+                Constraint::Fill(1),
+                Constraint::Length(2),
+            ])
+            .areas(area);
+
+            Tat::render_header(header_area, buf);
+            self.render_dataset_info(dataset_area, buf);
+            Tat::render_footer(footer_area, buf);
+        } else {
+            let [header_area, dataset_area, layer_area, footer_area] = Layout::vertical([
+                Constraint::Length(2),
+                Constraint::Fill(1),
+                Constraint::Fill(3),
+                Constraint::Length(2),
+            ])
+            .areas(area);
+
+            let [list_area, info_area] =
+                Layout::horizontal([
+                    Constraint::Fill(1),
+                    Constraint::Fill(1),
+            ]).areas(layer_area);
+
+            Tat::render_header(header_area, buf);
+            self.render_dataset_info(dataset_area, buf);
+            self.render_layer_list(list_area, buf);
+            self.render_layer_info(info_area, buf);
+            Tat::render_footer(footer_area, buf);
+        }
+    }
+
+    fn close(&mut self) {
+        self.quit = true;
+    }
+
     fn handle_key(&mut self, key: KeyEvent) {
         if key.kind != KeyEventKind::Press {
             return;
         }
+
+        let ctrl_down: bool = key.modifiers.contains(KeyModifiers::CONTROL);
+
         match key.code {
-            KeyCode::Char('q') | KeyCode::Esc => self.quit = true,
+            KeyCode::Char('q') | KeyCode::Esc => self.previous_menu(),
+            KeyCode::Char('k') | KeyCode::Up => self.nav_up(),
+            KeyCode::Char('j') | KeyCode::Down => self.nav_down(),
+            KeyCode::Char('g') => self.nav_first(),
+            KeyCode::Char('G') => self.nav_last(),
+            KeyCode::Char('d') if ctrl_down => self.nav_jump_down(),
+            KeyCode::Char('u') if ctrl_down => self.nav_jump_up(),
+            KeyCode::Char('f') if ctrl_down => self.nav_jump_forward(),
+            KeyCode::Char('b') if ctrl_down => self.nav_jump_back(),
+            KeyCode::Enter => self.current_menu = Menu::Table,
             _ => {},
         }
+    }
+
+    fn previous_menu(&mut self) {
+        match self.current_menu {
+            Menu::Table => self.current_menu = Menu::LayerSelect,
+            Menu::LayerSelect => self.close(),
+        }
+    }
+
+    fn nav_jump_forward(&mut self) {
+        self.list_state.scroll_down_by(50);
+    }
+
+    fn nav_jump_back(&mut self) {
+        self.list_state.scroll_up_by(50);
+    }
+
+    fn nav_jump_up(&mut self) {
+        self.list_state.scroll_up_by(25);
+    }
+
+    fn nav_jump_down(&mut self) {
+        self.list_state.scroll_down_by(25);
+    }
+
+    fn nav_first(&mut self) {
+        self.list_state.select_first();
+    }
+
+    fn nav_last(&mut self) {
+        self.list_state.select_last();
+    }
+
+    fn nav_up(& mut self) {
+        self.list_state.select_previous();
+    }
+
+    fn nav_down(& mut self) {
+        self.list_state.select_next();
     }
 
     fn render_header(area: Rect, buf: &mut Buffer) {
@@ -81,16 +159,52 @@ impl Tat {
 
     fn render_dataset_info(&mut self, area: Rect, buf: &mut Buffer) {
         let block = Block::new()
-            .title(Line::raw(" Dataset ").centered())
+            .title(Line::raw(" Dataset ").underlined().bold())
             .borders(Borders::ALL)
             .border_set(symbols::border::ROUNDED);
 
-        block.render(area, buf);
+        let mut text = vec![
+            // TODO: don't unwrap()
+            Line::from(format!("- URI: \"{}\"", self.dataset.description().unwrap())),
+            Line::from(format!("- Driver: {} ({})", self.dataset.driver().long_name(), self.dataset.driver().short_name())),
+        ];
+
+        if self.dataset.metadata().count() > 0 {
+            text.push(Line::from("Metadata:"));
+        }
+
+        for domain in self.dataset.metadata_domains() {
+            if self.dataset.metadata_domain(&domain).into_iter().len() == 0 {
+                continue;
+            }
+
+            let display_str: &str = if domain.is_empty() {
+                "Default"
+            } else {
+                &domain
+            };
+
+            text.push(
+                Line::from(format!("  {} Domain:", display_str))
+            );
+
+            self.dataset.metadata_domain(&domain).into_iter().for_each(|values| {
+                for value in values {
+                    text.push(
+                        Line::from(format!("    {}", value))
+                    );
+                }
+            });
+        }
+
+        Paragraph::new(text)
+            .block(block)
+            .render(area, buf);
     }
 
     fn render_layer_list(&mut self, area: Rect, buf: &mut Buffer) {
         let block = Block::new()
-            .title(Line::raw(" Layers ").centered())
+            .title(Line::raw(" Layers ").underlined().bold())
             .borders(Borders::ALL)
             .border_set(symbols::border::ROUNDED);
 
@@ -112,11 +226,71 @@ impl Tat {
 
     fn render_layer_info(&mut self, area: Rect, buf: &mut Buffer) {
         let block = Block::new()
-            .title(Line::raw(" Layer Information ").centered())
+            .title(Line::raw(" Layer Information ").underlined().bold())
             .borders(Borders::ALL)
             .border_set(symbols::border::ROUNDED);
 
-        block.render(area, buf);
+        let mut text: Vec<Line> = [].to_vec();
+
+        if let Some(selected) = self.list_state.selected() {
+            // TODO: don't unwrap
+            let layer: Layer = self.dataset.layer(selected).unwrap();
+
+            text.push(Line::from(format!("- Name: {}", layer.name())));
+
+            if let Some(crs) = layer.spatial_ref() {
+                // TODO: don't unwrap
+                text.push(Line::from(format!("- CRS: {}:{} ({})", crs.auth_name().unwrap(), crs.auth_code().unwrap(), crs.name().unwrap())));
+            }
+
+            text.push(
+                Line::from(format!("- Feature Count: {}", layer.feature_count()))
+            );
+
+            let defn: &Defn = layer.defn();
+
+            let geom_fields_count = defn.geom_fields().count();
+            let geom_fields = defn.geom_fields();
+
+            if geom_fields_count > 0 {
+                text.push(
+                    Line::from("- Geometry fields:")
+                );
+                for geom_field in geom_fields {
+                    let display_str: &str = if geom_field.name().is_empty() {
+                        "ANONYMOUS"
+                    } else {
+                        &geom_field.name()
+                    };
+
+                    // TODO: don't unwrap etc.
+                    text.push(
+                        Line::from(format!("    \"{}\" - ({}, {}:{})", display_str, geometry_type_to_name(geom_field.field_type()), geom_field.spatial_ref().unwrap().auth_name().unwrap(), geom_field.spatial_ref().unwrap().auth_code().unwrap()))
+                    );
+                }
+            }
+
+            let fields_count = defn.fields().count();
+            let fields = defn.fields();
+
+            if fields_count > 0 {
+                text.push(
+                    Line::from("- Fields:")
+                );
+
+                for field in fields {
+                    text.push(
+                        Line::from(
+                            format!("    \"{}\" - ({})", field.name(), field_type_to_name(field.field_type()))
+                        )
+                    );
+                }
+            }
+        }
+
+        Paragraph::new(text)
+            .block(block)
+            .render(area, buf);
     }
 
     fn render_footer(area: Rect, buf: &mut Buffer) {
