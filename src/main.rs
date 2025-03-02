@@ -1,10 +1,11 @@
-use gdal::{Dataset, DatasetOptions, GdalOpenFlags};
+use gdal::Dataset;
 use tat::Tat;
 use std::{env, io::Result, panic, process::exit};
 
 mod tat;
 
 fn show_usage() {
+    // TODO:
     println!("usage");
 }
 
@@ -31,6 +32,7 @@ fn main() -> Result<()> {
     //     sibling_files: None,
     // };
     //
+    // let ds = match Dataset::open_ex(file_path, options) {
     let ds = match Dataset::open(file_path) {
         // TODO : we get a GdalError here, it would
         // probably be better to handle the different

@@ -1,8 +1,8 @@
-use std::{any::Any, io::Result};
+use std::io::Result;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use gdal::{vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, LayerAccess}, Dataset, Metadata};
-use ratatui::{buffer::Buffer, layout::{Constraint, Layout, Rect}, style::Stylize, symbols, text::Line, widgets::{Block, Borders, HighlightSpacing, List, ListItem, ListState, Paragraph, Row, StatefulWidget, Table, TableState, Widget}, DefaultTerminal};
+use ratatui::{buffer::Buffer, layout::{Constraint, Layout, Rect}, style::{palette::tailwind, Style, Stylize}, symbols, text::Line, widgets::{Block, Borders, HighlightSpacing, List, ListItem, ListState, Padding, Paragraph, Row, StatefulWidget, Table, TableState, Widget}, DefaultTerminal};
 
 pub enum Menu {
     LayerSelect,
@@ -63,6 +63,8 @@ impl Tat {
 
         match key.code {
             KeyCode::Char('q') | KeyCode::Esc => self.previous_menu(),
+            KeyCode::Char('h') | KeyCode::Left => self.nav_left(),
+            KeyCode::Char('l') | KeyCode::Right => self.nav_right(),
             KeyCode::Char('k') | KeyCode::Up => self.nav_up(),
             KeyCode::Char('j') | KeyCode::Down => self.nav_down(),
             KeyCode::Char('g') => self.nav_first(),
@@ -73,6 +75,28 @@ impl Tat {
             KeyCode::Char('b') if ctrl_down => self.nav_jump_back(),
             KeyCode::Enter => self.current_menu = Menu::Table,
             _ => {},
+        }
+    }
+
+    fn nav_left(&mut self) {
+        match self.current_menu {
+            Menu::LayerSelect => (),
+            Menu::Table => {
+                if let Some(col) = self.table_state.selected_column() {
+                    if col == 0 {
+                        self.table_state.select_column(None);
+                        return;
+                    }
+                }
+                self.table_state.select_previous_column()
+            }
+        }
+    }
+
+    fn nav_right(&mut self) {
+        match self.current_menu {
+            Menu::LayerSelect => (),
+            Menu::Table => self.table_state.select_next_column(),
         }
     }
 
@@ -214,32 +238,66 @@ impl Tat {
     }
 
     fn render_table(&mut self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
-        let [header_area, table_area, footer_area] = Layout::vertical([
-            Constraint::Length(2),
+        let [table_area, footer_area] = Layout::vertical([
             Constraint::Fill(1),
-            Constraint::Length(2),
+            Constraint::Length(1),
         ])
         .areas(area);
 
         let mut layer = self.selected_layer();
+        let defn = layer.defn();
 
-        Tat::render_header(header_area, buf);
-        Tat::render_footer(footer_area, buf);
+        self.render_footer(footer_area, buf);
 
         let block = Block::new()
-            .title(format!(" {} ", layer.name()).bold().underlined())
+            .title(Line::raw(format!(" {} ", layer.name())).centered().bold().underlined())
             .borders(Borders::ALL)
+            .padding(Padding::top(1))
             .border_set(symbols::border::ROUNDED);
 
-        let mut rows: Vec<Row> = [].to_vec();
-        let widths = vec![Constraint::Fill(1)];
+        let total_fields = defn.fields().count();
+        let mut header_items: Vec<String> = [].to_vec();
+        header_items.reserve(total_fields);
 
-        for feature in layer.features() {
-            rows.push(Row::new([format!("{}", feature.fid().unwrap())]));
+        for field in layer.defn().fields() {
+            header_items.push(field.name());
         }
 
+
+        let mut rows: Vec<Row> = [].to_vec();
+        let mut widths = [].to_vec();
+
+        for _ in 0..total_fields {
+            widths.push(Constraint::Fill(1));
+        }
+
+        for feature in layer.features() {
+            let mut row_items: Vec<String> = [].to_vec();
+
+            for i in 0..total_fields {
+                // TODO: no unwrap etc.
+                row_items.push(feature.field_as_string(i as i32).unwrap().unwrap());
+            }
+
+            rows.push(Row::new(row_items));
+        }
+
+        let header = Row::new(header_items);
+
+        // hs = highlight style
+        let col_hs = Style::default()
+        .fg(tailwind::SLATE.c500);
+        let row_hs = Style::default()
+        .fg(tailwind::SLATE.c500);
+        let cell_hs = Style::default()
+        .fg(tailwind::SLATE.c950);
+
         let table = Table::new(rows, widths)
+            .header(header.underlined())
             .block(block)
+            .column_highlight_style(col_hs)
+            .row_highlight_style(row_hs)
+            .cell_highlight_style(cell_hs)
             .highlight_symbol(">");
 
         StatefulWidget::render(table, table_area, buf, &mut self.table_state);
@@ -255,19 +313,19 @@ impl Tat {
             let [header_area, dataset_area, footer_area] = Layout::vertical([
                 Constraint::Length(2),
                 Constraint::Fill(1),
-                Constraint::Length(2),
+                Constraint::Length(1),
             ])
             .areas(area);
 
             Tat::render_header(header_area, buf);
             self.render_dataset_info(dataset_area, buf);
-            Tat::render_footer(footer_area, buf);
+            self.render_footer(footer_area, buf);
         } else {
             let [header_area, dataset_area, layer_area, footer_area] = Layout::vertical([
                 Constraint::Length(2),
                 Constraint::Fill(1),
                 Constraint::Fill(3),
-                Constraint::Length(2),
+                Constraint::Length(1),
             ])
             .areas(area);
 
@@ -281,7 +339,7 @@ impl Tat {
             self.render_dataset_info(dataset_area, buf);
             self.render_layer_list(list_area, buf);
             self.render_layer_info(info_area, buf);
-            Tat::render_footer(footer_area, buf);
+            self.render_footer(footer_area, buf);
         }
     }
 
@@ -355,9 +413,18 @@ impl Tat {
             .render(area, buf);
     }
 
-    fn render_footer(area: Rect, buf: &mut Buffer) {
-        Paragraph::new("some help should go here probably")
-            .centered()
-            .render(area, buf);
+    fn render_footer(&self, area: Rect, buf: &mut Buffer) {
+        match self.current_menu {
+            Menu::LayerSelect => {
+                Paragraph::new("<up, k> and <down, j>: browse layers | <enter> open layer table | <q> quit program")
+                .centered()
+                .render(area, buf);
+            }
+            Menu::Table => {
+                Paragraph::new("<up, k> and <down, j>: browse features | <q> return to layer selection")
+                .centered()
+                .render(area, buf);
+            }
+        }
     }
 }
