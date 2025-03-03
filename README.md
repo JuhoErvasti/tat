@@ -11,6 +11,8 @@ Immediately:
   - Improve performance on opening large layers
 - Fit columns differently so not all are crammed into the table, instead allow browsing them
 - Show FID in table
+- Fix issue when attempting navigation on an empty layer
+- Fix weird issue with shapefile not being correctly read and stderr output being printed all over the place
 
 Midterm:
 - Show scrollbars for the layer list and the table
