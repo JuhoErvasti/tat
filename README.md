@@ -7,7 +7,8 @@ For inspecting geospatial data in the terminal.
 Immediately:
 - ~~Fix issues with some layers not opening in the table~~
 - Fix issue "Error browsing database for PostGIS Raster tables" when attempting to open with PostGIS driver
-- Improve performance on large layers (only render what can be seen)
+- ~~Improve performance on large layers (only render what can be seen)~~
+  - Improve performance on opening large layers
 - Fit columns differently so not all are crammed into the table, instead allow browsing them
 - Show FID in table
 
