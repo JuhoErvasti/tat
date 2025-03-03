@@ -5,7 +5,7 @@ For inspecting geospatial data in the terminal.
 ## TODO
 
 Immediately:
-- Fix issues with some layers not opening in the table
+- ~~Fix issues with some layers not opening in the table~~
 - Fix issue "Error browsing database for PostGIS Raster tables" when attempting to open with PostGIS driver
 - Improve performance on large layers (only render what can be seen)
 - Fit columns differently so not all are crammed into the table, instead allow browsing them

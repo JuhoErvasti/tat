@@ -62,6 +62,7 @@ impl Tat {
         let ctrl_down: bool = key.modifiers.contains(KeyModifiers::CONTROL);
 
         match key.code {
+            KeyCode::Char('c') => self.close(),
             KeyCode::Char('q') | KeyCode::Esc => self.previous_menu(),
             KeyCode::Char('h') | KeyCode::Left => self.nav_left(),
             KeyCode::Char('l') | KeyCode::Right => self.nav_right(),
@@ -76,6 +77,11 @@ impl Tat {
             KeyCode::Enter => self.current_menu = Menu::Table,
             _ => {},
         }
+    }
+
+    fn reset_table(&mut self) {
+        self.table_state.select_column(None);
+        self.table_state.select_first();
     }
 
     fn nav_left(&mut self) {
@@ -96,13 +102,27 @@ impl Tat {
     fn nav_right(&mut self) {
         match self.current_menu {
             Menu::LayerSelect => (),
-            Menu::Table => self.table_state.select_next_column(),
+            Menu::Table => {
+                if let Some(col) = self.table_state.selected_column() {
+                    // TODO: take FID into account
+                    let cols =  self.selected_layer().defn().fields().count();
+
+                    if col == cols - 1 {
+                        self.table_state.select_column(None);
+                        return;
+                    }
+                }
+                self.table_state.select_next_column();
+            }
         }
     }
 
     fn previous_menu(&mut self) {
         match self.current_menu {
-            Menu::Table => self.current_menu = Menu::LayerSelect,
+            Menu::Table => {
+                self.reset_table();
+                self.current_menu = Menu::LayerSelect;
+            },
             Menu::LayerSelect => self.close(),
         }
     }
@@ -275,8 +295,18 @@ impl Tat {
             let mut row_items: Vec<String> = [].to_vec();
 
             for i in 0..total_fields {
-                // TODO: no unwrap etc.
-                row_items.push(feature.field_as_string(i as i32).unwrap().unwrap());
+                let str_opt = match feature.field_as_string(i as i32) {
+                    Ok(str_opt) => str_opt,
+                    // TODO: should the GdalError here be handled differently?
+                    Err(_) => Some(String::from("NULL")),
+                };
+
+                if let Some(str) = str_opt {
+                    row_items.push(str);
+                } else {
+                    row_items.push(String::from("NULL"));
+                }
+
             }
 
             rows.push(Row::new(row_items));
