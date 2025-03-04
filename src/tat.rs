@@ -302,7 +302,7 @@ impl Tat {
     }
 
     fn bottom_fid_visible(&self) -> bool {
-        return self.top_fid + self.visible_rows as u64 >= self.selected_layer().feature_count();
+        return self.top_fid + self.visible_rows as u64 > self.selected_layer().feature_count();
     }
 
     fn render_header(area: Rect, buf: &mut Buffer) {
@@ -400,8 +400,9 @@ impl Tat {
             .border_set(symbols::border::ROUNDED);
 
         let total_fields = defn.fields().count();
-        let mut header_items: Vec<String> = [].to_vec();
-        header_items.reserve(total_fields);
+        let mut header_items: Vec<String> = vec![
+            String::from("fid")
+        ];
 
         for field in layer.defn().fields() {
             header_items.push(field.name());
@@ -422,7 +423,9 @@ impl Tat {
                 None => break,
             };
 
-            let mut row_items: Vec<String> = [].to_vec();
+            let mut row_items: Vec<String> = [
+                format!("{i}")
+            ].to_vec();
 
             for i in 0..total_fields {
                 let str_opt = match feature.field_as_string(i as i32) {
