@@ -111,6 +111,7 @@ impl Tat {
     }
 
     fn reset_table(&mut self) {
+        self.top_fid = 1;
         self.table_state.select_column(None);
         self.table_state.select_first();
     }
