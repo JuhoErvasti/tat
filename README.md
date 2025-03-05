@@ -14,6 +14,7 @@ Immediately:
 - ~~Fix issue when attempting navigation on an empty layer~~
 - Fix issue "Error browsing database for PostGIS Raster tables" when attempting to open with PostGIS driver
 - Fix weird issue with shapefile not being correctly read and (probably?) stderr output from gdal being printed all over the place
+  - Note: mostly a guess but I think some data drivers start indexing at 0 causing the errors, you also get weird behaviour with the gml test file
 
 Midterm:
 - Show scrollbars for the layer list and the table
