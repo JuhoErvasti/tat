@@ -28,6 +28,7 @@ Midterm:
 - Jumping to specific FID
   - (Maybe) jumping to specific cell?
 - (Maybe) allow copying value from table?
+  - Also (maybe) allow inspecting long values better, maybe in a pop-up?
 
 Longterm:
 - (Maybe) add an inline UI for building PG/WFS etc. description to connect
