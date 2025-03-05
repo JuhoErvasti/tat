@@ -6,17 +6,19 @@ For inspecting geospatial data in the terminal.
 
 Immediately:
 - ~~Fix issues with some layers not opening in the table~~
-- Fix issue "Error browsing database for PostGIS Raster tables" when attempting to open with PostGIS driver
 - ~~Improve performance on large layers (only render what can be seen)~~
-  - Improve performance on opening large layers
-- Fit columns differently so not all are crammed into the table, instead allow browsing them
+  - ~~Improve performance on opening large layers~~
+- ~~Fit columns differently so not all are crammed into the table, instead allow browsing them~~
 - ~~Show FID in table~~
   - ~~Fix issue with the bottom-most rows not showing~~
 - ~~Fix issue when attempting navigation on an empty layer~~
-- Fix weird issue with shapefile not being correctly read and stderr output being printed all over the place
+- Fix issue "Error browsing database for PostGIS Raster tables" when attempting to open with PostGIS driver
+- Fix weird issue with shapefile not being correctly read and (probably?) stderr output from gdal being printed all over the place
 
 Midterm:
 - Show scrollbars for the layer list and the table
+  - Also a scrollbar for the columns? Or some other visual indicator when not every column is shown
+  - (Maybe) somewhat relatedly; distinguish the "fid" column more clearly
 - Filtering on the layer list
 - Improve visuals
 - Display geometry column(s) as WKT

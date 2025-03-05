@@ -1,5 +1,4 @@
-use core::panic;
-use std::{cmp::max, io::Result};
+use std::io::Result;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use gdal::{vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, LayerAccess}, Dataset, Metadata};
@@ -19,6 +18,8 @@ pub struct Tat {
     table_state: TableState,
     top_fid: u64,
     visible_rows: u16,
+    first_column: u64,
+    visible_columns: u64,
 }
 
 impl Widget for &mut Tat {
@@ -40,12 +41,15 @@ impl Tat {
             table_state: TableState::default(),
             top_fid: 1,
             visible_rows: 0,
+            first_column: 0,
+            visible_columns: 0,
         }
     }
 
     pub fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
         self.list_state.select_first();
         self.table_state.select_first();
+        self.table_state.select_first_column();
         while !self.quit {
             terminal.draw(|frame| frame.render_widget(&mut self, frame.area()))?;
             if let Event::Key(key) = event::read()? {
@@ -75,6 +79,8 @@ impl Tat {
             KeyCode::Char('j') | KeyCode::Down => self.nav_down(),
             KeyCode::Char('g') => self.nav_first(),
             KeyCode::Char('G') => self.nav_last(),
+            KeyCode::Char('0') => self.jump_first_column(),
+            KeyCode::Char('$') => self.jump_last_column(),
             KeyCode::Char('f') if ctrl_down => self.nav_jump_forward(),
             KeyCode::Char('b') if ctrl_down => self.nav_jump_back(),
             KeyCode::Char('d') if ctrl_down => self.nav_jump_down(),
@@ -82,6 +88,32 @@ impl Tat {
             KeyCode::Enter => self.current_menu = Menu::Table,
             _ => {},
         }
+    }
+
+    fn jump_first_column(&mut self) {
+        self.first_column = 0;
+        self.table_state.select_first_column();
+    }
+
+    fn jump_last_column(&mut self) {
+        self.set_first_column(self.selected_layer().defn().fields().count() as i64 - self.visible_columns as i64);
+        self.table_state.select_last_column();
+    }
+
+    fn set_first_column(&mut self, col: i64) {
+        let max_first_column: i64 = self.selected_layer().defn().fields().count() as i64 - self.visible_columns as i64;
+
+        if col >= max_first_column {
+            self.first_column = max_first_column as u64;
+            return;
+        }
+
+        if col <= 0 {
+            self.first_column = 0;
+            return;
+        }
+
+        self.first_column = col as u64;
     }
 
     fn set_top_fid(&mut self, fid: i64) {
@@ -106,7 +138,9 @@ impl Tat {
 
     fn reset_table(&mut self) {
         self.top_fid = 1;
-        self.table_state.select_column(None);
+        self.first_column = 0;
+        self.visible_columns = 0;
+        self.table_state.select_first_column();
         self.table_state.select_first();
     }
 
@@ -116,7 +150,13 @@ impl Tat {
             Menu::Table => {
                 if let Some(col) = self.table_state.selected_column() {
                     if col == 0 {
-                        self.table_state.select_column(None);
+                        if self.first_column == 0 {
+                            let cols =  self.selected_layer().defn().fields().count();
+                            self.set_first_column(cols as i64 - self.visible_columns as i64);
+                            self.table_state.select_column(Some(self.first_column as usize + self.visible_columns as usize));
+                        } else {
+                            self.set_first_column(self.first_column as i64 - 1);
+                        }
                         return;
                     }
                 }
@@ -130,11 +170,14 @@ impl Tat {
             Menu::LayerSelect => (),
             Menu::Table => {
                 if let Some(col) = self.table_state.selected_column() {
-                    // TODO: take FID into account
-                    let cols =  self.selected_layer().defn().fields().count();
-
-                    if col == cols - 1 {
-                        self.table_state.select_column(None);
+                    if col == self.visible_columns as usize {
+                        let cols =  self.selected_layer().defn().fields().count();
+                        if self.first_column as usize + col == cols {
+                            self.set_first_column(0);
+                            self.table_state.select_column(Some(0));
+                        } else {
+                            self.set_first_column(self.first_column as i64 + 1);
+                        }
                         return;
                     }
                 }
@@ -350,23 +393,47 @@ impl Tat {
 
         self.visible_rows = table_area.height - 4;
 
+        // This weird order of operations is to prevent self.selected_layer()
+        // borrowing self.visible_columns
+        // To be honest I don't really get it but I'm just going with this
+        // for now. Honestly at the end of the day I might want to have
+        // some kind of layer struct to handle some of this stuff more cleanly
+        let total_fields = self.selected_layer().defn().fields().count();
+
+        if total_fields * 30 < table_area.width as usize {
+            self.visible_columns = total_fields as u64;
+        } else {
+            self.visible_columns = (table_area.width / 30) as u64;
+        }
+
         let layer = self.selected_layer();
         let defn = layer.defn();
 
         self.render_footer(footer_area, buf);
 
         let block = Block::new()
-            .title(Line::raw(format!(" {} (debug - visible_rows: {}, bottom_fid: {}, top_fid: {} ", layer.name(), self.visible_rows, self.bottom_fid(), self.top_fid)).centered().bold().underlined())
+            .title(Line::raw(format!(" {} (debug - visible_rows: {}, visible_columns: {} bottom_fid: {}, top_fid: {}, table_area_width: {})", layer.name(), self.visible_rows, self.visible_columns, self.bottom_fid(), self.top_fid, table_area.width)).centered().bold().underlined())
             .borders(Borders::ALL)
             .padding(Padding::top(1))
             .border_set(symbols::border::ROUNDED);
 
-        let total_fields = defn.fields().count();
         let mut header_items: Vec<String> = vec![
-            String::from("fid")
+            String::from("Feature")
         ];
 
-        for field in layer.defn().fields() {
+        let mut field_idx = 0;
+        for field in defn.fields() {
+            if field_idx < self.first_column {
+                field_idx += 1;
+                continue;
+            }
+
+            if field_idx > self.first_column + self.visible_columns - 1 {
+                break;
+            }
+
+            field_idx += 1;
+
             header_items.push(field.name());
         }
 
@@ -374,7 +441,7 @@ impl Tat {
         let mut rows: Vec<Row> = [].to_vec();
         let mut widths = [].to_vec();
 
-        for _ in 0..total_fields {
+        for _ in 0..self.visible_columns + 1 {
             widths.push(Constraint::Fill(1));
         }
 
@@ -389,7 +456,7 @@ impl Tat {
                 format!("{i}")
             ].to_vec();
 
-            for i in 0..total_fields {
+            for i in self.first_column..self.first_column + self.visible_columns {
                 let str_opt = match feature.field_as_string(i as i32) {
                     Ok(str_opt) => str_opt,
                     // TODO: should the GdalError here be handled differently?
