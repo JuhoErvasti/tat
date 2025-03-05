@@ -1,4 +1,5 @@
-use std::io::Result;
+use core::panic;
+use std::{cmp::max, io::Result};
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use gdal::{vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, LayerAccess}, Dataset, Metadata};
@@ -74,40 +75,33 @@ impl Tat {
             KeyCode::Char('j') | KeyCode::Down => self.nav_down(),
             KeyCode::Char('g') => self.nav_first(),
             KeyCode::Char('G') => self.nav_last(),
-            KeyCode::Char('d') if ctrl_down => self.nav_jump_down(),
-            KeyCode::Char('u') if ctrl_down => self.nav_jump_up(),
             KeyCode::Char('f') if ctrl_down => self.nav_jump_forward(),
             KeyCode::Char('b') if ctrl_down => self.nav_jump_back(),
+            KeyCode::Char('d') if ctrl_down => self.nav_jump_down(),
+            KeyCode::Char('u') if ctrl_down => self.nav_jump_up(),
             KeyCode::Enter => self.current_menu = Menu::Table,
             _ => {},
         }
     }
 
-    fn set_top_fid(&mut self, fid: u64) {
-        if fid + self.visible_rows as u64 > self.selected_layer().feature_count() {
-            self.top_fid = self.selected_layer().feature_count() - self.visible_rows as u64;
+    fn set_top_fid(&mut self, fid: i64) {
+        let max_top_fid: i64 = self.selected_layer().feature_count() as i64 - self.visible_rows as i64 + 1;
+
+        if fid >= max_top_fid {
+            self.top_fid = max_top_fid as u64;
             return;
         }
 
-        self.top_fid = fid;
+        if fid <= 1 {
+            self.top_fid = 1;
+            return;
+        }
+
+        self.top_fid = fid as u64;
     }
 
     fn bottom_fid(&self) -> u64 {
         return self.top_fid + self.visible_rows as u64 - 1;
-    }
-
-    fn top_fid_delta(&self, d: i64) -> u64 {
-        let value = self.top_fid as i64 + d;
-
-        if value <= 0 {
-            return 1;
-        }
-
-        if value > self.selected_layer().feature_count() as i64 {
-            return self.selected_layer().feature_count();
-        }
-
-        return value as u64;
     }
 
     fn reset_table(&mut self) {
@@ -160,78 +154,66 @@ impl Tat {
     }
 
     fn nav_jump_forward(&mut self) {
+        let jump_amount = 50;
         match self.current_menu {
-            Menu::LayerSelect => self.list_state.scroll_down_by(50),
+            Menu::LayerSelect => self.list_state.scroll_down_by(jump_amount),
             Menu::Table => {
-                if self.should_select_down(50) {
-                    if let Some(selected) = self.table_state.selected() {
-                        if selected as i64 + 50 >= self.visible_rows as i64 / 2 {
-                            self.table_state.select(Some(self.visible_rows as usize));
-                        } else {
-                            self.table_state.select(Some(selected + 50));
-                        }
+                if let Some(selected) = self.table_state.selected() {
+                    if selected as u16 + jump_amount > self.visible_rows {
+                        self.set_top_fid(self.top_fid as i64 + jump_amount as i64);
+                    } else {
+                        self.table_state.scroll_down_by(jump_amount);
                     }
-                } else {
-                    self.set_top_fid(self.top_fid_delta(50));
                 }
-            }
+            },
         }
     }
 
     fn nav_jump_back(&mut self) {
+        let jump_amount = 50;
         match self.current_menu {
-            Menu::LayerSelect => self.list_state.scroll_up_by(50),
+            Menu::LayerSelect => self.list_state.scroll_up_by(jump_amount),
             Menu::Table => {
-                if self.should_select_up(50) {
-                    if let Some(selected) = self.table_state.selected() {
-                        if selected as i64 - 50 < 0 {
-                            self.table_state.select(Some(0));
-                        } else {
-                            self.table_state.select(Some(selected - 50));
-                        }
+                if let Some(selected) = self.table_state.selected() {
+                    if (selected as i16 - jump_amount as i16) < 0 {
+                        self.set_top_fid(self.top_fid as i64 - jump_amount as i64);
+                    } else {
+                        self.table_state.scroll_up_by(jump_amount);
                     }
-                } else {
-                    self.set_top_fid(self.top_fid_delta(-50));
                 }
-            }
+            },
         }
     }
 
     fn nav_jump_up(&mut self) {
+        let jump_amount = 25;
         match self.current_menu {
-            Menu::LayerSelect => self.list_state.scroll_up_by(25),
+            Menu::LayerSelect => self.list_state.scroll_up_by(jump_amount),
             Menu::Table => {
-                if self.should_select_up(25) {
-                    if let Some(selected) = self.table_state.selected() {
-                        if selected as i64 - 25 <= 0 {
-                            self.table_state.select(Some(0));
-                        } else {
-                            self.table_state.select(Some(selected - 25));
-                        }
+                if let Some(selected) = self.table_state.selected() {
+                    if (selected as i16 - jump_amount as i16) < 0 {
+                        self.set_top_fid(self.top_fid as i64 - jump_amount as i64);
+                    } else {
+                        self.table_state.scroll_up_by(jump_amount);
                     }
-                } else {
-                    self.set_top_fid(self.top_fid_delta(-25));
                 }
-            }
+            },
         }
     }
 
     fn nav_jump_down(&mut self) {
+        let jump_amount = 25;
         match self.current_menu {
-            Menu::LayerSelect => self.list_state.scroll_down_by(25),
+            Menu::LayerSelect => self.list_state.scroll_down_by(jump_amount),
             Menu::Table => {
-                if self.should_select_down(25) {
-                    if let Some(selected) = self.table_state.selected() {
-                        if selected as i64 + 25 >= self.visible_rows as i64 / 2 {
-                            self.table_state.select(Some(self.visible_rows as usize));
-                        } else {
-                            self.table_state.select(Some(selected + 25));
-                        }
+                if let Some(selected) = self.table_state.selected() {
+                    if selected as u16 + jump_amount > self.visible_rows {
+                        self.set_top_fid(self.top_fid as i64 + jump_amount as i64);
+                    } else {
+                        self.table_state.scroll_down_by(jump_amount);
                     }
-                } else {
-                    self.set_top_fid(self.top_fid_delta(25));
                 }
-            }
+            },
         }
     }
 
@@ -249,7 +231,7 @@ impl Tat {
         match self.current_menu {
             Menu::LayerSelect => self.list_state.select_last(),
             Menu::Table => {
-                self.set_top_fid(self.selected_layer().feature_count() - self.visible_rows as u64);
+                self.set_top_fid(self.selected_layer().feature_count() as i64 - self.visible_rows as i64 + 1);
                 self.table_state.select_last();
             }
         }
@@ -259,10 +241,12 @@ impl Tat {
         match self.current_menu {
             Menu::LayerSelect => self.list_state.select_previous(),
             Menu::Table => {
-                if self.should_select_up(1) {
-                    self.table_state.select_previous();
-                } else {
-                    self.set_top_fid(self.top_fid_delta(-1));
+                if let Some(selected) = self.table_state.selected() {
+                    if selected == 0 {
+                        self.set_top_fid(self.top_fid as i64 - 1);
+                    } else {
+                        self.table_state.select_previous();
+                    }
                 }
             }
         }
@@ -272,37 +256,15 @@ impl Tat {
         match self.current_menu {
             Menu::LayerSelect => self.list_state.select_next(),
             Menu::Table => {
-                if self.should_select_down(1) {
-                    self.table_state.select_next();
-                } else {
-                    self.set_top_fid(self.top_fid_delta(1));
+                if let Some(selected) = self.table_state.selected() {
+                    if selected + 1 == self.visible_rows as usize {
+                        self.set_top_fid(self.top_fid as i64 + 1);
+                    } else {
+                        self.table_state.select_next();
+                    }
                 }
             }
         }
-    }
-
-    fn should_select_up(&self, jump: u16) -> bool {
-        if let Some(selected) = self.table_state.selected() {
-            return self.top_fid_visible() || (self.bottom_fid_visible() && selected as i64 - (jump as i64) > (self.visible_rows as i64) / 2);
-        }
-
-        return false;
-    }
-
-    fn should_select_down(&self, jump: u16) -> bool {
-        if let Some(selected) = self.table_state.selected() {
-            return self.bottom_fid_visible() || (self.top_fid_visible() && selected as i64 + (jump as i64) < (self.visible_rows as i64) / 2);
-        }
-
-        return false;
-    }
-
-    fn top_fid_visible(&self) -> bool {
-        return self.top_fid == 1;
-    }
-
-    fn bottom_fid_visible(&self) -> bool {
-        return self.top_fid + self.visible_rows as u64 > self.selected_layer().feature_count();
     }
 
     fn render_header(area: Rect, buf: &mut Buffer) {
@@ -386,7 +348,7 @@ impl Tat {
         ])
         .areas(area);
 
-        self.visible_rows = table_area.height - 2;
+        self.visible_rows = table_area.height - 4;
 
         let layer = self.selected_layer();
         let defn = layer.defn();
@@ -394,7 +356,7 @@ impl Tat {
         self.render_footer(footer_area, buf);
 
         let block = Block::new()
-            .title(Line::raw(format!(" {} {} ", layer.name(), self.visible_rows)).centered().bold().underlined())
+            .title(Line::raw(format!(" {} (debug - visible_rows: {}, bottom_fid: {}, top_fid: {} ", layer.name(), self.visible_rows, self.bottom_fid(), self.top_fid)).centered().bold().underlined())
             .borders(Borders::ALL)
             .padding(Padding::top(1))
             .border_set(symbols::border::ROUNDED);
@@ -416,7 +378,7 @@ impl Tat {
             widths.push(Constraint::Fill(1));
         }
 
-        for i in self.top_fid..self.bottom_fid() {
+        for i in self.top_fid..self.bottom_fid() + 1 {
             // TODO: no unwraps etc etc.
             let feature = match layer.feature((i) as u64) {
                 Some(f) => f,
