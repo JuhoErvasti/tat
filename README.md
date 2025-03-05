@@ -12,7 +12,7 @@ Immediately:
 - Fit columns differently so not all are crammed into the table, instead allow browsing them
 - ~~Show FID in table~~
   - ~~Fix issue with the bottom-most rows not showing~~
-- Fix issue when attempting navigation on an empty layer
+- ~~Fix issue when attempting navigation on an empty layer~~
 - Fix weird issue with shapefile not being correctly read and stderr output being printed all over the place
 
 Midterm:
