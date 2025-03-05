@@ -6,7 +6,8 @@ mod tat;
 
 fn show_usage() {
     // TODO:
-    println!("usage");
+    println!("Attribute Table for GIS data in the terminal.\n");
+    println!("Usage: tat [URI]");
 }
 
 fn main() -> Result<()> {
