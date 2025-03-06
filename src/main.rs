@@ -1,7 +1,9 @@
 use gdal::{errors::CplErrType, Dataset};
 use tat::Tat;
-use std::{env, io::Result, process::exit};
+use core::panic;
+use std::{env, fs::{File, OpenOptions}, io::Result, process::exit};
 use cli_log::*;
+use std::io::prelude::*;
 
 mod tat;
 
@@ -12,14 +14,24 @@ fn show_usage() {
 }
 
 fn error_handler(class: CplErrType, number: i32, message: &str) {
-    // let class = match class {
-    //     CplErrType::None => "[NONE]",
-    //     CplErrType::Debug => "[DEBUG]",
-    //     CplErrType::Warning => "[WARN]",
-    //     CplErrType::Failure => "[ERROR]",
-    //     CplErrType::Fatal => "[FATAL]",
-    // };
-    // debug!("{class} [{number}] {message}");
+    let class = match class {
+        CplErrType::None => "[NONE]",
+        CplErrType::Debug => "[DEBUG]",
+        CplErrType::Warning => "[WARN]",
+        CplErrType::Failure => "[ERROR]",
+        CplErrType::Fatal => "[FATAL]",
+    };
+
+    // TODO: no unwrapping
+    let mut file = OpenOptions::new()
+        .append(true)
+        .open("tat_gdal.log")
+        .unwrap();
+
+    if let Err(e) = writeln!(file, "{class} [{number}] {message}") {
+        // TODO: no panic
+        panic!();
+    }
 }
 
 fn main() -> Result<()> {
@@ -55,6 +67,7 @@ fn main() -> Result<()> {
         Ok(ds) => ds,
     };
 
+    let _ = File::create("tat_gdal.log").unwrap();
     gdal::config::set_error_handler(error_handler);
 
     init_cli_log!();

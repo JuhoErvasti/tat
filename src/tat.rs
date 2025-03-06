@@ -1,8 +1,8 @@
-use std::io::Result;
+use std::{fs::File, io::{BufRead, Result}};
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use gdal::{vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, LayerAccess}, Dataset, Metadata};
-use ratatui::{buffer::Buffer, layout::{Constraint, Layout, Rect}, style::{palette::tailwind, Style, Stylize}, symbols, text::Line, widgets::{Block, Borders, HighlightSpacing, List, ListItem, ListState, Padding, Paragraph, Row, StatefulWidget, Table, TableState, Widget}, DefaultTerminal};
+use ratatui::{buffer::Buffer, layout::{Constraint, Flex, Layout, Rect}, style::{palette::tailwind, Style, Stylize}, symbols, text::Line, widgets::{Block, BorderType, Borders, Clear, HighlightSpacing, List, ListItem, ListState, Padding, Paragraph, Row, StatefulWidget, Table, TableState, Widget}, DefaultTerminal, Frame};
 
 pub enum Menu {
     LayerSelect,
@@ -20,6 +20,7 @@ pub struct Tat {
     visible_rows: u16,
     first_column: u64,
     visible_columns: u64,
+    log_visible: bool,
 }
 
 impl Widget for &mut Tat {
@@ -43,6 +44,7 @@ impl Tat {
             visible_rows: 0,
             first_column: 0,
             visible_columns: 0,
+            log_visible: false,
         }
     }
 
@@ -52,7 +54,12 @@ impl Tat {
         self.table_state.select_first_column();
 
         while !self.quit {
-            terminal.draw(|frame| frame.render_widget(&mut self, frame.area()))?;
+            terminal.draw(|frame| {
+                frame.render_widget(&mut self, frame.area());
+                if self.log_visible {
+                    self.draw_log(frame.area(), frame);
+                }
+            })?;
             if let Event::Key(key) = event::read()? {
                 self.handle_key(key);
             };
@@ -87,6 +94,7 @@ impl Tat {
             KeyCode::Char('b') if ctrl_down => self.nav_jump_back(),
             KeyCode::Char('d') if ctrl_down => self.nav_jump_down(),
             KeyCode::Char('u') if ctrl_down => self.nav_jump_up(),
+            KeyCode::Char('L') => self.log_visible = !self.log_visible,
             KeyCode::Enter => self.current_menu = Menu::Table,
             _ => {},
         }
@@ -620,5 +628,35 @@ impl Tat {
                 .render(area, buf);
             }
         }
+    }
+
+    fn popup_area(area: Rect, percent_x: u16, percent_y: u16) -> Rect {
+        let vertical = Layout::vertical([Constraint::Percentage(percent_y)]).flex(Flex::Center);
+        let horizontal = Layout::horizontal([Constraint::Percentage(percent_x)]).flex(Flex::Center);
+        let [area] = vertical.areas(area);
+        let [area] = horizontal.areas(area);
+        area
+    }
+
+    fn draw_log(&self, area: Rect, frame: &mut Frame) {
+        let lines = std::io::BufReader::new(File::open("tat_gdal.log").unwrap()).lines();
+        let mut text = String::from("");
+
+        for line in lines.map_while(Result::ok) {
+            text = format!("{}\n{}", text, line);
+        }
+
+        let block = Paragraph::new(text)
+            .block(
+                Block::default()
+                    .title("GDAL Log")
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
+            );
+
+        let area = Tat::popup_area(area, 60, 60);
+
+        frame.render_widget(Clear, area);
+        frame.render_widget(block, area);
     }
 }
