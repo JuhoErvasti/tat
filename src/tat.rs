@@ -1,9 +1,8 @@
-use std::io::{BufWriter, Result, Stderr, Stdout};
+use std::io::Result;
 
-use cli_log::debug;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use gdal::{vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, LayerAccess}, Dataset, Metadata};
-use ratatui::{buffer::Buffer, layout::{Constraint, Layout, Rect}, prelude::CrosstermBackend, style::{palette::tailwind, Style, Stylize}, symbols, text::Line, widgets::{Block, Borders, HighlightSpacing, List, ListItem, ListState, Padding, Paragraph, Row, StatefulWidget, Table, TableState, Widget}, DefaultTerminal, Terminal};
+use ratatui::{buffer::Buffer, layout::{Constraint, Layout, Rect}, style::{palette::tailwind, Style, Stylize}, symbols, text::Line, widgets::{Block, Borders, HighlightSpacing, List, ListItem, ListState, Padding, Paragraph, Row, StatefulWidget, Table, TableState, Widget}, DefaultTerminal};
 
 pub enum Menu {
     LayerSelect,

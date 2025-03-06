@@ -1,8 +1,6 @@
-use crossterm::{execute, terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}};
-use gdal::Dataset;
-use ratatui::{prelude::CrosstermBackend, Terminal};
+use gdal::{errors::CplErrType, Dataset};
 use tat::Tat;
-use std::{env, io::{BufWriter, Result}, panic, process::exit};
+use std::{env, io::Result, process::exit};
 use cli_log::*;
 
 mod tat;
@@ -11,6 +9,17 @@ fn show_usage() {
     // TODO:
     println!("Attribute Table for GIS data in the terminal.\n");
     println!("Usage: tat [URI]");
+}
+
+fn error_handler(class: CplErrType, number: i32, message: &str) {
+    // let class = match class {
+    //     CplErrType::None => "[NONE]",
+    //     CplErrType::Debug => "[DEBUG]",
+    //     CplErrType::Warning => "[WARN]",
+    //     CplErrType::Failure => "[ERROR]",
+    //     CplErrType::Fatal => "[FATAL]",
+    // };
+    // debug!("{class} [{number}] {message}");
 }
 
 fn main() -> Result<()> {
@@ -45,6 +54,8 @@ fn main() -> Result<()> {
         Err(_) => panic!(),
         Ok(ds) => ds,
     };
+
+    gdal::config::set_error_handler(error_handler);
 
     init_cli_log!();
 
