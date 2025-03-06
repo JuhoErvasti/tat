@@ -1,8 +1,9 @@
-use std::io::Result;
+use std::io::{BufWriter, Result, Stderr, Stdout};
 
+use cli_log::debug;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use gdal::{vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, LayerAccess}, Dataset, Metadata};
-use ratatui::{buffer::Buffer, layout::{Constraint, Layout, Rect}, style::{palette::tailwind, Style, Stylize}, symbols, text::Line, widgets::{Block, Borders, HighlightSpacing, List, ListItem, ListState, Padding, Paragraph, Row, StatefulWidget, Table, TableState, Widget}, DefaultTerminal};
+use ratatui::{buffer::Buffer, layout::{Constraint, Layout, Rect}, prelude::CrosstermBackend, style::{palette::tailwind, Style, Stylize}, symbols, text::Line, widgets::{Block, Borders, HighlightSpacing, List, ListItem, ListState, Padding, Paragraph, Row, StatefulWidget, Table, TableState, Widget}, DefaultTerminal, Terminal};
 
 pub enum Menu {
     LayerSelect,
@@ -46,16 +47,18 @@ impl Tat {
         }
     }
 
-    pub fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
+    pub fn run(mut self, terminal: &mut DefaultTerminal) -> Result<()> {
         self.list_state.select_first();
         self.table_state.select_first();
         self.table_state.select_first_column();
+
         while !self.quit {
             terminal.draw(|frame| frame.render_widget(&mut self, frame.area()))?;
             if let Event::Key(key) = event::read()? {
                 self.handle_key(key);
             };
         }
+
         Ok(())
     }
 

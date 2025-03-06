@@ -1,6 +1,9 @@
+use crossterm::{execute, terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}};
 use gdal::Dataset;
+use ratatui::{prelude::CrosstermBackend, Terminal};
 use tat::Tat;
-use std::{env, io::Result, panic, process::exit};
+use std::{env, io::{BufWriter, Result}, panic, process::exit};
+use cli_log::*;
 
 mod tat;
 
@@ -43,8 +46,10 @@ fn main() -> Result<()> {
         Ok(ds) => ds,
     };
 
-    let terminal = ratatui::init();
-    let result = Tat::new(ds).run(terminal);
+    init_cli_log!();
+
+    let mut terminal = ratatui::init();
+    let result = Tat::new(ds).run(&mut terminal);
 
     ratatui::restore();
 
