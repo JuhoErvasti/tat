@@ -1,5 +1,6 @@
 use std::{fs::File, io::{BufRead, Result}};
 
+use cli_log::debug;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use gdal::{vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, LayerAccess}, Dataset, Metadata};
 use ratatui::{buffer::Buffer, layout::{Constraint, Flex, Layout, Rect}, style::{palette::tailwind, Style, Stylize}, symbols, text::Line, widgets::{Block, BorderType, Borders, Clear, HighlightSpacing, List, ListItem, ListState, Padding, Paragraph, Row, StatefulWidget, Table, TableState, Widget}, DefaultTerminal, Frame};
@@ -7,6 +8,17 @@ use ratatui::{buffer::Buffer, layout::{Constraint, Flex, Layout, Rect}, style::{
 pub enum Menu {
     LayerSelect,
     Table,
+}
+
+struct FeatureIndex {
+    nth: u64,
+    fid: u64,
+}
+
+impl FeatureIndex {
+    pub fn new(nth: u64, fid: u64) -> Self {
+        Self {nth, fid}
+    }
 }
 
 /// This holds the program's state.
@@ -21,6 +33,7 @@ pub struct Tat {
     first_column: u64,
     visible_columns: u64,
     log_visible: bool,
+    layer_index: Vec<u64>,
 }
 
 impl Widget for &mut Tat {
@@ -45,6 +58,7 @@ impl Tat {
             first_column: 0,
             visible_columns: 0,
             log_visible: false,
+            layer_index: Vec::new(),
         }
     }
 
@@ -95,9 +109,25 @@ impl Tat {
             KeyCode::Char('d') if ctrl_down => self.nav_jump_down(),
             KeyCode::Char('u') if ctrl_down => self.nav_jump_up(),
             KeyCode::Char('L') => self.log_visible = !self.log_visible,
-            KeyCode::Enter => self.current_menu = Menu::Table,
+            KeyCode::Enter => self.open_table(),
             _ => {},
         }
+    }
+
+    fn build_layer_index(&mut self) {
+        self.layer_index.clear();
+
+        let mut layer = self.dataset.layer(self.list_state.selected().unwrap()).unwrap();
+
+        for (i, feature) in layer.features().enumerate() {
+            // self.layer_index.push(FeatureIndex{nth: i as u64, fid: feature.fid().unwrap()});
+            self.layer_index.push(feature.fid().unwrap());
+        }
+    }
+
+    fn open_table(&mut self) {
+        self.current_menu = Menu::Table;
+        self.build_layer_index();
     }
 
     fn jump_first_column(&mut self) {
@@ -197,6 +227,11 @@ impl Tat {
     }
 
     fn previous_menu(&mut self) {
+        if self.log_visible {
+            self.log_visible = false;
+            return;
+        }
+
         match self.current_menu {
             Menu::Table => {
                 self.reset_table();
@@ -456,8 +491,12 @@ impl Tat {
         }
 
         for i in self.top_fid..self.bottom_fid() + 1 {
-            // TODO: no unwraps etc etc.
-            let feature = match layer.feature((i) as u64) {
+            let fid = match self.layer_index.get(i as usize - 1) {
+                Some(fid) => fid,
+                None => break,
+            };
+
+            let feature = match layer.feature(*fid) {
                 Some(f) => f,
                 None => break,
             };
