@@ -14,9 +14,9 @@ Immediately:
 - ~~Fix issue when attempting navigation on an empty layer~~
 - Fix issue "Error browsing database for PostGIS Raster tables" when attempting to open with PostGIS driver
 - ~~Fix weird issue with shapefile not being correctly read and (probably?) stderr output from gdal being printed all over the place~~
-  - The worst of it is fixed by setting an error handler for gdal, which currently does nothing special. This is obviously not the best solution,
-  maybe we collect the errors and add a pop-up widget to show a log of them or something like that?
-  - Note: mostly a guess but I think some data drivers start indexing at 0 causing the errors, you also get weird behaviour with the gml test file
+  - ~~The worst of it is fixed by setting an error handler for gdal, which currently does nothing special. This is obviously not the best solution,
+  maybe we collect the errors and add a pop-up widget to show a log of them or something like that?~~
+  - ~~Note: mostly a guess but I think some data drivers start indexing at 0 causing the errors, you also get weird behaviour with the gml test file~~
 
 Midterm:
 - Show scrollbars for the layer list and the table
@@ -27,6 +27,9 @@ Midterm:
 - Display geometry column(s) as WKT
 - Allow browsing the dataset / layerinfo blocks if the text overflows
 - Filtering the dataset itself (something like ogrinfo -where)
+- Optimize performance, I'd like the program to feel very fast and responsive and ideally opening and browsing even huge layers should be almost instant. Not sure
+  it's entirely possible especially if talking about data drivers with a remote connection and huge datasets, but I can try at least. At least the program should
+  ideally remain responsive even if rendering the data to the screen is not instant.
 - Jumping to specific FID
   - (Maybe) jumping to specific cell?
 - (Maybe) allow copying value from table?
