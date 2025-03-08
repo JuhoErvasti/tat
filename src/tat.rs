@@ -3,22 +3,11 @@ use std::{fs::File, io::{BufRead, Result}};
 use cli_log::debug;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use gdal::{vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, LayerAccess}, Dataset, Metadata};
-use ratatui::{buffer::Buffer, layout::{Constraint, Flex, Layout, Rect}, style::{palette::tailwind, Style, Stylize}, symbols, text::Line, widgets::{Block, BorderType, Borders, Clear, HighlightSpacing, List, ListItem, ListState, Padding, Paragraph, Row, StatefulWidget, Table, TableState, Widget}, DefaultTerminal, Frame};
+use ratatui::{buffer::Buffer, layout::{Constraint, Flex, Layout, Margin, Rect}, style::{palette::tailwind, Style, Stylize}, symbols, text::Line, widgets::{Block, BorderType, Borders, Clear, HighlightSpacing, List, ListItem, ListState, Padding, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Table, TableState, Widget}, DefaultTerminal, Frame};
 
 pub enum Menu {
     LayerSelect,
     Table,
-}
-
-struct FeatureIndex {
-    nth: u64,
-    fid: u64,
-}
-
-impl FeatureIndex {
-    pub fn new(nth: u64, fid: u64) -> Self {
-        Self {nth, fid}
-    }
 }
 
 /// This holds the program's state.
@@ -34,6 +23,8 @@ pub struct Tat {
     visible_columns: u64,
     log_visible: bool,
     layer_index: Vec<u64>,
+    vert_scroll_state: ScrollbarState,
+    horz_scroll_state: ScrollbarState,
 }
 
 impl Widget for &mut Tat {
@@ -59,6 +50,8 @@ impl Tat {
             visible_columns: 0,
             log_visible: false,
             layer_index: Vec::new(),
+            vert_scroll_state: ScrollbarState::default(),
+            horz_scroll_state: ScrollbarState::default(),
         }
     }
 
@@ -119,10 +112,12 @@ impl Tat {
 
         let mut layer = self.dataset.layer(self.list_state.selected().unwrap()).unwrap();
 
-        for (i, feature) in layer.features().enumerate() {
-            // self.layer_index.push(FeatureIndex{nth: i as u64, fid: feature.fid().unwrap()});
+        for feature in layer.features() {
             self.layer_index.push(feature.fid().unwrap());
         }
+
+        self.vert_scroll_state = ScrollbarState::new(self.layer_index.len());
+        self.horz_scroll_state = ScrollbarState::new(layer.defn().fields().count());
     }
 
     fn open_table(&mut self) {
@@ -159,6 +154,7 @@ impl Tat {
     fn set_top_fid(&mut self, fid: i64) {
         let max_top_fid: i64 = self.selected_layer().feature_count() as i64 - self.visible_rows as i64 + 1;
 
+        self.vert_scroll_state = self.vert_scroll_state.position(self.top_fid as usize);
         if max_top_fid <= 1 {
             self.top_fid = 1;
             return;
@@ -227,6 +223,7 @@ impl Tat {
                     }
                 }
                 self.table_state.select_next_column();
+                self.horz_scroll_state = self.horz_scroll_state.position(self.table_state.selected_column().unwrap());
             }
         }
     }
@@ -546,7 +543,19 @@ impl Tat {
             .row_highlight_style(row_hs)
             .cell_highlight_style(cell_hs);
 
-        StatefulWidget::render(table, table_area, buf, &mut self.table_state);
+        let vert_scrollbar = Scrollbar::default()
+                .orientation(ScrollbarOrientation::VerticalRight)
+                .begin_symbol(None)
+                .end_symbol(None);
+
+        let horz_scrollbar = Scrollbar::default()
+                .orientation(ScrollbarOrientation::HorizontalBottom)
+                .begin_symbol(None)
+                .end_symbol(None);
+
+        StatefulWidget::render(vert_scrollbar, table_area, buf, &mut self.vert_scroll_state);
+        StatefulWidget::render(horz_scrollbar, table_area, buf, &mut self.horz_scroll_state);
+        StatefulWidget::render(table, table_area.inner(Margin {horizontal: 1, vertical: 1 }), buf, &mut self.table_state);
     }
 
     fn selected_layer(&self) -> Layer {
