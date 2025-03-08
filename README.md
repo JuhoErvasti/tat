@@ -12,7 +12,7 @@ Immediately:
 - ~~Show FID in table~~
   - ~~Fix issue with the bottom-most rows not showing~~
 - ~~Fix issue when attempting navigation on an empty layer~~
-- Fix issue "Error browsing database for PostGIS Raster tables" when attempting to open with PostGIS driver
+- ~~Fix issue "Error browsing database for PostGIS Raster tables" when attempting to open with PostGIS driver~~
 - ~~Fix weird issue with shapefile not being correctly read and (probably?) stderr output from gdal being printed all over the place~~
   - ~~The worst of it is fixed by setting an error handler for gdal, which currently does nothing special. This is obviously not the best solution,
   maybe we collect the errors and add a pop-up widget to show a log of them or something like that?~~

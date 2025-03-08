@@ -159,6 +159,11 @@ impl Tat {
     fn set_top_fid(&mut self, fid: i64) {
         let max_top_fid: i64 = self.selected_layer().feature_count() as i64 - self.visible_rows as i64 + 1;
 
+        if max_top_fid <= 1 {
+            self.top_fid = 1;
+            return;
+        }
+
         if fid >= max_top_fid {
             self.top_fid = max_top_fid as u64;
             return;
@@ -173,7 +178,7 @@ impl Tat {
     }
 
     fn bottom_fid(&self) -> u64 {
-        return self.top_fid + self.visible_rows as u64 - 1;
+        self.top_fid + self.visible_rows as u64 - 1
     }
 
     fn reset_table(&mut self) {
