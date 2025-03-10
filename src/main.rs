@@ -1,7 +1,7 @@
 use gdal::{errors::{CplErrType, GdalError}, Dataset, DatasetOptions, GdalOpenFlags};
 use tat::Tat;
 use core::panic;
-use std::{env, fs::{File, OpenOptions}, process::exit};
+use std::{env::{self, temp_dir}, fs::{File, OpenOptions}, process::exit};
 use cli_log::*;
 use std::io::prelude::*;
 
@@ -25,7 +25,7 @@ fn error_handler(class: CplErrType, number: i32, message: &str) {
     // TODO: no unwrapping
     let mut file = OpenOptions::new()
         .append(true)
-        .open("tat_gdal.log")
+        .open(format!("{}/tat_gdal.log", temp_dir().display()))
         .unwrap();
 
     if let Err(e) = writeln!(file, "{class} [{number}] {message}") {
@@ -123,7 +123,7 @@ fn main() {
 
     let path = &args[1];
 
-    let _ = File::create("tat_gdal.log").unwrap();
+    let _ = File::create(format!("{}/tat_gdal.log", temp_dir().display())).unwrap();
     gdal::config::set_error_handler(error_handler);
 
     init_cli_log!();
