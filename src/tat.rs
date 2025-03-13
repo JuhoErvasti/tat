@@ -110,6 +110,10 @@ impl Tat {
         self.vert_scroll_state = self.vert_scroll_state.position(self.top_fid as usize + self.table_state.selected().unwrap());
     }
 
+    fn update_horz_scrollbar(&mut self) {
+        self.horz_scroll_state = self.horz_scroll_state.position(self.first_column as usize + self.table_state.selected_column().unwrap());
+    }
+
     fn build_layer_index(&mut self) {
         self.layer_index.clear();
 
@@ -131,15 +135,17 @@ impl Tat {
     fn jump_first_column(&mut self) {
         self.first_column = 0;
         self.table_state.select_first_column();
+        self.update_horz_scrollbar();
     }
 
     fn jump_last_column(&mut self) {
         self.set_first_column(self.selected_layer().defn().fields().count() as i64 - self.visible_columns as i64);
-        self.table_state.select_last_column();
+        self.table_state.select_column(Some(self.visible_columns as usize));
+        self.update_horz_scrollbar();
     }
 
     fn max_top_fid(&self) -> i64 {
-        self.selected_layer().feature_count() as i64 - self.visible_rows as i64 + 3
+        self.selected_layer().feature_count() as i64 - self.visible_rows as i64 + 1
     }
 
     fn set_first_column(&mut self, col: i64) {
@@ -202,10 +208,12 @@ impl Tat {
                         } else {
                             self.set_first_column(self.first_column as i64 - 1);
                         }
+                        self.update_horz_scrollbar();
                         return;
                     }
                 }
-                self.table_state.select_previous_column()
+                self.table_state.select_previous_column();
+                self.update_horz_scrollbar();
             }
         }
     }
@@ -223,11 +231,12 @@ impl Tat {
                         } else {
                             self.set_first_column(self.first_column as i64 + 1);
                         }
+                        self.update_horz_scrollbar();
                         return;
                     }
                 }
                 self.table_state.select_next_column();
-                self.horz_scroll_state = self.horz_scroll_state.position(self.table_state.selected_column().unwrap());
+                self.update_horz_scrollbar();
             }
         }
     }
@@ -450,8 +459,6 @@ impl Tat {
         ])
         .areas(area);
 
-        self.visible_rows = table_area.height - 4;
-
         // This weird order of operations is to prevent self.selected_layer()
         // borrowing self.visible_columns
         // To be honest I don't really get it but I'm just going with this
@@ -463,6 +470,14 @@ impl Tat {
             self.visible_columns = total_fields as u64;
         } else {
             self.visible_columns = (table_area.width / 30) as u64;
+        }
+
+        let all_columns_visible = self.visible_columns == total_fields as u64;
+
+        self.visible_rows = table_area.height - 6;
+
+        if all_columns_visible {
+            self.visible_rows +=2;
         }
 
         let layer = self.selected_layer();
@@ -565,9 +580,14 @@ impl Tat {
                 .begin_symbol(None)
                 .end_symbol(None);
 
-        StatefulWidget::render(vert_scrollbar, table_area.inner(Margin { horizontal: 0, vertical: 1 }), buf, &mut self.vert_scroll_state);
-        StatefulWidget::render(horz_scrollbar, table_area.inner(Margin { horizontal: 1, vertical: 0 }), buf, &mut self.horz_scroll_state);
-        StatefulWidget::render(table, table_area.inner(Margin {horizontal: 1, vertical: 1 }), buf, &mut self.table_state);
+        if !all_columns_visible {
+            StatefulWidget::render(vert_scrollbar, table_area.inner(Margin { horizontal: 0, vertical: 1 }), buf, &mut self.vert_scroll_state);
+            StatefulWidget::render(table, table_area.inner(Margin {horizontal: 1, vertical: 1 }), buf, &mut self.table_state);
+            StatefulWidget::render(horz_scrollbar, table_area.inner(Margin { horizontal: 1, vertical: 0 }), buf, &mut self.horz_scroll_state);
+        } else {
+            StatefulWidget::render(vert_scrollbar, table_area, buf, &mut self.vert_scroll_state);
+            StatefulWidget::render(table, table_area.inner(Margin {horizontal: 1, vertical: 0 }), buf, &mut self.table_state);
+        }
     }
 
     fn selected_layer(&self) -> Layer {
