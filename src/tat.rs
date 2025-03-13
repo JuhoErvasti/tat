@@ -1,4 +1,4 @@
-use std::{fs::File, io::{BufRead, Result}};
+use std::{env::temp_dir, fs::File, io::{BufRead, Result}};
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use gdal::{vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, LayerAccess}, Dataset, Metadata};
@@ -7,6 +7,12 @@ use ratatui::{buffer::Buffer, layout::{Constraint, Flex, Layout, Margin, Rect}, 
 pub enum Menu {
     LayerSelect,
     Table,
+}
+
+pub enum TableMode {
+    Scrolling,
+    GdalLog,
+    JumpTo,
 }
 
 /// This holds the program's state.
@@ -21,7 +27,7 @@ pub struct Tat {
     first_column: u64,
     visible_columns: u64,
     log_visible: bool,
-    jumpto_visible: bool,
+    table_mode: TableMode,
     layer_index: Vec<u64>,
     vert_scroll_state: ScrollbarState,
     horz_scroll_state: ScrollbarState,
@@ -49,7 +55,7 @@ impl Tat {
             first_column: 0,
             visible_columns: 0,
             log_visible: false,
-            jumpto_visible: false,
+            table_mode: TableMode::Scrolling,
             layer_index: Vec::new(),
             vert_scroll_state: ScrollbarState::default(),
             horz_scroll_state: ScrollbarState::default(),
@@ -728,7 +734,7 @@ impl Tat {
     }
 
     fn draw_log(&self, area: Rect, frame: &mut Frame) {
-        let lines = std::io::BufReader::new(File::open("tat_gdal.log").unwrap()).lines();
+        let lines = std::io::BufReader::new(File::open(format!("{}/tat_gdal.log", temp_dir().display())).unwrap()).lines();
         let mut text = String::from("");
 
         for line in lines.map_while(Result::ok) {
