@@ -1,6 +1,5 @@
 use std::{fs::File, io::{BufRead, Result}};
 
-use cli_log::debug;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use gdal::{vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, LayerAccess}, Dataset, Metadata};
 use ratatui::{buffer::Buffer, layout::{Constraint, Flex, Layout, Margin, Rect}, style::{palette::tailwind, Style, Stylize}, symbols, text::Line, widgets::{Block, BorderType, Borders, Clear, HighlightSpacing, List, ListItem, ListState, Padding, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Table, TableState, Widget}, DefaultTerminal, Frame};
@@ -107,6 +106,10 @@ impl Tat {
         }
     }
 
+    fn update_vert_scrollbar(&mut self) {
+        self.vert_scroll_state = self.vert_scroll_state.position(self.top_fid as usize + self.table_state.selected().unwrap());
+    }
+
     fn build_layer_index(&mut self) {
         self.layer_index.clear();
 
@@ -135,6 +138,10 @@ impl Tat {
         self.table_state.select_last_column();
     }
 
+    fn max_top_fid(&self) -> i64 {
+        self.selected_layer().feature_count() as i64 - self.visible_rows as i64 + 3
+    }
+
     fn set_first_column(&mut self, col: i64) {
         let max_first_column: i64 = self.selected_layer().defn().fields().count() as i64 - self.visible_columns as i64;
 
@@ -152,16 +159,13 @@ impl Tat {
     }
 
     fn set_top_fid(&mut self, fid: i64) {
-        let max_top_fid: i64 = self.selected_layer().feature_count() as i64 - self.visible_rows as i64 + 1;
-
-        self.vert_scroll_state = self.vert_scroll_state.position(self.top_fid as usize);
-        if max_top_fid <= 1 {
+        if self.max_top_fid() <= 1 {
             self.top_fid = 1;
             return;
         }
 
-        if fid >= max_top_fid {
-            self.top_fid = max_top_fid as u64;
+        if fid >= self.max_top_fid() {
+            self.top_fid = self.max_top_fid() as u64;
             return;
         }
 
@@ -255,6 +259,7 @@ impl Tat {
                         self.table_state.scroll_down_by(jump_amount);
                     }
                 }
+                self.update_vert_scrollbar();
             },
         }
     }
@@ -271,6 +276,7 @@ impl Tat {
                         self.table_state.scroll_up_by(jump_amount);
                     }
                 }
+                self.update_vert_scrollbar();
             },
         }
     }
@@ -287,6 +293,7 @@ impl Tat {
                         self.table_state.scroll_up_by(jump_amount);
                     }
                 }
+                self.update_vert_scrollbar();
             },
         }
     }
@@ -303,6 +310,7 @@ impl Tat {
                         self.table_state.scroll_down_by(jump_amount);
                     }
                 }
+                self.update_vert_scrollbar();
             },
         }
     }
@@ -313,6 +321,7 @@ impl Tat {
             Menu::Table => {
                 self.set_top_fid(1);
                 self.table_state.select_first();
+                self.update_vert_scrollbar();
             }
         }
     }
@@ -321,8 +330,9 @@ impl Tat {
         match self.current_menu {
             Menu::LayerSelect => self.list_state.select_last(),
             Menu::Table => {
-                self.set_top_fid(self.selected_layer().feature_count() as i64 - self.visible_rows as i64 + 1);
-                self.table_state.select_last();
+                self.set_top_fid(self.max_top_fid());
+                self.table_state.select(Some(self.visible_rows as usize));
+                self.update_vert_scrollbar();
             }
         }
     }
@@ -338,6 +348,7 @@ impl Tat {
                         self.table_state.select_previous();
                     }
                 }
+                self.update_vert_scrollbar();
             }
         }
     }
@@ -353,6 +364,7 @@ impl Tat {
                         self.table_state.select_next();
                     }
                 }
+                self.update_vert_scrollbar();
             }
         }
     }
@@ -553,8 +565,8 @@ impl Tat {
                 .begin_symbol(None)
                 .end_symbol(None);
 
-        StatefulWidget::render(vert_scrollbar, table_area, buf, &mut self.vert_scroll_state);
-        StatefulWidget::render(horz_scrollbar, table_area, buf, &mut self.horz_scroll_state);
+        StatefulWidget::render(vert_scrollbar, table_area.inner(Margin { horizontal: 0, vertical: 1 }), buf, &mut self.vert_scroll_state);
+        StatefulWidget::render(horz_scrollbar, table_area.inner(Margin { horizontal: 1, vertical: 0 }), buf, &mut self.horz_scroll_state);
         StatefulWidget::render(table, table_area.inner(Margin {horizontal: 1, vertical: 1 }), buf, &mut self.table_state);
     }
 
