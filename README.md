@@ -19,8 +19,8 @@ Immediately:
   - ~~Note: mostly a guess but I think some data drivers start indexing at 0 causing the errors, you also get weird behaviour with the gml test file~~
 
 Midterm:
-- Show scrollbars for the layer list and the table
-  - Also a scrollbar for the columns? Or some other visual indicator when not every column is shown
+- ~~Show scrollbars for the layer list and the table~~
+  - ~~Also a scrollbar for the columns? Or some other visual indicator when not every column is shown~~
   - (Maybe) somewhat relatedly; distinguish the "fid" column more clearly
 - Filtering on the layer list
 - Improve visuals

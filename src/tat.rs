@@ -21,6 +21,7 @@ pub struct Tat {
     first_column: u64,
     visible_columns: u64,
     log_visible: bool,
+    jumpto_visible: bool,
     layer_index: Vec<u64>,
     vert_scroll_state: ScrollbarState,
     horz_scroll_state: ScrollbarState,
@@ -48,6 +49,7 @@ impl Tat {
             first_column: 0,
             visible_columns: 0,
             log_visible: false,
+            jumpto_visible: false,
             layer_index: Vec::new(),
             vert_scroll_state: ScrollbarState::default(),
             horz_scroll_state: ScrollbarState::default(),
@@ -124,7 +126,7 @@ impl Tat {
         }
 
         self.vert_scroll_state = ScrollbarState::new(self.layer_index.len());
-        self.horz_scroll_state = ScrollbarState::new(layer.defn().fields().count());
+        self.horz_scroll_state = ScrollbarState::new(layer.defn().fields().count() + 1);
     }
 
     fn open_table(&mut self) {
@@ -515,8 +517,10 @@ impl Tat {
         let mut rows: Vec<Row> = [].to_vec();
         let mut widths = [].to_vec();
 
-        for _ in 0..self.visible_columns + 1 {
-            widths.push(Constraint::Fill(1));
+        widths.push(Constraint::Fill(1));
+
+        for _ in 0..self.visible_columns {
+            widths.push(Constraint::Fill(2));
         }
 
         for i in self.top_fid..self.bottom_fid() + 1 {
