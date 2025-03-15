@@ -115,7 +115,7 @@ impl Tat {
     }
 
     fn update_vert_scrollbar(&mut self) {
-        self.vert_scroll_state = self.vert_scroll_state.position(self.top_fid as usize + self.table_state.selected().unwrap());
+        self.vert_scroll_state = self.vert_scroll_state.position(self.top_fid as usize + self.table_state.selected().unwrap() - 1);
     }
 
     fn update_horz_scrollbar(&mut self) {
