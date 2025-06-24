@@ -44,11 +44,11 @@ tat example.shp
 tat PG:service=SERVICE
 ```
 
-GDAL is used under the hood, so any ogr-supported vector driver should theoretically work if
-you use an OGR-supported URI.
+GDAL is used under the hood, so any GDAL-supported vector driver should theoretically work if
+you use a correct URI.
 
 > [!NOTE]
-> The program is in an early state and has not been tested with all file formats etc. thoroughly.
+> The program is in an early state and has not been tested with all vector drivers thoroughly.
 > Some drivers (such as WFS) are known to work quite slowly.
 
 ## Roadmap
