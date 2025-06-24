@@ -21,8 +21,8 @@ it as an abandoned learning project.
 > [!NOTE]
 > The program is in an early state and has not been thoroughly tested.
 
-Currently tested only on Linux. Windows is not currently supported. I do not have the ability to test
-on macOS, but it might work there.
+Currently tested only on Linux. Windows is confirmed to be currently not supported. I do not have the
+ability to test on macOS.
 
 Currently the only option is to use Cargo to install directly from GitHub.
 Cargo needs to be [installed first (alongside Rust)](https://doc.rust-lang.org/cargo/getting-started/installation.html).
