@@ -494,7 +494,8 @@ impl Tat {
         self.render_footer(footer_area, buf);
 
         let block = Block::new()
-            .title(Line::raw(format!(" {} (debug - visible_rows: {}, visible_columns: {} bottom_fid: {}, top_fid: {}, table_area_width: {})", layer.name(), self.visible_rows, self.visible_columns, self.bottom_fid(), self.top_fid, table_area.width)).centered().bold().underlined())
+            // .title(Line::raw(format!(" {} (debug - visible_rows: {}, visible_columns: {} bottom_fid: {}, top_fid: {}, table_area_width: {})", layer.name(), self.visible_rows, self.visible_columns, self.bottom_fid(), self.top_fid, table_area.width)).centered().bold().underlined())
+            .title(Line::raw(format!(" {} ", layer.name())))
             .borders(Borders::ALL)
             .padding(Padding::top(1))
             .border_set(symbols::border::ROUNDED);
