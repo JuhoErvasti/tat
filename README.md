@@ -21,7 +21,7 @@ it as an abandoned learning project.
 > [!NOTE]
 > The program is in an early state and has not been thoroughly tested.
 
-Currently has been confirmed to work on Linux. Windows (non-WSL) is not (currently) not supported.
+Currently has been confirmed to work on Linux. Windows (non-WSL) is not (currently) supported.
 I do not have the ability to test on macOS.
 
 Currently the only option is to use Cargo to install directly from GitHub.
