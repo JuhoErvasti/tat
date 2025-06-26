@@ -4,6 +4,28 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifier
 use gdal::{vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, LayerAccess}, Dataset, Metadata};
 use ratatui::{buffer::Buffer, layout::{Constraint, Flex, Layout, Margin, Rect}, style::{palette::tailwind, Style, Stylize}, symbols, text::Line, widgets::{Block, BorderType, Borders, Clear, HighlightSpacing, List, ListItem, ListState, Padding, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Table, TableState, Widget}, DefaultTerminal, Frame};
 
+pub const LAYER_LIST_BORDER: symbols::border::Set = symbols::border::Set {
+    top_left: symbols::line::ROUNDED.vertical,
+    top_right: symbols::line::ROUNDED.horizontal,
+    bottom_left: symbols::line::ROUNDED.bottom_left,
+    bottom_right: symbols::line::ROUNDED.horizontal,
+    vertical_left: symbols::line::ROUNDED.vertical,
+    vertical_right: " ",
+    horizontal_top: symbols::line::ROUNDED.horizontal,
+    horizontal_bottom: symbols::line::ROUNDED.horizontal,
+};
+
+pub const LAYER_INFO_BORDER: symbols::border::Set = symbols::border::Set {
+    top_left: symbols::line::ROUNDED.horizontal_down,
+    top_right: symbols::line::NORMAL.vertical_left,
+    bottom_left: symbols::line::ROUNDED.horizontal_up,
+    bottom_right: symbols::line::ROUNDED.bottom_right,
+    vertical_left: symbols::line::ROUNDED.vertical,
+    vertical_right: symbols::line::ROUNDED.vertical,
+    horizontal_top: symbols::line::ROUNDED.horizontal,
+    horizontal_bottom: symbols::line::ROUNDED.horizontal,
+};
+
 pub enum Menu {
     LayerSelect,
     Table,
@@ -396,7 +418,7 @@ impl Tat {
     fn render_dataset_info(&mut self, area: Rect, buf: &mut Buffer) {
         let block = Block::new()
             .title(Line::raw(" Dataset ").underlined().bold())
-            .borders(Borders::ALL)
+            .borders(Borders::TOP | Borders::LEFT | Borders::RIGHT)
             .border_set(symbols::border::ROUNDED);
 
         let mut text = vec![
@@ -442,7 +464,7 @@ impl Tat {
         let block = Block::new()
             .title(Line::raw(" Layers ").underlined().bold())
             .borders(Borders::ALL)
-            .border_set(symbols::border::ROUNDED);
+            .border_set(LAYER_LIST_BORDER);
 
         let items: Vec<ListItem> = self
             .dataset
@@ -494,8 +516,8 @@ impl Tat {
         self.render_footer(footer_area, buf);
 
         let block = Block::new()
-            // .title(Line::raw(format!(" {} (debug - visible_rows: {}, visible_columns: {} bottom_fid: {}, top_fid: {}, table_area_width: {})", layer.name(), self.visible_rows, self.visible_columns, self.bottom_fid(), self.top_fid, table_area.width)).centered().bold().underlined())
-            .title(Line::raw(format!(" {} ", layer.name())))
+            .title(Line::raw(format!(" {} (debug - visible_rows: {}, visible_columns: {} bottom_fid: {}, top_fid: {}, table_area_width: {})", layer.name(), self.visible_rows, self.visible_columns, self.bottom_fid(), self.top_fid, table_area.width)).centered().bold().underlined())
+            // .title(Line::raw(format!(" {} ", layer.name())))
             .borders(Borders::ALL)
             .padding(Padding::top(1))
             .border_set(symbols::border::ROUNDED);
@@ -527,7 +549,7 @@ impl Tat {
         widths.push(Constraint::Fill(1));
 
         for _ in 0..self.visible_columns {
-            widths.push(Constraint::Fill(2));
+            widths.push(Constraint::Fill(3));
         }
 
         for i in self.top_fid..self.bottom_fid() + 1 {
@@ -630,7 +652,7 @@ impl Tat {
             let [list_area, info_area] =
                 Layout::horizontal([
                     Constraint::Fill(1),
-                    Constraint::Fill(1),
+                    Constraint::Fill(2),
             ]).areas(layer_area);
 
             Tat::render_header(header_area, buf);
@@ -646,7 +668,7 @@ impl Tat {
         let block = Block::new()
             .title(Line::raw(" Layer Information ").underlined().bold())
             .borders(Borders::ALL)
-            .border_set(symbols::border::ROUNDED);
+            .border_set(LAYER_INFO_BORDER);
 
         let mut text: Vec<Line> = [].to_vec();
 
