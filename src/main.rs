@@ -9,7 +9,7 @@ mod tat;
 
 fn show_usage() {
     // TODO:
-    println!("Attribute Table for GIS data in the terminal.\n");
+    println!("Attribute Table for spatial data in the terminal.\n");
     println!("Usage: tat [URI]");
 }
 
@@ -34,7 +34,7 @@ fn error_handler(class: CplErrType, number: i32, message: &str) {
     }
 }
 
-fn open_dataset(path: String, err: &mut String) -> Option<Dataset> {
+fn open_dataset(path: String, err: &mut String) -> Option<&'static Dataset> {
     // deal with vectors only at least for now
     let flags = GdalOpenFlags::GDAL_OF_VECTOR | GdalOpenFlags::GDAL_OF_READONLY;
 
@@ -110,7 +110,7 @@ fn open_dataset(path: String, err: &mut String) -> Option<Dataset> {
         println!("{}", err);
     }
 
-    return Some(ds);
+    Some(Box::leak(Box::new(ds)))
 }
 
 fn main() {
@@ -132,7 +132,7 @@ fn main() {
 
     if let Some(ds) = open_dataset(path.to_string(), &mut err) {
         let mut terminal = ratatui::init();
-        let _result = Tat::new(ds).run(&mut terminal);
+        let _result = Tat::new(&ds).run(&mut terminal);
         ratatui::restore();
     } else {
         println!("ERROR: Could not open dataset from path!\n{}\nUsage:", err);

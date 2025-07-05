@@ -1,7 +1,7 @@
 use std::{env::temp_dir, fs::File, io::{BufRead, Result}};
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use gdal::{vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, LayerAccess}, Dataset, Metadata};
+use gdal::{errors::GdalError, vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, LayerAccess}, Dataset, Metadata};
 use ratatui::{buffer::Buffer, layout::{Constraint, Flex, Layout, Margin, Rect}, style::{palette::tailwind, Style, Stylize}, symbols, text::Line, widgets::{Block, BorderType, Borders, Clear, HighlightSpacing, List, ListItem, ListState, Padding, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Table, TableState, Widget}, DefaultTerminal, Frame};
 
 pub const LAYER_LIST_BORDER: symbols::border::Set = symbols::border::Set {
@@ -37,11 +37,159 @@ pub enum TableMode {
     JumpTo,
 }
 
+pub struct TatCrs {
+    auth_name: String,
+    auth_code: i32,
+    name: String
+}
+
+impl TatCrs {
+    pub fn new(a_name: String, a_code: i32, crs_name: String) -> Self {
+        Self {
+            auth_name: a_name,
+            auth_code: a_code,
+            name: crs_name,
+        }
+    }
+}
+
+pub struct TatField {
+    name: String,
+    dtype: u32,
+}
+
+impl TatField {
+    pub fn new(name: String, dtype: u32) -> Self {
+        Self {
+            name,
+            dtype,
+        }
+    }
+}
+
+pub struct TatLayer {
+    name: String,
+    crs: TatCrs,
+    fields: Vec<TatField>,
+    index: usize,
+    feature_index: Vec<u64>,
+    ds: &'static Dataset,
+}
+
+impl TatLayer {
+    pub fn new(dataset: &'static Dataset, i: usize) -> Self {
+        let lyr = TatLayer::get_gdal_layer(dataset, i);
+        Self {
+            ds: dataset,
+            name: lyr.name(),
+            crs: TatLayer::crs_from_layer(&lyr),
+            fields: TatLayer::fields_from_layer(&lyr),
+            index: i,
+            feature_index: vec![], // don't build immediately to be more flexible (maybe?)
+        }
+    }
+
+    fn gdal_layer(&self) -> Layer {
+        TatLayer::get_gdal_layer(&self.ds, self.index)
+    }
+
+    pub fn get_gdal_layer(dataset: &Dataset, layer_index: usize) -> Layer {
+        match dataset.layer(layer_index) {
+            Ok(lyr) => lyr,
+            // TODO: maybe don't panic
+            Err(_) => panic!(),
+        }
+    }
+
+    pub fn crs_from_layer(layer: &Layer) -> TatCrs {
+        let mut aname = "UNKNOWN".to_string();
+        let mut acode = 0;
+        let mut name = "UNKNOWN".to_string();
+
+        if let Some(crs) = layer.spatial_ref() {
+            match crs.auth_name() {
+                Ok(a_name) => aname = a_name,
+                _ => (),
+            }
+            match crs.auth_code() {
+                Ok(a_code) => acode = a_code,
+                _ => (),
+            }
+            match crs.name() {
+                Ok(c_name) => name = c_name,
+                _ => (),
+            }
+        }
+
+        TatCrs::new(aname, acode, name)
+    }
+
+    pub fn fields_from_layer(layer: &Layer) -> Vec<TatField> {
+        let mut fields: Vec<TatField> = vec![];
+        for field in layer.defn().fields() {
+            fields.push(
+                TatField {
+                    name: field.name(),
+                    dtype: field.field_type(),
+                }
+            );
+        }
+
+        fields
+    }
+
+    fn build_feature_index(&mut self) {
+        self.feature_index.clear();
+
+        let mut i: Vec<u64> = vec![];
+        for feature in self.gdal_layer().features() {
+            i.push(feature.fid().unwrap());
+        }
+
+        self.feature_index = i;
+    }
+}
+
+pub struct TatDataset {
+    gdal_ds: &'static Dataset,
+    layers: Vec<TatLayer>,
+}
+
+impl TatDataset {
+    pub fn new(ds: &'static Dataset) -> Self {
+        Self {
+            layers: TatDataset::layers_from_ds(&ds),
+            gdal_ds: ds,
+        }
+    }
+
+    pub fn layers_from_ds(ds: &'static Dataset) -> Vec<TatLayer> {
+        let mut layers: Vec<TatLayer> = vec![];
+        for (i, _) in ds.layers().enumerate() {
+            layers.push(TatLayer::new(&ds, i));
+        }
+
+        layers
+    }
+
+    fn gdal_layer<'a>(&'a self, layer_index: usize) -> Layer<'a> {
+        match self.gdal_ds.layer(layer_index) {
+            Ok(lyr) => lyr,
+            // TODO: maybe don't panic
+            Err(_) => panic!(),
+        }
+    }
+
+    fn layer<'a>(&'a self, layer_index: usize) -> Option<&'a TatLayer> {
+        self.layers.get(layer_index)
+    }
+}
+
 /// This holds the program's state.
 pub struct Tat {
     pub current_menu: Menu,
     quit: bool,
-    dataset: Dataset,
+    dataset: TatDataset,
     list_state: ListState,
     table_state: TableState,
     top_fid: u64,
@@ -49,7 +197,6 @@ pub struct Tat {
     first_column: u64,
     visible_columns: u64,
     log_visible: bool,
-    table_mode: TableMode,
     layer_index: Vec<u64>,
     vert_scroll_state: ScrollbarState,
     horz_scroll_state: ScrollbarState,
@@ -65,11 +212,11 @@ impl Widget for &mut Tat {
 }
 
 impl Tat {
-    pub fn new(ds: Dataset) -> Self {
+    pub fn new(ds: &'static Dataset) -> Self {
         Self {
             current_menu: Menu::LayerSelect,
             quit: false,
-            dataset: ds,
+            dataset: TatDataset::new(&ds),
             list_state: ListState::default(),
             table_state: TableState::default(),
             top_fid: 1,
@@ -77,7 +224,6 @@ impl Tat {
             first_column: 0,
             visible_columns: 0,
             log_visible: false,
-            table_mode: TableMode::Scrolling,
             layer_index: Vec::new(),
             vert_scroll_state: ScrollbarState::default(),
             horz_scroll_state: ScrollbarState::default(),
@@ -147,7 +293,7 @@ impl Tat {
     fn build_layer_index(&mut self) {
         self.layer_index.clear();
 
-        let mut layer = self.dataset.layer(self.list_state.selected().unwrap()).unwrap();
+        let mut layer = self.dataset.gdal_ds.layer(self.list_state.selected().unwrap()).unwrap();
 
         for feature in layer.features() {
             self.layer_index.push(feature.fid().unwrap());
@@ -423,16 +569,16 @@ impl Tat {
 
         let mut text = vec![
             // TODO: don't unwrap()
-            Line::from(format!("- URI: \"{}\"", self.dataset.description().unwrap())),
-            Line::from(format!("- Driver: {} ({})", self.dataset.driver().long_name(), self.dataset.driver().short_name())),
+            Line::from(format!("- URI: \"{}\"", self.dataset.gdal_ds.description().unwrap())),
+            Line::from(format!("- Driver: {} ({})", self.dataset.gdal_ds.driver().long_name(), self.dataset.gdal_ds.driver().short_name())),
         ];
 
-        if self.dataset.metadata().count() > 0 {
+        if self.dataset.gdal_ds.metadata().count() > 0 {
             text.push(Line::from("Metadata:"));
         }
 
-        for domain in self.dataset.metadata_domains() {
-            if self.dataset.metadata_domain(&domain).into_iter().len() == 0 {
+        for domain in self.dataset.gdal_ds.metadata_domains() {
+            if self.dataset.gdal_ds.metadata_domain(&domain).into_iter().len() == 0 {
                 continue;
             }
 
@@ -446,7 +592,7 @@ impl Tat {
                 Line::from(format!("  {} Domain:", display_str))
             );
 
-            self.dataset.metadata_domain(&domain).into_iter().for_each(|values| {
+            self.dataset.gdal_ds.metadata_domain(&domain).into_iter().for_each(|values| {
                 for value in values {
                     text.push(
                         Line::from(format!("    {}", value))
@@ -468,6 +614,7 @@ impl Tat {
 
         let items: Vec<ListItem> = self
             .dataset
+            .gdal_ds
             .layers()
             .map(|layer_item| {
                 ListItem::new(Line::raw(layer_item.name()))
@@ -625,11 +772,11 @@ impl Tat {
 
     fn selected_layer(&self) -> Layer {
         // TODO: don't use the unwraps
-        self.dataset.layer(self.list_state.selected().unwrap()).unwrap()
+        self.dataset.gdal_ds.layer(self.list_state.selected().unwrap()).unwrap()
     }
 
     fn render_layer_select(&mut self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
-        if self.dataset.layer_count() == 0 {
+        if self.dataset.gdal_ds.layer_count() == 0 {
             let [header_area, dataset_area, footer_area] = Layout::vertical([
                 Constraint::Length(2),
                 Constraint::Fill(1),
@@ -652,7 +799,7 @@ impl Tat {
             let [list_area, info_area] =
                 Layout::horizontal([
                     Constraint::Fill(1),
-                    Constraint::Fill(2),
+                    Constraint::Fill(4),
             ]).areas(layer_area);
 
             Tat::render_header(header_area, buf);
@@ -674,7 +821,7 @@ impl Tat {
 
         if let Some(selected) = self.list_state.selected() {
             // TODO: don't unwrap
-            let layer: Layer = self.dataset.layer(selected).unwrap();
+            let layer: Layer = self.dataset.gdal_ds.layer(selected).unwrap();
 
             text.push(Line::from(format!("- Name: {}", layer.name())));
 
