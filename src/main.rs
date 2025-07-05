@@ -133,6 +133,7 @@ fn main() {
     if let Some(ds) = open_dataset(path.to_string(), &mut err) {
         let mut terminal = ratatui::init();
         let _result = Tat::new(&ds).run(&mut terminal);
+
         ratatui::restore();
     } else {
         println!("ERROR: Could not open dataset from path!\n{}\nUsage:", err);

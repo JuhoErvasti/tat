@@ -1,8 +1,8 @@
 use std::{env::temp_dir, fs::File, io::{BufRead, Result}};
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use gdal::{errors::GdalError, vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, LayerAccess}, Dataset, Metadata};
-use ratatui::{buffer::Buffer, layout::{Constraint, Flex, Layout, Margin, Rect}, style::{palette::tailwind, Style, Stylize}, symbols, text::Line, widgets::{Block, BorderType, Borders, Clear, HighlightSpacing, List, ListItem, ListState, Padding, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Table, TableState, Widget}, DefaultTerminal, Frame};
+use gdal::{vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, LayerAccess}, Dataset, Metadata};
+use ratatui::{style::{palette::tailwind, Style, Stylize}, layout::{Constraint, Flex, Layout, Margin, Rect}, symbols, text::Line, widgets::{Block, BorderType, Borders, Clear, HighlightSpacing, List, ListItem, ListState, Padding, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Table, TableState, Widget}, DefaultTerminal, Frame};
 
 pub const LAYER_LIST_BORDER: symbols::border::Set = symbols::border::Set {
     top_left: symbols::line::ROUNDED.vertical,
@@ -28,7 +28,7 @@ pub const LAYER_INFO_BORDER: symbols::border::Set = symbols::border::Set {
 
 pub enum Menu {
     LayerSelect,
-    Table,
+    TableView,
 }
 
 pub enum TableMode {
@@ -37,6 +37,7 @@ pub enum TableMode {
     JumpTo,
 }
 
+#[derive(Clone)]
 pub struct TatCrs {
     auth_name: String,
     auth_code: i32,
@@ -53,6 +54,7 @@ impl TatCrs {
     }
 }
 
+#[derive(Clone)]
 pub struct TatField {
     name: String,
     dtype: u32,
@@ -67,6 +69,7 @@ impl TatField {
     }
 }
 
+#[derive(Clone)]
 pub struct TatLayer {
     name: String,
     crs: TatCrs,
@@ -148,6 +151,10 @@ impl TatLayer {
 
         self.feature_index = i;
     }
+
+    fn field_count(&self) -> u64 {
+        self.fields.len() as u64
+    }
 }
 
 pub struct TatDataset {
@@ -185,147 +192,72 @@ impl TatDataset {
     }
 }
 
-/// This holds the program's state.
-pub struct Tat {
-    pub current_menu: Menu,
-    quit: bool,
-    dataset: TatDataset,
-    list_state: ListState,
+/// Widget for displaying the attribute table
+pub struct TatTable {
     table_state: TableState,
     top_fid: u64,
-    visible_rows: u16,
+    visible_rows: u64,
     first_column: u64,
     visible_columns: u64,
-    log_visible: bool,
-    layer_index: Vec<u64>,
-    vert_scroll_state: ScrollbarState,
-    horz_scroll_state: ScrollbarState,
+    v_scroll: ScrollbarState,
+    h_scroll: ScrollbarState,
+    layer: Option<TatLayer>,
+
 }
 
-impl Widget for &mut Tat {
-    fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
-        match self.current_menu {
-            Menu::LayerSelect => self.render_layer_select(area, buf),
-            Menu::Table => self.render_table(area, buf),
-        }
-    }
-}
+impl TatTable {
+    pub fn new() -> Self {
+        let mut ts = TableState::default();
+        ts.select_first();
+        ts.select_first_column();
 
-impl Tat {
-    pub fn new(ds: &'static Dataset) -> Self {
         Self {
-            current_menu: Menu::LayerSelect,
-            quit: false,
-            dataset: TatDataset::new(&ds),
-            list_state: ListState::default(),
-            table_state: TableState::default(),
+            table_state: ts,
             top_fid: 1,
             visible_rows: 0,
             first_column: 0,
             visible_columns: 0,
-            log_visible: false,
-            layer_index: Vec::new(),
-            vert_scroll_state: ScrollbarState::default(),
-            horz_scroll_state: ScrollbarState::default(),
+            v_scroll: ScrollbarState::default(),
+            h_scroll: ScrollbarState::default(),
+            layer: Option::None,
         }
     }
 
-    pub fn run(mut self, terminal: &mut DefaultTerminal) -> Result<()> {
-        self.list_state.select_first();
-        self.table_state.select_first();
-        self.table_state.select_first_column();
-
-        while !self.quit {
-            terminal.draw(|frame| {
-                frame.render_widget(&mut self, frame.area());
-                if self.log_visible {
-                    self.draw_log(frame.area(), frame);
-                }
-            })?;
-            if let Event::Key(key) = event::read()? {
-                self.handle_key(key);
-            };
-        }
-
-        Ok(())
+    fn current_row(&self) -> u64 {
+        // the idea is to avoid unwrapping/whatever everywhere
+        // TODO: not sure how idiomatic this is in Rust, maybe reconsider
+        // the approach, feels like this is just trying skirt around
+        // the whole point of using Options and such, but idk
+        self.table_state.selected().unwrap() as u64
     }
 
-    fn close(&mut self) {
-        self.quit = true;
+    fn current_column(&self) -> u64 {
+        // see above (current_row)
+        self.table_state.selected_column().unwrap() as u64
     }
 
-    fn handle_key(&mut self, key: KeyEvent) {
-        if key.kind != KeyEventKind::Press {
-            return;
-        }
-
-        let ctrl_down: bool = key.modifiers.contains(KeyModifiers::CONTROL);
-
-        match key.code {
-            KeyCode::Char('c') => self.close(),
-            KeyCode::Char('q') | KeyCode::Esc => self.previous_menu(),
-            KeyCode::Char('h') | KeyCode::Left => self.nav_left(),
-            KeyCode::Char('l') | KeyCode::Right => self.nav_right(),
-            KeyCode::Char('k') | KeyCode::Up => self.nav_up(),
-            KeyCode::Char('j') | KeyCode::Down => self.nav_down(),
-            KeyCode::Char('g') => self.nav_first(),
-            KeyCode::Char('G') => self.nav_last(),
-            KeyCode::Char('0') => self.jump_first_column(),
-            KeyCode::Char('$') => self.jump_last_column(),
-            KeyCode::Char('f') if ctrl_down => self.nav_jump_forward(),
-            KeyCode::Char('b') if ctrl_down => self.nav_jump_back(),
-            KeyCode::Char('d') if ctrl_down => self.nav_jump_down(),
-            KeyCode::Char('u') if ctrl_down => self.nav_jump_up(),
-            KeyCode::Char('L') => self.log_visible = !self.log_visible,
-            KeyCode::Enter => self.open_table(),
-            _ => {},
-        }
+    fn update_v_scrollbar(&mut self) {
+        self.v_scroll = self.v_scroll.position((self.top_fid + self.current_row() - 1) as usize);
     }
 
-    fn update_vert_scrollbar(&mut self) {
-        self.vert_scroll_state = self.vert_scroll_state.position(self.top_fid as usize + self.table_state.selected().unwrap() - 1);
-    }
-
-    fn update_horz_scrollbar(&mut self) {
-        self.horz_scroll_state = self.horz_scroll_state.position(self.first_column as usize + self.table_state.selected_column().unwrap());
-    }
-
-    fn build_layer_index(&mut self) {
-        self.layer_index.clear();
-
-        let mut layer = self.dataset.gdal_ds.layer(self.list_state.selected().unwrap()).unwrap();
-
-        for feature in layer.features() {
-            self.layer_index.push(feature.fid().unwrap());
-        }
-
-        self.vert_scroll_state = ScrollbarState::new(self.layer_index.len());
-        self.horz_scroll_state = ScrollbarState::new(layer.defn().fields().count() + 1);
-    }
-
-    fn open_table(&mut self) {
-        self.current_menu = Menu::Table;
-        self.build_layer_index();
+    fn update_h_scrollbar(&mut self) {
+        self.h_scroll = self.h_scroll.position((self.first_column + self.current_column()) as usize);
     }
 
     fn jump_first_column(&mut self) {
         self.first_column = 0;
         self.table_state.select_first_column();
-        self.update_horz_scrollbar();
+        self.update_h_scrollbar();
     }
 
     fn jump_last_column(&mut self) {
-        self.set_first_column(self.selected_layer().defn().fields().count() as i64 - self.visible_columns as i64);
+        self.set_first_column(self.layer.as_ref().unwrap().field_count() as i64 - self.visible_columns as i64);
         self.table_state.select_column(Some(self.visible_columns as usize));
-        self.update_horz_scrollbar();
-    }
-
-    fn max_top_fid(&self) -> i64 {
-        self.selected_layer().feature_count() as i64 - self.visible_rows as i64 + 1
+        self.update_h_scrollbar();
     }
 
     fn set_first_column(&mut self, col: i64) {
-        let max_first_column: i64 = self.selected_layer().defn().fields().count() as i64 - self.visible_columns as i64;
+        let max_first_column: i64 = self.layer.as_ref().unwrap().field_count() as i64 - self.visible_columns as i64;
 
         if col >= max_first_column {
             self.first_column = max_first_column as u64;
@@ -363,7 +295,7 @@ impl Tat {
         self.top_fid + self.visible_rows as u64 - 1
     }
 
-    fn reset_table(&mut self) {
+    fn reset(&mut self) {
         self.top_fid = 1;
         self.first_column = 0;
         self.visible_columns = 0;
@@ -371,265 +303,95 @@ impl Tat {
         self.table_state.select_first();
     }
 
+    fn max_top_fid(&self) -> i64 {
+        self.layer.as_ref().unwrap().gdal_layer().feature_count() as i64 - self.visible_rows as i64 + 1
+    }
+
     fn nav_left(&mut self) {
-        match self.current_menu {
-            Menu::LayerSelect => (),
-            Menu::Table => {
-                if let Some(col) = self.table_state.selected_column() {
-                    if col == 0 {
-                        if self.first_column == 0 {
-                            let cols =  self.selected_layer().defn().fields().count();
-                            self.set_first_column(cols as i64 - self.visible_columns as i64);
-                            self.table_state.select_column(Some(self.first_column as usize + self.visible_columns as usize));
-                        } else {
-                            self.set_first_column(self.first_column as i64 - 1);
-                        }
-                        self.update_horz_scrollbar();
-                        return;
-                    }
-                }
-                self.table_state.select_previous_column();
-                self.update_horz_scrollbar();
+        let col = self.current_column();
+        if col == 0 {
+            if self.first_column == 0 {
+                let cols =  self.layer.as_ref().unwrap().field_count();
+                self.set_first_column(cols as i64 - self.visible_columns as i64);
+                self.table_state.select_column(Some(self.first_column as usize + self.visible_columns as usize));
+            } else {
+                self.set_first_column(self.first_column as i64 - 1);
             }
+            self.update_h_scrollbar();
+            return;
         }
+        self.table_state.select_previous_column();
+        self.update_h_scrollbar();
     }
 
     fn nav_right(&mut self) {
-        match self.current_menu {
-            Menu::LayerSelect => (),
-            Menu::Table => {
-                if let Some(col) = self.table_state.selected_column() {
-                    if col == self.visible_columns as usize {
-                        let cols =  self.selected_layer().defn().fields().count();
-                        if self.first_column as usize + col == cols {
-                            self.set_first_column(0);
-                            self.table_state.select_column(Some(0));
-                        } else {
-                            self.set_first_column(self.first_column as i64 + 1);
-                        }
-                        self.update_horz_scrollbar();
-                        return;
-                    }
-                }
-                self.table_state.select_next_column();
-                self.update_horz_scrollbar();
+        let col = self.current_column();
+        if col == self.visible_columns {
+            let cols =  self.layer.as_ref().unwrap().field_count();
+            if self.first_column + col == cols {
+                self.set_first_column(0);
+                self.table_state.select_column(Some(0));
+            } else {
+                self.set_first_column(self.first_column as i64 + 1);
             }
-        }
-    }
-
-    fn previous_menu(&mut self) {
-        if self.log_visible {
-            self.log_visible = false;
+            self.update_h_scrollbar();
             return;
         }
+        self.table_state.select_next_column();
+        self.update_h_scrollbar();
+    }
 
-        match self.current_menu {
-            Menu::Table => {
-                self.reset_table();
-                self.current_menu = Menu::LayerSelect;
-            },
-            Menu::LayerSelect => self.close(),
+    fn nav_up(&mut self) {
+        self.jump_forward(1);
+    }
+
+    fn nav_down(&mut self) {
+        self.jump_backward(1);
+    }
+
+    fn jump_forward(&mut self, amount: u64) {
+        let row = self.current_row();
+        if row + amount > self.visible_rows {
+            self.set_top_fid(self.top_fid as i64 + amount as i64);
+        } else {
+            self.table_state.scroll_down_by(amount as u16);
+        }
+        self.update_v_scrollbar();
+    }
+
+    fn jump_backward(&mut self, amount: u64) {
+        let row = self.current_row();
+        if (row as i16 - amount as i16) < 0 {
+            self.set_top_fid(self.top_fid as i64 - amount as i64);
+        } else {
+            self.table_state.scroll_up_by(amount as u16);
+        }
+        self.update_v_scrollbar();
+    }
+
+    fn jump_first(&mut self) {
+        self.set_top_fid(1);
+        self.table_state.select_first();
+        self.update_v_scrollbar();
+    }
+
+    fn jump_last(&mut self) {
+        self.set_top_fid(self.max_top_fid());
+        self.table_state.select(Some(self.visible_rows as usize));
+        self.update_v_scrollbar();
+    }
+
+    fn current_layer(&self) -> TatLayer{
+        if let Some(lyr) = &self.layer {
+            lyr.clone()
+        } else {
+            panic!();
         }
     }
+}
 
-    fn nav_jump_forward(&mut self) {
-        let jump_amount = 50;
-        match self.current_menu {
-            Menu::LayerSelect => self.list_state.scroll_down_by(jump_amount),
-            Menu::Table => {
-                if let Some(selected) = self.table_state.selected() {
-                    if selected as u16 + jump_amount > self.visible_rows {
-                        self.set_top_fid(self.top_fid as i64 + jump_amount as i64);
-                    } else {
-                        self.table_state.scroll_down_by(jump_amount);
-                    }
-                }
-                self.update_vert_scrollbar();
-            },
-        }
-    }
-
-    fn nav_jump_back(&mut self) {
-        let jump_amount = 50;
-        match self.current_menu {
-            Menu::LayerSelect => self.list_state.scroll_up_by(jump_amount),
-            Menu::Table => {
-                if let Some(selected) = self.table_state.selected() {
-                    if (selected as i16 - jump_amount as i16) < 0 {
-                        self.set_top_fid(self.top_fid as i64 - jump_amount as i64);
-                    } else {
-                        self.table_state.scroll_up_by(jump_amount);
-                    }
-                }
-                self.update_vert_scrollbar();
-            },
-        }
-    }
-
-    fn nav_jump_up(&mut self) {
-        let jump_amount = 25;
-        match self.current_menu {
-            Menu::LayerSelect => self.list_state.scroll_up_by(jump_amount),
-            Menu::Table => {
-                if let Some(selected) = self.table_state.selected() {
-                    if (selected as i16 - jump_amount as i16) < 0 {
-                        self.set_top_fid(self.top_fid as i64 - jump_amount as i64);
-                    } else {
-                        self.table_state.scroll_up_by(jump_amount);
-                    }
-                }
-                self.update_vert_scrollbar();
-            },
-        }
-    }
-
-    fn nav_jump_down(&mut self) {
-        let jump_amount = 25;
-        match self.current_menu {
-            Menu::LayerSelect => self.list_state.scroll_down_by(jump_amount),
-            Menu::Table => {
-                if let Some(selected) = self.table_state.selected() {
-                    if selected as u16 + jump_amount > self.visible_rows {
-                        self.set_top_fid(self.top_fid as i64 + jump_amount as i64);
-                    } else {
-                        self.table_state.scroll_down_by(jump_amount);
-                    }
-                }
-                self.update_vert_scrollbar();
-            },
-        }
-    }
-
-    fn nav_first(&mut self) {
-        match self.current_menu {
-            Menu::LayerSelect => self.list_state.select_first(),
-            Menu::Table => {
-                self.set_top_fid(1);
-                self.table_state.select_first();
-                self.update_vert_scrollbar();
-            }
-        }
-    }
-
-    fn nav_last(&mut self) {
-        match self.current_menu {
-            Menu::LayerSelect => self.list_state.select_last(),
-            Menu::Table => {
-                self.set_top_fid(self.max_top_fid());
-                self.table_state.select(Some(self.visible_rows as usize));
-                self.update_vert_scrollbar();
-            }
-        }
-    }
-
-    fn nav_up(& mut self) {
-        match self.current_menu {
-            Menu::LayerSelect => self.list_state.select_previous(),
-            Menu::Table => {
-                if let Some(selected) = self.table_state.selected() {
-                    if selected == 0 {
-                        self.set_top_fid(self.top_fid as i64 - 1);
-                    } else {
-                        self.table_state.select_previous();
-                    }
-                }
-                self.update_vert_scrollbar();
-            }
-        }
-    }
-
-    fn nav_down(& mut self) {
-        match self.current_menu {
-            Menu::LayerSelect => self.list_state.select_next(),
-            Menu::Table => {
-                if let Some(selected) = self.table_state.selected() {
-                    if selected + 1 == self.visible_rows as usize {
-                        self.set_top_fid(self.top_fid as i64 + 1);
-                    } else {
-                        self.table_state.select_next();
-                    }
-                }
-                self.update_vert_scrollbar();
-            }
-        }
-    }
-
-    fn render_header(area: Rect, buf: &mut Buffer) {
-        Paragraph::new("Terminal Attribute Table")
-            .bold()
-            .centered()
-            .render(area, buf);
-    }
-
-    fn render_dataset_info(&mut self, area: Rect, buf: &mut Buffer) {
-        let block = Block::new()
-            .title(Line::raw(" Dataset ").underlined().bold())
-            .borders(Borders::TOP | Borders::LEFT | Borders::RIGHT)
-            .border_set(symbols::border::ROUNDED);
-
-        let mut text = vec![
-            // TODO: don't unwrap()
-            Line::from(format!("- URI: \"{}\"", self.dataset.gdal_ds.description().unwrap())),
-            Line::from(format!("- Driver: {} ({})", self.dataset.gdal_ds.driver().long_name(), self.dataset.gdal_ds.driver().short_name())),
-        ];
-
-        if self.dataset.gdal_ds.metadata().count() > 0 {
-            text.push(Line::from("Metadata:"));
-        }
-
-        for domain in self.dataset.gdal_ds.metadata_domains() {
-            if self.dataset.gdal_ds.metadata_domain(&domain).into_iter().len() == 0 {
-                continue;
-            }
-
-            let display_str: &str = if domain.is_empty() {
-                "Default"
-            } else {
-                &domain
-            };
-
-            text.push(
-                Line::from(format!("  {} Domain:", display_str))
-            );
-
-            self.dataset.gdal_ds.metadata_domain(&domain).into_iter().for_each(|values| {
-                for value in values {
-                    text.push(
-                        Line::from(format!("    {}", value))
-                    );
-                }
-            });
-        }
-
-        Paragraph::new(text)
-            .block(block)
-            .render(area, buf);
-    }
-
-    fn render_layer_list(&mut self, area: Rect, buf: &mut Buffer) {
-        let block = Block::new()
-            .title(Line::raw(" Layers ").underlined().bold())
-            .borders(Borders::ALL)
-            .border_set(LAYER_LIST_BORDER);
-
-        let items: Vec<ListItem> = self
-            .dataset
-            .gdal_ds
-            .layers()
-            .map(|layer_item| {
-                ListItem::new(Line::raw(layer_item.name()))
-            })
-            .collect();
-
-        let list = List::new(items)
-            .block(block)
-            .highlight_symbol(">")
-            .highlight_spacing(HighlightSpacing::Always);
-
-        StatefulWidget::render(list, area, buf, &mut self.list_state);
-    }
-
-    fn render_table(&mut self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
+impl Widget for &mut TatTable {
+    fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
         let [table_area, footer_area] = Layout::vertical([
             Constraint::Fill(1),
             Constraint::Length(1),
@@ -641,29 +403,27 @@ impl Tat {
         // To be honest I don't really get it but I'm just going with this
         // for now. Honestly at the end of the day I might want to have
         // some kind of layer struct to handle some of this stuff more cleanly
-        let total_fields = self.selected_layer().defn().fields().count();
-
-        if total_fields * 30 < table_area.width as usize {
-            self.visible_columns = total_fields as u64;
+        if self.current_layer().field_count() * 30 < table_area.width as u64 {
+            self.visible_columns = self.current_layer().field_count() as u64;
         } else {
             self.visible_columns = (table_area.width / 30) as u64;
         }
 
-        let all_columns_visible = self.visible_columns == total_fields as u64;
+        let all_columns_visible = self.visible_columns == self.current_layer().field_count() as u64;
 
-        self.visible_rows = table_area.height - 6;
+        self.visible_rows = (table_area.height - 6) as u64;
 
         if all_columns_visible {
             self.visible_rows +=2;
         }
 
-        let layer = self.selected_layer();
-        let defn = layer.defn();
+        let layer = self.current_layer();
+        let gdal_layer = layer.gdal_layer();
 
-        self.render_footer(footer_area, buf);
+        // self.render_footer(footer_area, frame);
 
         let block = Block::new()
-            .title(Line::raw(format!(" {} (debug - visible_rows: {}, visible_columns: {} bottom_fid: {}, top_fid: {}, table_area_width: {})", layer.name(), self.visible_rows, self.visible_columns, self.bottom_fid(), self.top_fid, table_area.width)).centered().bold().underlined())
+            .title(Line::raw(format!(" {} (debug - visible_rows: {}, visible_columns: {} bottom_fid: {}, top_fid: {}, table_area_width: {})", layer.name, self.visible_rows, self.visible_columns, self.bottom_fid(), self.top_fid, table_area.width)).centered().bold().underlined())
             // .title(Line::raw(format!(" {} ", layer.name())))
             .borders(Borders::ALL)
             .padding(Padding::top(1))
@@ -674,7 +434,7 @@ impl Tat {
         ];
 
         let mut field_idx = 0;
-        for field in defn.fields() {
+        for field in layer.gdal_layer().defn().fields() {
             if field_idx < self.first_column {
                 field_idx += 1;
                 continue;
@@ -700,12 +460,13 @@ impl Tat {
         }
 
         for i in self.top_fid..self.bottom_fid() + 1 {
-            let fid = match self.layer_index.get(i as usize - 1) {
+            let fid = match layer.feature_index.get(i as usize - 1) {
                 Some(fid) => fid,
                 None => break,
             };
 
-            let feature = match layer.feature(*fid) {
+
+            let feature = match gdal_layer.feature(*fid) {
                 Some(f) => f,
                 None => break,
             };
@@ -761,21 +522,291 @@ impl Tat {
                 .end_symbol(None);
 
         if !all_columns_visible {
-            StatefulWidget::render(vert_scrollbar, table_area.inner(Margin { horizontal: 0, vertical: 1 }), buf, &mut self.vert_scroll_state);
+            StatefulWidget::render(vert_scrollbar, table_area.inner(Margin { horizontal: 0, vertical: 1 }), buf, &mut self.v_scroll);
             StatefulWidget::render(table, table_area.inner(Margin {horizontal: 1, vertical: 1 }), buf, &mut self.table_state);
-            StatefulWidget::render(horz_scrollbar, table_area.inner(Margin { horizontal: 1, vertical: 0 }), buf, &mut self.horz_scroll_state);
+            StatefulWidget::render(horz_scrollbar, table_area.inner(Margin { horizontal: 1, vertical: 0 }), buf, &mut self.h_scroll);
         } else {
-            StatefulWidget::render(vert_scrollbar, table_area, buf, &mut self.vert_scroll_state);
+            StatefulWidget::render(vert_scrollbar, table_area, buf, &mut self.v_scroll);
             StatefulWidget::render(table, table_area.inner(Margin {horizontal: 1, vertical: 0 }), buf, &mut self.table_state);
         }
     }
+}
+
+/// This holds the program's state.
+pub struct Tat {
+    pub current_menu: Menu,
+    pub quit: bool,
+    dataset: TatDataset,
+    list_state: ListState,
+    log_visible: bool,
+    layer_index: Vec<u64>,
+    table: TatTable,
+}
+
+// impl Widget for &mut Tat {
+//     fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
+//         match self.current_menu {
+//             Menu::LayerSelect => self.render_layer_select(area, buf),
+//             Menu::Table => self.render_table(area, buf),
+//         }
+//     }
+// }
+
+impl Tat {
+    pub fn new(ds: &'static Dataset) -> Self {
+        let mut ls = ListState::default();
+        ls.select_first();
+        Self {
+            current_menu: Menu::LayerSelect,
+            quit: false,
+            dataset: TatDataset::new(&ds),
+            list_state: ls,
+            log_visible: false,
+            layer_index: Vec::new(),
+            table: TatTable::new(),
+        }
+    }
+
+    pub fn run(mut self, terminal: &mut DefaultTerminal) -> Result<()> {
+        while !self.quit {
+            terminal.draw(|frame| {
+                self.render(frame);
+                if self.log_visible {
+                    self.draw_log(frame.area(), frame);
+                }
+            })?;
+            if let Event::Key(key) = event::read()? {
+                self.handle_key(key);
+            };
+        }
+
+        Ok(())
+    }
+
+    pub fn render(&mut self, frame: &mut Frame) {
+        match self.current_menu {
+            Menu::LayerSelect => self.render_layer_select(frame.area(), frame),
+            Menu::TableView => self.render_table_view(frame.area(), frame),
+        }
+    }
+
+    fn close(&mut self) {
+        self.quit = true;
+    }
+
+    fn handle_key(&mut self, key: KeyEvent) {
+        if key.kind != KeyEventKind::Press {
+            return;
+        }
+
+        let ctrl_down: bool = key.modifiers.contains(KeyModifiers::CONTROL);
+
+        match key.code {
+            KeyCode::Char('c') => self.close(),
+            KeyCode::Char('q') | KeyCode::Esc => self.previous_menu(),
+            KeyCode::Char('h') | KeyCode::Left => self.nav_left(),
+            KeyCode::Char('l') | KeyCode::Right => self.nav_right(),
+            KeyCode::Char('k') | KeyCode::Up => self.nav_up(),
+            KeyCode::Char('j') | KeyCode::Down => self.nav_down(),
+            KeyCode::Char('g') => self.nav_first(),
+            KeyCode::Char('G') => self.nav_last(),
+            KeyCode::Char('0') => self.table.layer = Some(self.dataset.layer(self.list_state.selected().unwrap()).unwrap().clone()),
+            // KeyCode::Char('0') => self.jump_first_column(),
+            // KeyCode::Char('$') => self.jump_last_column(),
+            KeyCode::Char('f') if ctrl_down => self.nav_jump_forward(),
+            KeyCode::Char('b') if ctrl_down => self.nav_jump_back(),
+            KeyCode::Char('d') if ctrl_down => self.nav_jump_down(),
+            KeyCode::Char('u') if ctrl_down => self.nav_jump_up(),
+            KeyCode::Char('L') => self.log_visible = !self.log_visible,
+            KeyCode::Enter => self.open_table(),
+            _ => {},
+        }
+    }
+
+    fn open_table(&mut self) {
+        self.current_menu = Menu::TableView;
+    }
+
+    fn nav_left(&mut self) {
+        match self.current_menu {
+            Menu::LayerSelect => (),
+            Menu::TableView => self.table.nav_left(),
+        }
+    }
+
+    fn nav_right(&mut self) {
+        match self.current_menu {
+            Menu::LayerSelect => (),
+            Menu::TableView => self.table.nav_right(),
+        }
+    }
+
+    fn previous_menu(&mut self) {
+        if self.log_visible {
+            self.log_visible = false;
+            return;
+        }
+
+        match self.current_menu {
+            Menu::TableView => {
+                // TODO: maybe don't reset?
+                self.table.reset();
+                self.current_menu = Menu::LayerSelect;
+            },
+            Menu::LayerSelect => self.close(),
+        }
+    }
+
+    fn nav_jump_forward(&mut self) {
+        let jump_amount = 50;
+        match self.current_menu {
+            Menu::LayerSelect => self.list_state.scroll_down_by(jump_amount),
+            Menu::TableView => self.table.jump_forward(jump_amount as u64),
+        }
+    }
+
+    fn nav_jump_back(&mut self) {
+        let jump_amount = 50;
+        match self.current_menu {
+            Menu::LayerSelect => self.list_state.scroll_up_by(jump_amount),
+            Menu::TableView => self.table.jump_backward(jump_amount as u64),
+        }
+    }
+
+    fn nav_jump_up(&mut self) {
+        let jump_amount = 25;
+        match self.current_menu {
+            Menu::LayerSelect => self.list_state.scroll_up_by(jump_amount),
+            Menu::TableView => self.table.jump_forward(jump_amount as u64),
+        }
+    }
+
+    fn nav_jump_down(&mut self) {
+        let jump_amount = 25;
+        match self.current_menu {
+            Menu::LayerSelect => self.list_state.scroll_down_by(jump_amount),
+            Menu::TableView => self.table.jump_backward(jump_amount as u64),
+        }
+    }
+
+    fn nav_first(&mut self) {
+        match self.current_menu {
+            Menu::LayerSelect => self.list_state.select_first(),
+            Menu::TableView => self.table.jump_first(),
+        }
+    }
+
+    fn nav_last(&mut self) {
+        match self.current_menu {
+            Menu::LayerSelect => self.list_state.select_last(),
+            Menu::TableView => self.table.jump_last(),
+        }
+    }
+
+    fn nav_up(& mut self) {
+        match self.current_menu {
+            Menu::LayerSelect => self.list_state.select_previous(),
+            Menu::TableView => self.table.nav_up(),
+        }
+    }
+
+    fn nav_down(& mut self) {
+        match self.current_menu {
+            Menu::LayerSelect => self.list_state.select_next(),
+            Menu::TableView => self.table.nav_down(),
+        }
+    }
+
+    fn render_header(area: Rect, frame: &mut Frame) {
+        frame.render_widget(
+            Paragraph::new("Terminal Attribute Table")
+                .bold()
+                .centered(),
+            area,
+        );
+    }
+
+    fn render_dataset_info(&mut self, area: Rect, frame: &mut Frame) {
+        let block = Block::new()
+            .title(Line::raw(" Dataset ").underlined().bold())
+            .borders(Borders::TOP | Borders::LEFT | Borders::RIGHT)
+            .border_set(symbols::border::ROUNDED);
+
+        let mut text = vec![
+            // TODO: don't unwrap()
+            Line::from(format!("- URI: \"{}\"", self.dataset.gdal_ds.description().unwrap())),
+            Line::from(format!("- Driver: {} ({})", self.dataset.gdal_ds.driver().long_name(), self.dataset.gdal_ds.driver().short_name())),
+        ];
+
+        if self.dataset.gdal_ds.metadata().count() > 0 {
+            text.push(Line::from("Metadata:"));
+        }
+
+        for domain in self.dataset.gdal_ds.metadata_domains() {
+            if self.dataset.gdal_ds.metadata_domain(&domain).into_iter().len() == 0 {
+                continue;
+            }
+
+            let display_str: &str = if domain.is_empty() {
+                "Default"
+            } else {
+                &domain
+            };
+
+            text.push(
+                Line::from(format!("  {} Domain:", display_str))
+            );
+
+            self.dataset.gdal_ds.metadata_domain(&domain).into_iter().for_each(|values| {
+                for value in values {
+                    text.push(
+                        Line::from(format!("    {}", value))
+                    );
+                }
+            });
+        }
+
+        frame.render_widget(
+            Paragraph::new(text)
+                .block(block),
+            area
+        );
+    }
+
+    fn render_layer_list(&mut self, area: Rect, frame: &mut Frame) {
+        let block = Block::new()
+            .title(Line::raw(" Layers ").underlined().bold())
+            .borders(Borders::ALL)
+            .border_set(LAYER_LIST_BORDER);
+
+        let items: Vec<ListItem> = self
+            .dataset
+            .gdal_ds
+            .layers()
+            .map(|layer_item| {
+                ListItem::new(Line::raw(layer_item.name()))
+            })
+            .collect();
+
+        let list = List::new(items)
+            .block(block)
+            .highlight_symbol(">")
+            .highlight_spacing(HighlightSpacing::Always);
+
+        frame.render_stateful_widget(list, area, &mut self.list_state);
+    }
+
 
     fn selected_layer(&self) -> Layer {
         // TODO: don't use the unwraps
         self.dataset.gdal_ds.layer(self.list_state.selected().unwrap()).unwrap()
     }
 
-    fn render_layer_select(&mut self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
+    fn render_table_view(&mut self, area: Rect, frame: &mut Frame) {
+        frame.render_widget(& mut self.table, area);
+    }
+
+    fn render_layer_select(&mut self, area: Rect, frame: &mut Frame) {
         if self.dataset.gdal_ds.layer_count() == 0 {
             let [header_area, dataset_area, footer_area] = Layout::vertical([
                 Constraint::Length(2),
@@ -784,9 +815,9 @@ impl Tat {
             ])
             .areas(area);
 
-            Tat::render_header(header_area, buf);
-            self.render_dataset_info(dataset_area, buf);
-            self.render_footer(footer_area, buf);
+            Tat::render_header(header_area, frame);
+            self.render_dataset_info(dataset_area, frame);
+            self.render_footer(footer_area, frame);
         } else {
             let [header_area, dataset_area, layer_area, footer_area] = Layout::vertical([
                 Constraint::Length(2),
@@ -802,16 +833,16 @@ impl Tat {
                     Constraint::Fill(4),
             ]).areas(layer_area);
 
-            Tat::render_header(header_area, buf);
-            self.render_dataset_info(dataset_area, buf);
-            self.render_layer_list(list_area, buf);
-            self.render_layer_info(info_area, buf);
-            self.render_footer(footer_area, buf);
+            Tat::render_header(header_area, frame);
+            self.render_dataset_info(dataset_area, frame);
+            self.render_layer_list(list_area, frame);
+            self.render_layer_info(info_area, frame);
+            self.render_footer(footer_area, frame);
         }
     }
 
 
-    fn render_layer_info(&mut self, area: Rect, buf: &mut Buffer) {
+    fn render_layer_info(&mut self, area: Rect, frame: &mut Frame) {
         let block = Block::new()
             .title(Line::raw(" Layer Information ").underlined().bold())
             .borders(Borders::ALL)
@@ -875,24 +906,23 @@ impl Tat {
             }
         }
 
-        Paragraph::new(text)
-            .block(block)
-            .render(area, buf);
+        frame.render_widget(Paragraph::new(text).block(block), area);
     }
 
-    fn render_footer(&self, area: Rect, buf: &mut Buffer) {
-        match self.current_menu {
+    fn render_footer(&self, area: Rect, frame: &mut Frame) {
+        let text = match self.current_menu {
             Menu::LayerSelect => {
-                Paragraph::new("<up, k> <down, j>: browse layers | <enter> open layer table | <q, ESC, ctrl+c> quit program")
-                .centered()
-                .render(area, buf);
+                "<up, k> <down, j>: browse layers | <enter> open layer table | <q, ESC, ctrl+c> quit program"
+            },
+            Menu::TableView => {
+                "<left, h> <down, j> <up, k> <right, l>: browse table | <q, esc> return to layer selection | <ctrl+c> quit program"
             }
-            Menu::Table => {
-                Paragraph::new("<left, h> <down, j> <up, k> <right, l>: browse table | <q, esc> return to layer selection | <ctrl+c> quit program")
-                .centered()
-                .render(area, buf);
-            }
-        }
+        };
+
+        frame.render_widget(
+            Paragraph::new(text).centered(),
+            area,
+        )
     }
 
     fn popup_area(area: Rect, percent_x: u16, percent_y: u16) -> Rect {
