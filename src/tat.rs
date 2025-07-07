@@ -1,5 +1,6 @@
 use std::{env::temp_dir, fs::File, io::{BufRead, Result}};
 
+use cli_log::debug;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use gdal::{vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, LayerAccess}, Dataset, Metadata};
 use ratatui::{style::{palette::tailwind, Style, Stylize}, layout::{Constraint, Flex, Layout, Margin, Rect}, symbols, text::Line, widgets::{Block, BorderType, Borders, Clear, HighlightSpacing, List, ListItem, ListState, Padding, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Table, TableState, Widget}, DefaultTerminal, Frame};
@@ -26,15 +27,27 @@ pub const LAYER_INFO_BORDER: symbols::border::Set = symbols::border::Set {
     horizontal_bottom: symbols::line::ROUNDED.horizontal,
 };
 
-pub enum Menu {
+pub enum TatMenu {
     LayerSelect,
     TableView,
 }
 
-pub enum TableMode {
+pub enum TatTableMode {
     Scrolling,
     GdalLog,
     JumpTo,
+}
+
+pub enum TatNavJump {
+    First,
+    Last,
+    ForwardOne,
+    BackOne,
+    ForwardHalfParagraph, // half "paragraph"
+    BackHalfParagraph,
+    ForwardParagraph,
+    BackParagraph,
+    Specific(u64),
 }
 
 #[derive(Clone)]
@@ -141,7 +154,7 @@ impl TatLayer {
         fields
     }
 
-    fn build_feature_index(&mut self) {
+    pub fn build_feature_index(&mut self) {
         self.feature_index.clear();
 
         let mut i: Vec<u64> = vec![];
@@ -173,7 +186,9 @@ impl TatDataset {
     pub fn layers_from_ds(ds: &'static Dataset) -> Vec<TatLayer> {
         let mut layers: Vec<TatLayer> = vec![];
         for (i, _) in ds.layers().enumerate() {
-            layers.push(TatLayer::new(&ds, i));
+            let mut lyr = TatLayer::new(&ds, i);
+            lyr.build_feature_index();
+            layers.push(lyr);
         }
 
         layers
@@ -223,6 +238,10 @@ impl TatTable {
         }
     }
 
+    fn set_layer(&mut self, layer: TatLayer) {
+        self.layer = Some(layer);
+    }
+
     fn current_row(&self) -> u64 {
         // the idea is to avoid unwrapping/whatever everywhere
         // TODO: not sure how idiomatic this is in Rust, maybe reconsider
@@ -242,6 +261,61 @@ impl TatTable {
 
     fn update_h_scrollbar(&mut self) {
         self.h_scroll = self.h_scroll.position((self.first_column + self.current_column()) as usize);
+    }
+
+    fn jump_row(&mut self, conf: TatNavJump) {
+        let visible_rows = self.visible_rows as i64;
+        let mut jump_by = |amount: i64| {
+            let row = self.current_row();
+
+            if amount > 0 {
+                if row + amount as u64 > self.visible_rows {
+                    self.set_top_fid(self.top_fid as i64 + amount as i64);
+                } else {
+                    self.table_state.scroll_down_by(amount as u16);
+                }
+            } else {
+                if (row as i16 - amount as i16) < 0 {
+                    self.set_top_fid(self.top_fid as i64 - amount as i64);
+                } else {
+                    self.table_state.scroll_up_by(amount as u16);
+                }
+            }
+        };
+
+        match conf {
+            TatNavJump::First => {
+                self.set_top_fid(1);
+                self.table_state.select_first();
+            },
+            TatNavJump::Last => {
+                self.set_top_fid(self.max_top_fid());
+                self.table_state.select(Some(visible_rows as usize));
+            },
+            TatNavJump::ForwardOne => {
+                jump_by(1);
+            },
+            TatNavJump::BackOne => {
+                jump_by(-1);
+            },
+            TatNavJump::ForwardHalfParagraph => {
+                jump_by(visible_rows / 2 );
+            },
+            TatNavJump::BackHalfParagraph => {
+                jump_by(-(visible_rows / 2));
+            },
+            TatNavJump::ForwardParagraph => {
+                jump_by(visible_rows + 1);
+            },
+            TatNavJump::BackParagraph => {
+                jump_by(-(visible_rows + 1));
+            },
+            TatNavJump::Specific(row) => {
+                panic!("Not implemented! Cannot jump to row {}", row);
+            },
+        }
+
+        self.update_v_scrollbar();
     }
 
     fn jump_first_column(&mut self) {
@@ -339,46 +413,6 @@ impl TatTable {
         }
         self.table_state.select_next_column();
         self.update_h_scrollbar();
-    }
-
-    fn nav_up(&mut self) {
-        self.jump_forward(1);
-    }
-
-    fn nav_down(&mut self) {
-        self.jump_backward(1);
-    }
-
-    fn jump_forward(&mut self, amount: u64) {
-        let row = self.current_row();
-        if row + amount > self.visible_rows {
-            self.set_top_fid(self.top_fid as i64 + amount as i64);
-        } else {
-            self.table_state.scroll_down_by(amount as u16);
-        }
-        self.update_v_scrollbar();
-    }
-
-    fn jump_backward(&mut self, amount: u64) {
-        let row = self.current_row();
-        if (row as i16 - amount as i16) < 0 {
-            self.set_top_fid(self.top_fid as i64 - amount as i64);
-        } else {
-            self.table_state.scroll_up_by(amount as u16);
-        }
-        self.update_v_scrollbar();
-    }
-
-    fn jump_first(&mut self) {
-        self.set_top_fid(1);
-        self.table_state.select_first();
-        self.update_v_scrollbar();
-    }
-
-    fn jump_last(&mut self) {
-        self.set_top_fid(self.max_top_fid());
-        self.table_state.select(Some(self.visible_rows as usize));
-        self.update_v_scrollbar();
     }
 
     fn current_layer(&self) -> TatLayer{
@@ -534,7 +568,7 @@ impl Widget for &mut TatTable {
 
 /// This holds the program's state.
 pub struct Tat {
-    pub current_menu: Menu,
+    pub current_menu: TatMenu,
     pub quit: bool,
     dataset: TatDataset,
     list_state: ListState,
@@ -546,8 +580,8 @@ pub struct Tat {
 // impl Widget for &mut Tat {
 //     fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
 //         match self.current_menu {
-//             Menu::LayerSelect => self.render_layer_select(area, buf),
-//             Menu::Table => self.render_table(area, buf),
+//             TatMenu::LayerSelect => self.render_layer_select(area, buf),
+//             TatMenu::Table => self.render_table(area, buf),
 //         }
 //     }
 // }
@@ -557,7 +591,7 @@ impl Tat {
         let mut ls = ListState::default();
         ls.select_first();
         Self {
-            current_menu: Menu::LayerSelect,
+            current_menu: TatMenu::LayerSelect,
             quit: false,
             dataset: TatDataset::new(&ds),
             list_state: ls,
@@ -570,7 +604,7 @@ impl Tat {
     pub fn run(mut self, terminal: &mut DefaultTerminal) -> Result<()> {
         while !self.quit {
             terminal.draw(|frame| {
-                self.render(frame);
+                self.draw(frame);
                 if self.log_visible {
                     self.draw_log(frame.area(), frame);
                 }
@@ -583,10 +617,10 @@ impl Tat {
         Ok(())
     }
 
-    pub fn render(&mut self, frame: &mut Frame) {
+    pub fn draw(&mut self, frame: &mut Frame) {
         match self.current_menu {
-            Menu::LayerSelect => self.render_layer_select(frame.area(), frame),
-            Menu::TableView => self.render_table_view(frame.area(), frame),
+            TatMenu::LayerSelect => self.render_layer_select(frame.area(), frame),
+            TatMenu::TableView => self.render_table_view(frame.area(), frame),
         }
     }
 
@@ -610,13 +644,12 @@ impl Tat {
             KeyCode::Char('j') | KeyCode::Down => self.nav_down(),
             KeyCode::Char('g') => self.nav_first(),
             KeyCode::Char('G') => self.nav_last(),
-            KeyCode::Char('0') => self.table.layer = Some(self.dataset.layer(self.list_state.selected().unwrap()).unwrap().clone()),
             // KeyCode::Char('0') => self.jump_first_column(),
             // KeyCode::Char('$') => self.jump_last_column(),
-            KeyCode::Char('f') if ctrl_down => self.nav_jump_forward(),
-            KeyCode::Char('b') if ctrl_down => self.nav_jump_back(),
-            KeyCode::Char('d') if ctrl_down => self.nav_jump_down(),
-            KeyCode::Char('u') if ctrl_down => self.nav_jump_up(),
+            KeyCode::Char('f') if ctrl_down => self.nav_jump_forward(50),
+            KeyCode::Char('b') if ctrl_down => self.nav_jump_back(50),
+            KeyCode::Char('d') if ctrl_down => self.nav_jump_forward(25),
+            KeyCode::Char('u') if ctrl_down => self.nav_jump_back(25),
             KeyCode::Char('L') => self.log_visible = !self.log_visible,
             KeyCode::Enter => self.open_table(),
             _ => {},
@@ -624,20 +657,21 @@ impl Tat {
     }
 
     fn open_table(&mut self) {
-        self.current_menu = Menu::TableView;
+        self.table.set_layer(self.dataset.layer(self.list_state.selected().unwrap()).unwrap().clone());
+        self.current_menu = TatMenu::TableView;
     }
 
     fn nav_left(&mut self) {
         match self.current_menu {
-            Menu::LayerSelect => (),
-            Menu::TableView => self.table.nav_left(),
+            TatMenu::LayerSelect => (),
+            TatMenu::TableView => self.table.nav_left(),
         }
     }
 
     fn nav_right(&mut self) {
         match self.current_menu {
-            Menu::LayerSelect => (),
-            Menu::TableView => self.table.nav_right(),
+            TatMenu::LayerSelect => (),
+            TatMenu::TableView => self.table.nav_right(),
         }
     }
 
@@ -648,72 +682,54 @@ impl Tat {
         }
 
         match self.current_menu {
-            Menu::TableView => {
+            TatMenu::TableView => {
                 // TODO: maybe don't reset?
                 self.table.reset();
-                self.current_menu = Menu::LayerSelect;
+                self.current_menu = TatMenu::LayerSelect;
             },
-            Menu::LayerSelect => self.close(),
+            TatMenu::LayerSelect => self.close(),
         }
     }
 
-    fn nav_jump_forward(&mut self) {
-        let jump_amount = 50;
+    fn nav_jump_forward(&mut self, amount: u16) {
         match self.current_menu {
-            Menu::LayerSelect => self.list_state.scroll_down_by(jump_amount),
-            Menu::TableView => self.table.jump_forward(jump_amount as u64),
+            TatMenu::LayerSelect => self.list_state.scroll_down_by(amount),
+            TatMenu::TableView => self.table.jump_row(TatNavJump::ForwardParagraph),
         }
     }
 
-    fn nav_jump_back(&mut self) {
-        let jump_amount = 50;
+    fn nav_jump_back(&mut self, amount: u16) {
         match self.current_menu {
-            Menu::LayerSelect => self.list_state.scroll_up_by(jump_amount),
-            Menu::TableView => self.table.jump_backward(jump_amount as u64),
-        }
-    }
-
-    fn nav_jump_up(&mut self) {
-        let jump_amount = 25;
-        match self.current_menu {
-            Menu::LayerSelect => self.list_state.scroll_up_by(jump_amount),
-            Menu::TableView => self.table.jump_forward(jump_amount as u64),
-        }
-    }
-
-    fn nav_jump_down(&mut self) {
-        let jump_amount = 25;
-        match self.current_menu {
-            Menu::LayerSelect => self.list_state.scroll_down_by(jump_amount),
-            Menu::TableView => self.table.jump_backward(jump_amount as u64),
+            TatMenu::LayerSelect => self.list_state.scroll_up_by(amount),
+            TatMenu::TableView => self.table.jump_row(TatNavJump::BackParagraph),
         }
     }
 
     fn nav_first(&mut self) {
         match self.current_menu {
-            Menu::LayerSelect => self.list_state.select_first(),
-            Menu::TableView => self.table.jump_first(),
+            TatMenu::LayerSelect => self.list_state.select_first(),
+            TatMenu::TableView => self.table.jump_row(TatNavJump::First),
         }
     }
 
     fn nav_last(&mut self) {
         match self.current_menu {
-            Menu::LayerSelect => self.list_state.select_last(),
-            Menu::TableView => self.table.jump_last(),
+            TatMenu::LayerSelect => self.list_state.select_last(),
+            TatMenu::TableView => self.table.jump_row(TatNavJump::Last),
         }
     }
 
     fn nav_up(& mut self) {
         match self.current_menu {
-            Menu::LayerSelect => self.list_state.select_previous(),
-            Menu::TableView => self.table.nav_up(),
+            TatMenu::LayerSelect => self.list_state.select_previous(),
+            TatMenu::TableView => self.table.jump_row(TatNavJump::BackOne),
         }
     }
 
     fn nav_down(& mut self) {
         match self.current_menu {
-            Menu::LayerSelect => self.list_state.select_next(),
-            Menu::TableView => self.table.nav_down(),
+            TatMenu::LayerSelect => self.list_state.select_next(),
+            TatMenu::TableView => self.table.jump_row(TatNavJump::ForwardOne),
         }
     }
 
@@ -911,10 +927,10 @@ impl Tat {
 
     fn render_footer(&self, area: Rect, frame: &mut Frame) {
         let text = match self.current_menu {
-            Menu::LayerSelect => {
+            TatMenu::LayerSelect => {
                 "<up, k> <down, j>: browse layers | <enter> open layer table | <q, ESC, ctrl+c> quit program"
             },
-            Menu::TableView => {
+            TatMenu::TableView => {
                 "<left, h> <down, j> <up, k> <right, l>: browse table | <q, esc> return to layer selection | <ctrl+c> quit program"
             }
         };
