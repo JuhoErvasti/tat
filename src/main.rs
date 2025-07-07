@@ -5,6 +5,9 @@ use std::{env::{self, temp_dir}, fs::{File, OpenOptions}, process::exit};
 use cli_log::*;
 use std::io::prelude::*;
 
+mod table;
+mod types;
+mod layerlist;
 mod tat;
 
 fn show_usage() {
