@@ -9,6 +9,7 @@ mod table;
 mod types;
 mod layerlist;
 mod tat;
+mod navparagraph;
 
 fn show_usage() {
     // TODO:

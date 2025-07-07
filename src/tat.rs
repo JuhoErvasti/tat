@@ -1,11 +1,13 @@
-use std::{env::temp_dir, fs::File, io::{BufRead, Result}};
+use std::{env::temp_dir, fmt::format, fs::File, io::{BufRead, Result}};
 
 use cli_log::debug;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use gdal::{vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, LayerAccess}, Dataset, Metadata};
-use ratatui::{style::Stylize, layout::{Constraint, Flex, Layout, Rect}, symbols, text::Line, widgets::{Block, BorderType, Borders, Clear, ListState, Paragraph}, DefaultTerminal, Frame};
+use ratatui::{layout::{Constraint, Flex, Layout, Rect}, style::{palette::tailwind, Style, Stylize}, symbols::{self, scrollbar::DOUBLE_VERTICAL}, text::Line, widgets::{Block, BorderType, Borders, Clear, ListState, Paragraph, Scrollbar, ScrollbarOrientation}, DefaultTerminal, Frame};
 
-use crate::{layerlist::TatLayerList, types::TatNavJump};
+use std::fmt::Write;
+
+use crate::{layerlist::TatLayerList, navparagraph::TatNavigableParagraph, types::TatNavJump};
 use crate::table::TatTable;
 
 pub const LAYER_LIST_BORDER: symbols::border::Set = symbols::border::Set {
@@ -35,6 +37,11 @@ pub enum TatMenu {
     TableView,
 }
 
+pub enum TatLayerSelectFocusedBlock {
+    LayerList,
+    LayerInfo,
+}
+
 /// This holds the program's state.
 pub struct Tat {
     pub current_menu: TatMenu,
@@ -42,6 +49,7 @@ pub struct Tat {
     log_visible: bool,
     table: TatTable,
     layerlist: TatLayerList,
+    focused_block: TatLayerSelectFocusedBlock,
 }
 
 impl Tat {
@@ -54,6 +62,7 @@ impl Tat {
             log_visible: false,
             table: TatTable::new(),
             layerlist: TatLayerList::new(&ds),
+            focused_block: TatLayerSelectFocusedBlock::LayerList,
         }
     }
 
@@ -90,6 +99,8 @@ impl Tat {
         }
 
         let ctrl_down: bool = key.modifiers.contains(KeyModifiers::CONTROL);
+        let in_layer_list: bool = matches!(self.current_menu, TatMenu::LayerSelect) && matches!(self.focused_block, TatLayerSelectFocusedBlock::LayerList);
+        let in_table: bool = matches!(self.current_menu, TatMenu::TableView);
 
         match key.code {
             KeyCode::Char('c') => self.close(),
@@ -104,11 +115,31 @@ impl Tat {
             KeyCode::Char('u') if ctrl_down => self.delegate_jump(TatNavJump::UpHalfParagraph),
             KeyCode::Char('f') if ctrl_down => self.delegate_jump(TatNavJump::DownParagraph),
             KeyCode::Char('b') if ctrl_down => self.delegate_jump(TatNavJump::UpParagraph),
-            KeyCode::Char('0') => self.table.jump_first_column(),
-            KeyCode::Char('$') => self.table.jump_last_column(),
             KeyCode::Char('L') => self.log_visible = !self.log_visible,
-            KeyCode::Enter => self.open_table(),
+            KeyCode::Char('0') => {
+                if in_table {
+                    self.table.jump_first_column();
+                }
+            }
+            KeyCode::Char('$') => {
+                if in_table {
+                    self.table.jump_last_column();
+                }
+            }
+            KeyCode::Enter => {
+                if !in_table && in_layer_list {
+                    self.open_table();
+                }
+            },
+            KeyCode::Tab | KeyCode::BackTab => self.cycle_block_selection(),
             _ => {},
+        }
+    }
+
+    fn cycle_block_selection(&mut self) {
+        self.focused_block = match self.focused_block {
+            TatLayerSelectFocusedBlock::LayerList => TatLayerSelectFocusedBlock::LayerInfo,
+            TatLayerSelectFocusedBlock::LayerInfo => TatLayerSelectFocusedBlock::LayerList,
         }
     }
 
@@ -149,7 +180,12 @@ impl Tat {
 
     fn delegate_jump(&mut self, conf: TatNavJump) {
         match self.current_menu {
-            TatMenu::LayerSelect => self.layerlist.jump(conf),
+            TatMenu::LayerSelect => {
+                match self.focused_block {
+                    TatLayerSelectFocusedBlock::LayerList => self.layerlist.jump(conf),
+                    TatLayerSelectFocusedBlock::LayerInfo => self.layerlist.current_layer_info().jump(conf),
+                }
+            },
             TatMenu::TableView => self.table.jump_row(conf),
         }
     }
@@ -195,62 +231,41 @@ impl Tat {
     }
 
     fn render_layer_select(&mut self, area: Rect, frame: &mut Frame) {
-        if self.layerlist.gdal_ds.layer_count() == 0 {
-            let [header_area, dataset_area, footer_area] = Layout::vertical([
-                Constraint::Length(2),
+        let [header_area, dataset_area, layer_area, footer_area] = Layout::vertical([
+            Constraint::Length(2),
+            Constraint::Length(4),
+            Constraint::Fill(1),
+            Constraint::Length(1),
+        ])
+        .areas(area);
+
+        let [list_area, info_area] =
+            Layout::horizontal([
                 Constraint::Fill(1),
-                Constraint::Length(1),
-            ])
-            .areas(area);
+                Constraint::Fill(4),
+        ]).areas(layer_area);
 
-            Tat::render_header(header_area, frame);
-            self.render_dataset_info(dataset_area, frame);
-            self.render_footer(footer_area, frame);
-        } else {
-            let [header_area, dataset_area, layer_area, footer_area] = Layout::vertical([
-                Constraint::Length(2),
-                Constraint::Length(4),
-                Constraint::Fill(1),
-                Constraint::Length(1),
-            ])
-            .areas(area);
-
-            let [list_area, info_area] =
-                Layout::horizontal([
-                    Constraint::Fill(1),
-                    Constraint::Fill(4),
-            ]).areas(layer_area);
-
-            Tat::render_header(header_area, frame);
-            self.render_dataset_info(dataset_area, frame);
-            frame.render_widget(&mut self.layerlist, list_area);
-            self.render_layer_info(info_area, frame);
-            self.render_footer(footer_area, frame);
-        }
+        Tat::render_header(header_area, frame);
+        self.render_dataset_info(dataset_area, frame);
+        self.layerlist.render(list_area, frame, matches!(self.focused_block, TatLayerSelectFocusedBlock::LayerList));
+        // frame.render_widget(&mut self.layerlist, list_area);
+        self.render_layer_info(info_area, frame,  matches!(self.focused_block, TatLayerSelectFocusedBlock::LayerInfo));
+        self.render_footer(footer_area, frame);
     }
 
 
-    fn render_layer_info(&mut self, area: Rect, frame: &mut Frame) {
-        let block = Block::new()
-            .title(Line::raw(" Layer Information ").underlined().bold())
-            .borders(Borders::ALL)
-            .border_set(LAYER_INFO_BORDER);
-
-        let mut text: Vec<Line> = [].to_vec();
-
+    fn render_layer_info(&mut self, area: Rect, frame: &mut Frame, selected: bool) {
         // TODO: don't unwrap
         let layer: Layer = self.layerlist.current_layer().unwrap().gdal_layer();
 
-        text.push(Line::from(format!("- Name: {}", layer.name())));
+        let mut text: String = format!("- Name: {}\n", layer.name());
 
         if let Some(crs) = layer.spatial_ref() {
             // TODO: don't unwrap
-            text.push(Line::from(format!("- CRS: {}:{} ({})", crs.auth_name().unwrap(), crs.auth_code().unwrap(), crs.name().unwrap())));
+            write!(text, "- CRS: {}:{} ({})\n", crs.auth_name().unwrap(), crs.auth_code().unwrap(), crs.name().unwrap()).unwrap();
         }
 
-        text.push(
-            Line::from(format!("- Feature Count: {}", layer.feature_count()))
-        );
+        write!(text, "- Feature Count: {}\n", layer.feature_count()).unwrap();
 
         let defn: &Defn = layer.defn();
 
@@ -258,9 +273,7 @@ impl Tat {
         let geom_fields = defn.geom_fields();
 
         if geom_fields_count > 0 {
-            text.push(
-                Line::from("- Geometry fields:")
-            );
+            write!(text, "- Geometry fields:\n").unwrap();
             for geom_field in geom_fields {
                 let display_str: &str = if geom_field.name().is_empty() {
                     "ANONYMOUS"
@@ -269,9 +282,14 @@ impl Tat {
                 };
 
                 // TODO: don't unwrap etc.
-                text.push(
-                    Line::from(format!("    \"{}\" - ({}, {}:{})", display_str, geometry_type_to_name(geom_field.field_type()), geom_field.spatial_ref().unwrap().auth_name().unwrap(), geom_field.spatial_ref().unwrap().auth_code().unwrap()))
-                );
+                write!(
+                    text,
+                    "    \"{}\" - ({}, {}:{})\n",
+                    display_str,
+                    geometry_type_to_name(geom_field.field_type()),
+                    geom_field.spatial_ref().unwrap().auth_name().unwrap(),
+                    geom_field.spatial_ref().unwrap().auth_code().unwrap(),
+                ).unwrap();
             }
         }
 
@@ -279,20 +297,55 @@ impl Tat {
         let fields = defn.fields();
 
         if fields_count > 0 {
-            text.push(
-                Line::from("- Fields:")
-            );
+            write!(
+                text,
+                "- Fields:\n"
+            ).unwrap();
 
             for field in fields {
-                text.push(
-                    Line::from(
-                        format!("    \"{}\" - ({})", field.name(), field_type_to_name(field.field_type()))
-                    )
-                );
+                write!(
+                    text,
+                    "    \"{}\" - ({})\n",
+                    field.name(),
+                    field_type_to_name(field.field_type()),
+                ).unwrap();
             }
         }
 
-        frame.render_widget(Paragraph::new(text).block(block), area);
+        // TODO: better paletting system
+        let border_color = if selected {
+            tailwind::SLATE.c400
+        } else {
+            tailwind::SLATE.c100
+        };
+
+
+        let block = Block::bordered()
+            .title(Line::raw(" Layer Information ").underlined().bold())
+            .border_set(LAYER_INFO_BORDER)
+            .border_style(Style::default().fg(border_color));
+
+        let info = self.layerlist.current_layer_info();
+
+        frame.render_widget(
+            info.paragraph().block(block),
+            area,
+        );
+
+        // FIXME: This is probably not 100% accurate!!!
+        if info.lines() > area.height as usize {
+            let scrollbar = Scrollbar::default()
+                .orientation(ScrollbarOrientation::VerticalRight)
+                .style(Style::default())
+                .begin_symbol(Some(DOUBLE_VERTICAL.begin))
+                .end_symbol(Some(DOUBLE_VERTICAL.end));
+
+            frame.render_stateful_widget(
+                scrollbar,
+                area,
+                &mut info.scroll_state(area.height as usize),
+            );
+        }
     }
 
     fn render_footer(&self, area: Rect, frame: &mut Frame) {
