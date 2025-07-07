@@ -3,9 +3,9 @@ use std::{env::temp_dir, fs::File, io::{BufRead, Result}};
 use cli_log::debug;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use gdal::{vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, LayerAccess}, Dataset, Metadata};
-use ratatui::{style::{palette::tailwind, Style, Stylize}, layout::{Constraint, Flex, Layout, Margin, Rect}, symbols, text::Line, widgets::{Block, BorderType, Borders, Clear, HighlightSpacing, List, ListItem, ListState, Padding, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Table, TableState, Widget}, DefaultTerminal, Frame};
+use ratatui::{style::Stylize, layout::{Constraint, Flex, Layout, Rect}, symbols, text::Line, widgets::{Block, BorderType, Borders, Clear, ListState, Paragraph}, DefaultTerminal, Frame};
 
-use crate::types::{TatDataset, TatNavJump};
+use crate::{layerlist::TatLayerList, types::TatNavJump};
 use crate::table::TatTable;
 
 pub const LAYER_LIST_BORDER: symbols::border::Set = symbols::border::Set {
@@ -39,11 +39,9 @@ pub enum TatMenu {
 pub struct Tat {
     pub current_menu: TatMenu,
     pub quit: bool,
-    dataset: TatDataset,
-    list_state: ListState,
     log_visible: bool,
-    layer_index: Vec<u64>,
     table: TatTable,
+    layerlist: TatLayerList,
 }
 
 impl Tat {
@@ -53,11 +51,9 @@ impl Tat {
         Self {
             current_menu: TatMenu::LayerSelect,
             quit: false,
-            dataset: TatDataset::new(&ds),
-            list_state: ls,
             log_visible: false,
-            layer_index: Vec::new(),
             table: TatTable::new(),
+            layerlist: TatLayerList::new(&ds),
         }
     }
 
@@ -100,16 +96,16 @@ impl Tat {
             KeyCode::Char('q') | KeyCode::Esc => self.previous_menu(),
             KeyCode::Char('h') | KeyCode::Left => self.nav_left(),
             KeyCode::Char('l') | KeyCode::Right => self.nav_right(),
-            KeyCode::Char('k') | KeyCode::Up => self.nav_up(),
-            KeyCode::Char('j') | KeyCode::Down => self.nav_down(),
-            KeyCode::Char('g') => self.nav_first(),
-            KeyCode::Char('G') => self.nav_last(),
+            KeyCode::Char('g') => self.delegate_jump(TatNavJump::First),
+            KeyCode::Char('G') => self.delegate_jump(TatNavJump::Last),
+            KeyCode::Char('k') | KeyCode::Up => self.delegate_jump(TatNavJump::UpOne),
+            KeyCode::Char('j') | KeyCode::Down => self.delegate_jump(TatNavJump::DownOne),
+            KeyCode::Char('d') if ctrl_down => self.delegate_jump(TatNavJump::DownHalfParagraph),
+            KeyCode::Char('u') if ctrl_down => self.delegate_jump(TatNavJump::UpHalfParagraph),
+            KeyCode::Char('f') if ctrl_down => self.delegate_jump(TatNavJump::DownParagraph),
+            KeyCode::Char('b') if ctrl_down => self.delegate_jump(TatNavJump::UpParagraph),
             KeyCode::Char('0') => self.table.jump_first_column(),
             KeyCode::Char('$') => self.table.jump_last_column(),
-            KeyCode::Char('f') if ctrl_down => self.nav_jump_forward(50),
-            KeyCode::Char('b') if ctrl_down => self.nav_jump_back(50),
-            KeyCode::Char('d') if ctrl_down => self.nav_jump_forward(25),
-            KeyCode::Char('u') if ctrl_down => self.nav_jump_back(25),
             KeyCode::Char('L') => self.log_visible = !self.log_visible,
             KeyCode::Enter => self.open_table(),
             _ => {},
@@ -117,7 +113,7 @@ impl Tat {
     }
 
     fn open_table(&mut self) {
-        self.table.set_layer(self.dataset.layer(self.list_state.selected().unwrap()).unwrap().clone());
+        self.table.set_layer(self.layerlist.current_layer().unwrap().clone());
         self.current_menu = TatMenu::TableView;
     }
 
@@ -151,45 +147,10 @@ impl Tat {
         }
     }
 
-    fn nav_jump_forward(&mut self, amount: u16) {
+    fn delegate_jump(&mut self, conf: TatNavJump) {
         match self.current_menu {
-            TatMenu::LayerSelect => self.list_state.scroll_down_by(amount),
-            TatMenu::TableView => self.table.jump_row(TatNavJump::ForwardParagraph),
-        }
-    }
-
-    fn nav_jump_back(&mut self, amount: u16) {
-        match self.current_menu {
-            TatMenu::LayerSelect => self.list_state.scroll_up_by(amount),
-            TatMenu::TableView => self.table.jump_row(TatNavJump::BackParagraph),
-        }
-    }
-
-    fn nav_first(&mut self) {
-        match self.current_menu {
-            TatMenu::LayerSelect => self.list_state.select_first(),
-            TatMenu::TableView => self.table.jump_row(TatNavJump::First),
-        }
-    }
-
-    fn nav_last(&mut self) {
-        match self.current_menu {
-            TatMenu::LayerSelect => self.list_state.select_last(),
-            TatMenu::TableView => self.table.jump_row(TatNavJump::Last),
-        }
-    }
-
-    fn nav_up(& mut self) {
-        match self.current_menu {
-            TatMenu::LayerSelect => self.list_state.select_previous(),
-            TatMenu::TableView => self.table.jump_row(TatNavJump::BackOne),
-        }
-    }
-
-    fn nav_down(& mut self) {
-        match self.current_menu {
-            TatMenu::LayerSelect => self.list_state.select_next(),
-            TatMenu::TableView => self.table.jump_row(TatNavJump::ForwardOne),
+            TatMenu::LayerSelect => self.layerlist.jump(conf),
+            TatMenu::TableView => self.table.jump_row(conf),
         }
     }
 
@@ -210,16 +171,16 @@ impl Tat {
 
         let mut text = vec![
             // TODO: don't unwrap()
-            Line::from(format!("- URI: \"{}\"", self.dataset.gdal_ds.description().unwrap())),
-            Line::from(format!("- Driver: {} ({})", self.dataset.gdal_ds.driver().long_name(), self.dataset.gdal_ds.driver().short_name())),
+            Line::from(format!("- URI: \"{}\"", self.layerlist.gdal_ds.description().unwrap())),
+            Line::from(format!("- Driver: {} ({})", self.layerlist.gdal_ds.driver().long_name(), self.layerlist.gdal_ds.driver().short_name())),
         ];
 
-        if self.dataset.gdal_ds.metadata().count() > 0 {
+        if self.layerlist.gdal_ds.metadata().count() > 0 {
             text.push(Line::from("Metadata:"));
         }
 
-        for domain in self.dataset.gdal_ds.metadata_domains() {
-            if self.dataset.gdal_ds.metadata_domain(&domain).into_iter().len() == 0 {
+        for domain in self.layerlist.gdal_ds.metadata_domains() {
+            if self.layerlist.gdal_ds.metadata_domain(&domain).into_iter().len() == 0 {
                 continue;
             }
 
@@ -233,7 +194,7 @@ impl Tat {
                 Line::from(format!("  {} Domain:", display_str))
             );
 
-            self.dataset.gdal_ds.metadata_domain(&domain).into_iter().for_each(|values| {
+            self.layerlist.gdal_ds.metadata_domain(&domain).into_iter().for_each(|values| {
                 for value in values {
                     text.push(
                         Line::from(format!("    {}", value))
@@ -249,41 +210,12 @@ impl Tat {
         );
     }
 
-    fn render_layer_list(&mut self, area: Rect, frame: &mut Frame) {
-        let block = Block::new()
-            .title(Line::raw(" Layers ").underlined().bold())
-            .borders(Borders::ALL)
-            .border_set(LAYER_LIST_BORDER);
-
-        let items: Vec<ListItem> = self
-            .dataset
-            .gdal_ds
-            .layers()
-            .map(|layer_item| {
-                ListItem::new(Line::raw(layer_item.name()))
-            })
-            .collect();
-
-        let list = List::new(items)
-            .block(block)
-            .highlight_symbol(">")
-            .highlight_spacing(HighlightSpacing::Always);
-
-        frame.render_stateful_widget(list, area, &mut self.list_state);
-    }
-
-
-    fn selected_layer(&self) -> Layer {
-        // TODO: don't use the unwraps
-        self.dataset.gdal_ds.layer(self.list_state.selected().unwrap()).unwrap()
-    }
-
     fn render_table_view(&mut self, area: Rect, frame: &mut Frame) {
         frame.render_widget(& mut self.table, area);
     }
 
     fn render_layer_select(&mut self, area: Rect, frame: &mut Frame) {
-        if self.dataset.gdal_ds.layer_count() == 0 {
+        if self.layerlist.gdal_ds.layer_count() == 0 {
             let [header_area, dataset_area, footer_area] = Layout::vertical([
                 Constraint::Length(2),
                 Constraint::Fill(1),
@@ -311,7 +243,7 @@ impl Tat {
 
             Tat::render_header(header_area, frame);
             self.render_dataset_info(dataset_area, frame);
-            self.render_layer_list(list_area, frame);
+            frame.render_widget(&mut self.layerlist, list_area);
             self.render_layer_info(info_area, frame);
             self.render_footer(footer_area, frame);
         }
@@ -326,59 +258,57 @@ impl Tat {
 
         let mut text: Vec<Line> = [].to_vec();
 
-        if let Some(selected) = self.list_state.selected() {
+        // TODO: don't unwrap
+        let layer: Layer = self.layerlist.current_layer().unwrap().gdal_layer();
+
+        text.push(Line::from(format!("- Name: {}", layer.name())));
+
+        if let Some(crs) = layer.spatial_ref() {
             // TODO: don't unwrap
-            let layer: Layer = self.dataset.gdal_ds.layer(selected).unwrap();
+            text.push(Line::from(format!("- CRS: {}:{} ({})", crs.auth_name().unwrap(), crs.auth_code().unwrap(), crs.name().unwrap())));
+        }
 
-            text.push(Line::from(format!("- Name: {}", layer.name())));
+        text.push(
+            Line::from(format!("- Feature Count: {}", layer.feature_count()))
+        );
 
-            if let Some(crs) = layer.spatial_ref() {
-                // TODO: don't unwrap
-                text.push(Line::from(format!("- CRS: {}:{} ({})", crs.auth_name().unwrap(), crs.auth_code().unwrap(), crs.name().unwrap())));
-            }
+        let defn: &Defn = layer.defn();
 
+        let geom_fields_count = defn.geom_fields().count();
+        let geom_fields = defn.geom_fields();
+
+        if geom_fields_count > 0 {
             text.push(
-                Line::from(format!("- Feature Count: {}", layer.feature_count()))
+                Line::from("- Geometry fields:")
+            );
+            for geom_field in geom_fields {
+                let display_str: &str = if geom_field.name().is_empty() {
+                    "ANONYMOUS"
+                } else {
+                    &geom_field.name()
+                };
+
+                // TODO: don't unwrap etc.
+                text.push(
+                    Line::from(format!("    \"{}\" - ({}, {}:{})", display_str, geometry_type_to_name(geom_field.field_type()), geom_field.spatial_ref().unwrap().auth_name().unwrap(), geom_field.spatial_ref().unwrap().auth_code().unwrap()))
+                );
+            }
+        }
+
+        let fields_count = defn.fields().count();
+        let fields = defn.fields();
+
+        if fields_count > 0 {
+            text.push(
+                Line::from("- Fields:")
             );
 
-            let defn: &Defn = layer.defn();
-
-            let geom_fields_count = defn.geom_fields().count();
-            let geom_fields = defn.geom_fields();
-
-            if geom_fields_count > 0 {
+            for field in fields {
                 text.push(
-                    Line::from("- Geometry fields:")
+                    Line::from(
+                        format!("    \"{}\" - ({})", field.name(), field_type_to_name(field.field_type()))
+                    )
                 );
-                for geom_field in geom_fields {
-                    let display_str: &str = if geom_field.name().is_empty() {
-                        "ANONYMOUS"
-                    } else {
-                        &geom_field.name()
-                    };
-
-                    // TODO: don't unwrap etc.
-                    text.push(
-                        Line::from(format!("    \"{}\" - ({}, {}:{})", display_str, geometry_type_to_name(geom_field.field_type()), geom_field.spatial_ref().unwrap().auth_name().unwrap(), geom_field.spatial_ref().unwrap().auth_code().unwrap()))
-                    );
-                }
-            }
-
-            let fields_count = defn.fields().count();
-            let fields = defn.fields();
-
-            if fields_count > 0 {
-                text.push(
-                    Line::from("- Fields:")
-                );
-
-                for field in fields {
-                    text.push(
-                        Line::from(
-                            format!("    \"{}\" - ({})", field.name(), field_type_to_name(field.field_type()))
-                        )
-                    );
-                }
             }
         }
 

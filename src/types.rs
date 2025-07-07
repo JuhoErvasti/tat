@@ -3,12 +3,12 @@ use gdal::{vector::Layer, Dataset, vector::LayerAccess};
 pub enum TatNavJump {
     First,
     Last,
-    ForwardOne,
-    BackOne,
-    ForwardHalfParagraph, // half "paragraph"
-    BackHalfParagraph,
-    ForwardParagraph,
-    BackParagraph,
+    DownOne,
+    UpOne,
+    DownHalfParagraph, // half "paragraph"
+    UpHalfParagraph,
+    DownParagraph,
+    UpParagraph,
     Specific(u64),
 }
 
@@ -133,40 +133,3 @@ impl TatLayer {
     }
 }
 
-// TODO: reconsider the public members
-pub struct TatDataset {
-    pub gdal_ds: &'static Dataset,
-    pub layers: Vec<TatLayer>,
-}
-
-impl TatDataset {
-    pub fn new(ds: &'static Dataset) -> Self {
-        Self {
-            layers: TatDataset::layers_from_ds(&ds),
-            gdal_ds: ds,
-        }
-    }
-
-    pub fn layers_from_ds(ds: &'static Dataset) -> Vec<TatLayer> {
-        let mut layers: Vec<TatLayer> = vec![];
-        for (i, _) in ds.layers().enumerate() {
-            let mut lyr = TatLayer::new(&ds, i);
-            lyr.build_feature_index();
-            layers.push(lyr);
-        }
-
-        layers
-    }
-
-    pub fn gdal_layer<'a>(&'a self, layer_index: usize) -> Layer<'a> {
-        match self.gdal_ds.layer(layer_index) {
-            Ok(lyr) => lyr,
-            // TODO: maybe don't panic
-            Err(_) => panic!(),
-        }
-    }
-
-    pub fn layer<'a>(&'a self, layer_index: usize) -> Option<&'a TatLayer> {
-        self.layers.get(layer_index)
-    }
-}

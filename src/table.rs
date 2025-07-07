@@ -1,4 +1,4 @@
-use ratatui::{layout::{Constraint, Layout, Margin}, style::{palette::tailwind, Style, Stylize}, symbols, text::Line, widgets::{Block, Borders, Padding, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Table, TableState, Widget}};
+use ratatui::{layout::{Constraint, Layout, Margin}, style::{palette::tailwind, Style, Stylize}, symbols::{self, scrollbar::{DOUBLE_HORIZONTAL, DOUBLE_VERTICAL}}, text::Line, widgets::{Block, Borders, Padding, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Table, TableState, Widget}};
 use gdal::vector::LayerAccess;
 
 use crate::types::{TatLayer, TatNavJump};
@@ -95,22 +95,22 @@ impl TatTable {
                 self.set_top_fid(self.max_top_fid());
                 self.table_state.select(Some(visible_rows as usize));
             },
-            TatNavJump::ForwardOne => {
+            TatNavJump::DownOne => {
                 jump_by(1);
             },
-            TatNavJump::BackOne => {
+            TatNavJump::UpOne => {
                 jump_by(-1);
             },
-            TatNavJump::ForwardHalfParagraph => {
+            TatNavJump::DownHalfParagraph => {
                 jump_by(visible_rows / 2 );
             },
-            TatNavJump::BackHalfParagraph => {
+            TatNavJump::UpHalfParagraph => {
                 jump_by(-(visible_rows / 2));
             },
-            TatNavJump::ForwardParagraph => {
+            TatNavJump::DownParagraph => {
                 jump_by(visible_rows);
             },
-            TatNavJump::BackParagraph => {
+            TatNavJump::UpParagraph => {
                 jump_by(-(visible_rows));
             },
             TatNavJump::Specific(row) => {
@@ -350,21 +350,49 @@ impl Widget for &mut TatTable {
 
         let vert_scrollbar = Scrollbar::default()
                 .orientation(ScrollbarOrientation::VerticalRight)
-                .begin_symbol(None)
-                .end_symbol(None);
+                .begin_symbol(Some(DOUBLE_VERTICAL.begin))
+                .end_symbol(Some(DOUBLE_VERTICAL.end));
 
         let horz_scrollbar = Scrollbar::default()
                 .orientation(ScrollbarOrientation::HorizontalBottom)
-                .begin_symbol(None)
-                .end_symbol(None);
+                .begin_symbol(Some(DOUBLE_HORIZONTAL.begin))
+                .end_symbol(Some(DOUBLE_HORIZONTAL.end));
 
         if !all_columns_visible {
-            StatefulWidget::render(vert_scrollbar, table_area.inner(Margin { horizontal: 0, vertical: 1 }), buf, &mut self.v_scroll);
-            StatefulWidget::render(table, table_area.inner(Margin {horizontal: 1, vertical: 1 }), buf, &mut self.table_state);
-            StatefulWidget::render(horz_scrollbar, table_area.inner(Margin { horizontal: 1, vertical: 0 }), buf, &mut self.h_scroll);
+            StatefulWidget::render(
+                vert_scrollbar,
+                table_area.inner(Margin {horizontal: 0, vertical: 1}),
+                buf,
+                &mut self.v_scroll,
+            );
+
+            StatefulWidget::render(
+                table,
+                table_area.inner(Margin {horizontal: 1, vertical: 1}),
+                buf,
+                &mut self.table_state,
+            );
+
+            StatefulWidget::render(
+                horz_scrollbar,
+                table_area.inner(Margin {horizontal: 1, vertical: 0}),
+                buf,
+                &mut self.h_scroll,
+            );
         } else {
-            StatefulWidget::render(vert_scrollbar, table_area, buf, &mut self.v_scroll);
-            StatefulWidget::render(table, table_area.inner(Margin {horizontal: 1, vertical: 0 }), buf, &mut self.table_state);
+            StatefulWidget::render(
+                vert_scrollbar,
+                table_area,
+                buf,
+                &mut self.v_scroll,
+            );
+
+            StatefulWidget::render(
+                table,
+                table_area.inner(Margin {horizontal: 1, vertical: 0}),
+                buf,
+                &mut self.table_state,
+            );
         }
     }
 }
