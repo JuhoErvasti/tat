@@ -68,6 +68,10 @@ impl TatLayer {
         }
     }
 
+    pub fn feature_count(&self) -> u64 {
+        self.gdal_layer().feature_count()
+    }
+
     pub fn gdal_layer(&self) -> Layer {
         TatLayer::get_gdal_layer(&self.ds, self.index)
     }

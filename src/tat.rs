@@ -169,39 +169,11 @@ impl Tat {
             .borders(Borders::TOP | Borders::LEFT | Borders::RIGHT)
             .border_set(symbols::border::ROUNDED);
 
-        let mut text = vec![
+        let text = vec![
             // TODO: don't unwrap()
             Line::from(format!("- URI: \"{}\"", self.layerlist.gdal_ds.description().unwrap())),
             Line::from(format!("- Driver: {} ({})", self.layerlist.gdal_ds.driver().long_name(), self.layerlist.gdal_ds.driver().short_name())),
         ];
-
-        if self.layerlist.gdal_ds.metadata().count() > 0 {
-            text.push(Line::from("Metadata:"));
-        }
-
-        for domain in self.layerlist.gdal_ds.metadata_domains() {
-            if self.layerlist.gdal_ds.metadata_domain(&domain).into_iter().len() == 0 {
-                continue;
-            }
-
-            let display_str: &str = if domain.is_empty() {
-                "Default"
-            } else {
-                &domain
-            };
-
-            text.push(
-                Line::from(format!("  {} Domain:", display_str))
-            );
-
-            self.layerlist.gdal_ds.metadata_domain(&domain).into_iter().for_each(|values| {
-                for value in values {
-                    text.push(
-                        Line::from(format!("    {}", value))
-                    );
-                }
-            });
-        }
 
         frame.render_widget(
             Paragraph::new(text)
@@ -211,7 +183,15 @@ impl Tat {
     }
 
     fn render_table_view(&mut self, area: Rect, frame: &mut Frame) {
-        frame.render_widget(& mut self.table, area);
+        let [table_area, footer_area] = Layout::vertical([
+            Constraint::Fill(1),
+            Constraint::Length(1),
+        ])
+        .areas(area);
+
+        frame.render_widget(& mut self.table, table_area);
+
+        self.render_footer(footer_area, frame);
     }
 
     fn render_layer_select(&mut self, area: Rect, frame: &mut Frame) {
@@ -229,8 +209,8 @@ impl Tat {
         } else {
             let [header_area, dataset_area, layer_area, footer_area] = Layout::vertical([
                 Constraint::Length(2),
+                Constraint::Length(4),
                 Constraint::Fill(1),
-                Constraint::Fill(3),
                 Constraint::Length(1),
             ])
             .areas(area);

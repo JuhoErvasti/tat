@@ -1,3 +1,4 @@
+use cli_log::debug;
 use ratatui::{layout::{Constraint, Layout, Margin}, style::{palette::tailwind, Style, Stylize}, symbols::{self, scrollbar::{DOUBLE_HORIZONTAL, DOUBLE_VERTICAL}}, text::Line, widgets::{Block, Borders, Padding, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Table, TableState, Widget}};
 use gdal::vector::LayerAccess;
 
@@ -41,6 +42,8 @@ impl TatTable {
     }
 
     pub fn set_layer(&mut self, layer: TatLayer) {
+        self.v_scroll = ScrollbarState::new(layer.feature_count() as usize);
+        self.h_scroll = ScrollbarState::new(layer.field_count() as usize);
         self.layer = Some(layer);
     }
 
@@ -71,7 +74,7 @@ impl TatTable {
             let row = self.current_row();
 
             if amount > 0 {
-                if row + amount as u64 > self.visible_rows {
+                if row + amount as u64 >= self.visible_rows {
                     self.set_top_fid(self.top_fid as i64 + amount as i64);
                 } else {
                     self.table_state.scroll_down_by(amount as u16);
@@ -229,26 +232,16 @@ impl TatTable {
 
 impl Widget for &mut TatTable {
     fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
-        let [table_area, footer_area] = Layout::vertical([
-            Constraint::Fill(1),
-            Constraint::Length(1),
-        ])
-        .areas(area);
-
-        // This weird order of operations is to prevent self.selected_layer()
-        // borrowing self.visible_columns
-        // To be honest I don't really get it but I'm just going with this
-        // for now. Honestly at the end of the day I might want to have
-        // some kind of layer struct to handle some of this stuff more cleanly
-        if self.current_layer().field_count() * 30 < table_area.width as u64 {
+        if self.current_layer().field_count() * 30 < area.width as u64 {
             self.visible_columns = self.current_layer().field_count() as u64;
         } else {
-            self.visible_columns = (table_area.width / 30) as u64;
+            self.visible_columns = (area.width / 30) as u64;
         }
 
         let all_columns_visible = self.visible_columns == self.current_layer().field_count() as u64;
 
-        self.visible_rows = (table_area.height - 6) as u64;
+        // TODO: tweak this
+        self.visible_rows = (area.height - 6) as u64;
 
         if all_columns_visible {
             self.visible_rows +=2;
@@ -260,7 +253,19 @@ impl Widget for &mut TatTable {
         // self.render_footer(footer_area, frame);
 
         let block = Block::new()
-            .title(Line::raw(format!(" {} (debug - visible_rows: {}, visible_columns: {} bottom_fid: {}, top_fid: {}, table_area_width: {})", layer.name, self.visible_rows, self.visible_columns, self.bottom_fid(), self.top_fid, table_area.width)).centered().bold().underlined())
+            .title(
+                Line::raw(
+                    format!(
+                        " {} (debug - visible_rows: {}, visible_columns: {} bottom_fid: {}, top_fid: {}, area_width: {})",
+                        layer.name,
+                        self.visible_rows,
+                        self.visible_columns,
+                        self.bottom_fid(),
+                        self.top_fid,
+                        area.width,
+                    ),
+                ).centered().bold().underlined(),
+            )
             // .title(Line::raw(format!(" {} ", layer.name())))
             .borders(Borders::ALL)
             .padding(Padding::top(1))
@@ -361,35 +366,35 @@ impl Widget for &mut TatTable {
         if !all_columns_visible {
             StatefulWidget::render(
                 vert_scrollbar,
-                table_area.inner(Margin {horizontal: 0, vertical: 1}),
+                area.inner(Margin {horizontal: 0, vertical: 1}),
                 buf,
                 &mut self.v_scroll,
             );
 
             StatefulWidget::render(
                 table,
-                table_area.inner(Margin {horizontal: 1, vertical: 1}),
+                area.inner(Margin {horizontal: 1, vertical: 1}),
                 buf,
                 &mut self.table_state,
             );
 
             StatefulWidget::render(
                 horz_scrollbar,
-                table_area.inner(Margin {horizontal: 1, vertical: 0}),
+                area.inner(Margin {horizontal: 1, vertical: 0}),
                 buf,
                 &mut self.h_scroll,
             );
         } else {
             StatefulWidget::render(
                 vert_scrollbar,
-                table_area,
+                area,
                 buf,
                 &mut self.v_scroll,
             );
 
             StatefulWidget::render(
                 table,
-                table_area.inner(Margin {horizontal: 1, vertical: 0}),
+                area.inner(Margin {horizontal: 1, vertical: 0}),
                 buf,
                 &mut self.table_state,
             );

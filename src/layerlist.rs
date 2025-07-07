@@ -96,8 +96,9 @@ impl Widget for &mut TatLayerList {
 
         let list = List::new(items)
             .block(block)
-            .highlight_symbol(">")
-            .highlight_style(Style::default().fg(tailwind::SLATE.c500))
+            .highlight_style(Style::default()
+                .fg(tailwind::SLATE.c950)
+                .bg(tailwind::SLATE.c400))
             .highlight_spacing(HighlightSpacing::WhenSelected);
 
         let scrollbar = Scrollbar::default()
