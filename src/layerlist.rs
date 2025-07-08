@@ -4,7 +4,7 @@ use gdal::{vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, Laye
 use ratatui::{layout::{Constraint, Layout, Margin}, style::{palette::tailwind, Style}, symbols::{self, scrollbar::DOUBLE_VERTICAL}, text::Line, widgets::{Block, Borders, List, ListItem, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Widget}, Frame};
 use ratatui::widgets::HighlightSpacing;
 use ratatui::prelude::Stylize;
-use std::fmt::Write;
+use std::{any::Any, fmt::Write};
 
 use crate::{navparagraph::TatNavigableParagraph, tat::LAYER_LIST_BORDER, types::{TatLayer, TatNavJump}};
 
@@ -87,9 +87,7 @@ impl TatLayerList {
 
     pub fn layer_infos(layers: &Vec<TatLayer>) -> Vec<TatNavigableParagraph> {
         let mut infos: Vec<TatNavigableParagraph> = vec![];
-        for _layer in layers {
-            let layer = _layer.gdal_layer();
-
+        for layer in layers {
             let p = TatNavigableParagraph::new(TatLayerList::layer_info_text(&layer));
             infos.push(p);
         }
@@ -97,57 +95,61 @@ impl TatLayerList {
         infos
     }
 
-    fn layer_info_text(layer: &Layer) -> String {
+    fn layer_info_text(layer: &TatLayer) -> String {
         let mut text: String = format!("- Name: {}\n", layer.name());
 
-        if let Some(crs) = layer.spatial_ref() {
-            // TODO: don't unwrap
-            write!(text, "- CRS: {}:{} ({})\n", crs.auth_name().unwrap(), crs.auth_code().unwrap(), crs.name().unwrap()).unwrap();
+        if let Some(crs) = layer.crs() {
+            write!(
+                text,
+                "- CRS: {}:{} ({})\n",
+                crs.auth_name(),
+                crs.auth_code(),
+                crs.name(),
+            ).unwrap();
         }
 
-        write!(text, "- Feature Count: {}\n", layer.feature_count()).unwrap();
+        write!(
+            text,
+            "- Feature Count: {}\n",
+            layer.feature_count(),
+        ).unwrap();
 
-        let defn: &Defn = layer.defn();
-
-        let geom_fields_count = defn.geom_fields().count();
-        let geom_fields = defn.geom_fields();
-
-        if geom_fields_count > 0 {
+        if layer.geom_fields().len() > 0 {
             write!(text, "- Geometry fields:\n").unwrap();
-            for geom_field in geom_fields {
-                let display_str: &str = if geom_field.name().is_empty() {
-                    "ANONYMOUS"
-                } else {
-                    &geom_field.name()
-                };
 
-                // TODO: don't unwrap etc.
+            for field in layer.geom_fields() {
                 write!(
                     text,
-                    "    \"{}\" - ({}, {}:{})\n",
-                    display_str,
-                    geometry_type_to_name(geom_field.field_type()),
-                    geom_field.spatial_ref().unwrap().auth_name().unwrap(),
-                    geom_field.spatial_ref().unwrap().auth_code().unwrap(),
+                    "    \"{}\" - ({}",
+                    field.name(),
+                    field.geom_type(),
                 ).unwrap();
+
+                if let Some(crs) = field.crs() {
+                    write!(
+                        text,
+                        ", {}:{}",
+                        crs.auth_name(),
+                        crs.auth_code(),
+                    ).unwrap();
+                }
+
+                write!(text, ")\n").unwrap();
             }
         }
 
-        let fields_count = defn.fields().count();
-        let fields = defn.fields();
-
-        if fields_count > 0 {
+        if layer.fields().len() > 0 {
             write!(
                 text,
                 "- Fields:\n"
             ).unwrap();
 
-            for field in fields {
+            for field in layer.fields() {
                 write!(
                     text,
                     "    \"{}\" - ({})\n",
                     field.name(),
-                    field_type_to_name(field.field_type()),
+                    field_type_to_name(field.dtype()),
                 ).unwrap();
             }
         }
@@ -160,11 +162,10 @@ impl TatLayerList {
     }
 
     pub fn render(&mut self, area: ratatui::prelude::Rect, frame: &mut Frame, selected: bool) {
-        // TODO: better paletting system
         let border_color = if selected {
-            tailwind::SLATE.c400
+            crate::shared::palette::DEFAULT.highlighted_fg
         } else {
-            tailwind::SLATE.c100
+            crate::shared::palette::DEFAULT.default_fg
         };
 
         let block = Block::bordered()
@@ -183,14 +184,11 @@ impl TatLayerList {
 
         let list = List::new(items)
             .block(block)
-            .highlight_style(Style::default()
-                .fg(tailwind::SLATE.c950)
-                .bg(tailwind::SLATE.c400))
+            .highlight_style(crate::shared::palette::DEFAULT.selected_style())
             .highlight_spacing(HighlightSpacing::WhenSelected);
 
         let scrollbar = Scrollbar::default()
             .orientation(ScrollbarOrientation::VerticalRight)
-            .style(Style::default())
             .begin_symbol(Some(DOUBLE_VERTICAL.begin))
             .end_symbol(Some(DOUBLE_VERTICAL.end));
 

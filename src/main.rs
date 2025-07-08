@@ -10,6 +10,7 @@ mod types;
 mod layerlist;
 mod tat;
 mod navparagraph;
+mod shared;
 
 fn show_usage() {
     // TODO:

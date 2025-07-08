@@ -1,7 +1,12 @@
-use cli_log::debug;
-use ratatui::{style::{palette::tailwind, Style}, text::Line, widgets::{Block, Paragraph, ScrollbarState, Widget}};
+use std::usize;
 
-use crate::{tat::LAYER_INFO_BORDER, types::TatNavJump};
+use cli_log::debug;
+use ratatui::widgets::{
+    Paragraph,
+    ScrollbarState,
+};
+
+use crate::types::TatNavJump;
 
 
 
@@ -27,9 +32,7 @@ impl TatNavigableParagraph {
         .scroll((self.scroll_offset as u16, 0))
     }
 
-    pub fn scroll_state(&self, available_rows: usize) -> ScrollbarState {
-        // TODO: don't show scrollbar if rows don't overflow
-        debug!("{} {}", self.lines, self.scroll_offset);
+    pub fn scroll_state(&self) -> ScrollbarState {
         ScrollbarState::new(self.lines - 1)
         .position(self.scroll_offset)
     }
@@ -42,8 +45,8 @@ impl TatNavigableParagraph {
                 new_offset = 0;
             }
 
-            if new_offset > (self.lines - 1) as i64 {
-                new_offset = (self.lines - 1) as i64
+            if new_offset > self.last_scrollable_line() as i64 {
+                new_offset = self.last_scrollable_line() as i64
             }
 
             self.scroll_offset = new_offset as usize;
@@ -51,7 +54,7 @@ impl TatNavigableParagraph {
 
         match conf {
             TatNavJump::First => self.scroll_offset = 0,
-            TatNavJump::Last => self.scroll_offset = self.lines,
+            TatNavJump::Last => self.scroll_offset = self.last_scrollable_line(),
             TatNavJump::DownOne => {
                 jump_by(1);
             },
@@ -78,6 +81,10 @@ impl TatNavigableParagraph {
 
     pub fn lines(&self) -> usize {
         self.lines
+    }
+
+    fn last_scrollable_line(&self) -> usize {
+        self.lines - 1
     }
 
     fn count_lines(text: &str) -> usize {

@@ -1,8 +1,36 @@
 use cli_log::debug;
-use ratatui::{layout::{Constraint, Layout, Margin}, style::{palette::tailwind, Style, Stylize}, symbols::{self, scrollbar::{DOUBLE_HORIZONTAL, DOUBLE_VERTICAL}}, text::Line, widgets::{Block, Borders, Padding, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Table, TableState, Widget}};
+
+use ratatui::{
+    layout::{
+        Constraint,
+        Margin,
+    },
+    style::Stylize,
+    symbols::scrollbar::{
+        DOUBLE_HORIZONTAL,
+        DOUBLE_VERTICAL,
+    },
+    text::Line,
+    widgets::{
+        Block,
+        Borders,
+        Padding,
+        Row,
+        Scrollbar,
+        ScrollbarOrientation,
+        ScrollbarState,
+        StatefulWidget,
+        Table,
+        TableState,
+        Widget,
+    },
+};
 use gdal::vector::LayerAccess;
 
-use crate::types::{TatLayer, TatNavJump};
+use crate::types::{
+    TatLayer,
+    TatNavJump,
+};
 
 pub enum TatTableMode {
     Scrolling,
@@ -43,7 +71,7 @@ impl TatTable {
 
     pub fn set_layer(&mut self, layer: TatLayer) {
         self.v_scroll = ScrollbarState::new(layer.feature_count() as usize);
-        self.h_scroll = ScrollbarState::new(layer.field_count() as usize);
+        self.h_scroll = ScrollbarState::new(layer.field_count() as usize + 1); // account for "fid" field
         self.layer = Some(layer);
     }
 
@@ -257,7 +285,7 @@ impl Widget for &mut TatTable {
                 Line::raw(
                     format!(
                         " {} (debug - visible_rows: {}, visible_columns: {} bottom_fid: {}, top_fid: {}, area_width: {})",
-                        layer.name,
+                        layer.name(),
                         self.visible_rows,
                         self.visible_columns,
                         self.bottom_fid(),
@@ -267,9 +295,11 @@ impl Widget for &mut TatTable {
                 ).centered().bold().underlined(),
             )
             // .title(Line::raw(format!(" {} ", layer.name())))
-            .borders(Borders::ALL)
+            .borders(Borders::BOTTOM)
             .padding(Padding::top(1))
-            .border_set(symbols::border::ROUNDED);
+            .fg(crate::shared::palette::DEFAULT.default_fg)
+            // .border_set(symbols::border::ROUNDED)
+            .title_bottom(Line::raw(crate::shared::SHOW_HELP).centered());
 
         let mut header_items: Vec<String> = vec![
             String::from("Feature")
@@ -302,7 +332,7 @@ impl Widget for &mut TatTable {
         }
 
         for i in self.top_fid..self.bottom_fid() + 1 {
-            let fid = match layer.feature_index.get(i as usize - 1) {
+            let fid = match layer.feature_index().get(i as usize - 1) {
                 Some(fid) => fid,
                 None => break,
             };
@@ -337,14 +367,9 @@ impl Widget for &mut TatTable {
 
         let header = Row::new(header_items);
 
-        // hs = highlight style
-        let col_hs = Style::default()
-        .fg(tailwind::SLATE.c500);
-        let row_hs = Style::default()
-        .fg(tailwind::SLATE.c500);
-        let cell_hs = Style::default()
-        .fg(tailwind::SLATE.c950)
-        .bg(tailwind::SLATE.c400);
+        let cell_hs = crate::shared::palette::DEFAULT.selected_style();
+        let col_hs = crate::shared::palette::DEFAULT.highlighted_style();
+        let row_hs = crate::shared::palette::DEFAULT.highlighted_style();
 
         let table = Table::new(rows, widths)
             .header(header.underlined())
