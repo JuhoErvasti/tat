@@ -80,7 +80,11 @@ impl TatTable {
         // TODO: not sure how idiomatic this is in Rust, maybe reconsider
         // the approach, feels like this is just trying skirt around
         // the whole point of using Options and such, but idk
-        self.table_state.selected().unwrap() as u64
+        if let Some(sel) = self.table_state.selected() {
+            return sel as u64;
+        } else {
+            return 0;
+        }
     }
 
     fn current_column(&self) -> u64 {
@@ -268,8 +272,11 @@ impl Widget for &mut TatTable {
 
         let all_columns_visible = self.visible_columns == self.current_layer().field_count() as u64;
 
-        // TODO: tweak this
-        self.visible_rows = (area.height - 6) as u64;
+        if area.height >=6 {
+            self.visible_rows = (area.height - 6) as u64;
+        } else {
+            self.visible_rows = 0;
+        }
 
         if all_columns_visible {
             self.visible_rows +=2;
@@ -307,6 +314,10 @@ impl Widget for &mut TatTable {
 
         let mut field_idx = 0;
         for field in layer.gdal_layer().defn().fields() {
+            if self.visible_columns == 0 {
+                break;
+            }
+
             if field_idx < self.first_column {
                 field_idx += 1;
                 continue;

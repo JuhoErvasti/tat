@@ -177,7 +177,7 @@ impl TatLayerList {
         };
 
         let block = Block::bordered()
-            .title(Line::raw(" Layers ").underlined().bold())
+            .title(Line::raw(crate::shared::TITLE_LAYER_LIST).underlined().bold())
             .border_set(LAYER_LIST_BORDER)
             .border_style(Style::default().fg(border_color)
         );
@@ -198,24 +198,32 @@ impl TatLayerList {
 
         frame.render_stateful_widget(list, area, &mut self.state);
 
-        self.available_rows = area.height as usize - 2; // account for borders
+        if area.height >= 2 {
+            self.available_rows = area.height as usize - 2; // account for borders
+        } else {
+            self.available_rows = 0;
+        }
+
         if self.layers.len() > self.available_rows as usize {
             let scrollbar = Scrollbar::default()
                 .orientation(ScrollbarOrientation::VerticalRight)
                 .begin_symbol(Some(DOUBLE_VERTICAL.begin))
                 .end_symbol(Some(DOUBLE_VERTICAL.end));
 
-            let [_, scrollbar_area] = Layout::horizontal([
+            let [_, mut scrollbar_area] = Layout::horizontal([
                 Constraint::Fill(1),
                 Constraint::Length(1),
             ])
             .areas(area);
 
-            frame.render_stateful_widget(
-                scrollbar,
-                scrollbar_area.inner(Margin { horizontal: 0, vertical: 1 }),
-                &mut self.scroll,
-            );
+            scrollbar_area = scrollbar_area.inner(Margin { horizontal: 0, vertical: 1 });
+            if !scrollbar_area.is_empty() {
+                frame.render_stateful_widget(
+                    scrollbar,
+                    scrollbar_area,
+                    &mut self.scroll,
+                );
+            }
         }
     }
 

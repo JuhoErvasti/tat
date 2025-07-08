@@ -51,7 +51,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::{layerlist::TatLayerList, types::TatNavJump};
+use crate::{layerlist::TatLayerList, shared, types::TatNavJump};
 use crate::table::TatTable;
 
 pub const LAYER_LIST_BORDER: symbols::border::Set = symbols::border::Set {
@@ -160,6 +160,8 @@ impl Tat {
             KeyCode::Char('u') if ctrl_down => self.delegate_jump(TatNavJump::UpHalfParagraph),
             KeyCode::Char('f') if ctrl_down => self.delegate_jump(TatNavJump::DownParagraph),
             KeyCode::Char('b') if ctrl_down => self.delegate_jump(TatNavJump::UpParagraph),
+            KeyCode::PageDown => self.delegate_jump(TatNavJump::DownParagraph),
+            KeyCode::PageUp => self.delegate_jump(TatNavJump::UpParagraph),
             KeyCode::Char('L') => self.log_visible = !self.log_visible,
             KeyCode::Char('0') => {
                 if in_table {
@@ -249,7 +251,7 @@ impl Tat {
 
     fn render_header(area: Rect, frame: &mut Frame) {
         frame.render_widget(
-            Paragraph::new("Terminal Attribute Table")
+            Paragraph::new(crate::shared::TITLE_PROGRAM)
                 .bold()
                 .centered()
                 .fg(crate::shared::palette::DEFAULT.default_fg),
@@ -260,7 +262,7 @@ impl Tat {
     fn render_dataset_info(&mut self, area: Rect, frame: &mut Frame) {
         let block = Block::new()
             .fg(crate::shared::palette::DEFAULT.default_fg)
-            .title_top(Line::raw(" Dataset ").left_aligned().underlined().bold())
+            .title_top(Line::raw(crate::shared::TITLE_DATASET_INFO).underlined().bold())
             .borders(Borders::TOP | Borders::LEFT | Borders::RIGHT)
             .border_set(symbols::border::ROUNDED)
             .title_top(Line::raw(crate::shared::SHOW_HELP).centered());
@@ -309,7 +311,6 @@ impl Tat {
         Tat::render_header(header_area, frame);
         self.render_dataset_info(dataset_area, frame);
         self.layerlist.render(list_area, frame, matches!(self.focused_block, TatLayerSelectFocusedBlock::LayerList));
-        // frame.render_widget(&mut self.layerlist, list_area);
         self.render_layer_info(info_area, frame,  matches!(self.focused_block, TatLayerSelectFocusedBlock::LayerInfo));
     }
 
@@ -324,7 +325,7 @@ impl Tat {
 
 
         let block = Block::bordered()
-            .title(Line::raw(" Layer Information ").underlined().bold())
+            .title(Line::raw(crate::shared::TITLE_LAYER_INFO).bold().underlined())
             .fg(crate::shared::palette::DEFAULT.default_fg)
             .border_set(LAYER_INFO_BORDER)
             .border_style(border_style);
@@ -336,7 +337,12 @@ impl Tat {
             area,
         );
 
-        let max_visible_rows = area.height - 2; // account for borders
+        let max_visible_rows = if area.height >= 2 {
+            area.height - 2
+        } else {
+            0
+        };
+
         info.set_available_rows(max_visible_rows as usize);
 
         if info.lines() > max_visible_rows as usize {
@@ -346,12 +352,15 @@ impl Tat {
                 .begin_symbol(Some(DOUBLE_VERTICAL.begin))
                 .end_symbol(Some(DOUBLE_VERTICAL.end));
 
-            frame.render_stateful_widget(
-                scrollbar,
-                area.inner(
-                Margin { horizontal: 1, vertical: 1 }),
-                &mut info.scroll_state(),
-            );
+            let scrollbar_area = area.inner(Margin { horizontal: 1, vertical: 1 });
+
+            if !scrollbar_area.is_empty() {
+                frame.render_stateful_widget(
+                    scrollbar,
+                    scrollbar_area,
+                    &mut info.scroll_state(),
+                );
+            }
         }
     }
 
@@ -374,7 +383,7 @@ impl Tat {
         let block = Paragraph::new(text)
             .block(
                 Block::default()
-                    .title("GDAL Log")
+                    .title(crate::shared::TITLE_GDAL_LOG)
                     .borders(Borders::ALL)
                     .border_type(BorderType::Rounded)
             );

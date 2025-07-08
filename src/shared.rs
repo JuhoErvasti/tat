@@ -1,6 +1,11 @@
 use ratatui::style::{palette::tailwind, Color, Style};
 
 pub const SHOW_HELP: &str = " <type ? to show help> ";
+pub const TITLE_PROGRAM: &str = " Terminal Attribute Table ";
+pub const TITLE_DATASET_INFO: &str = " Dataset ";
+pub const TITLE_LAYER_INFO: &str = " Layer Information ";
+pub const TITLE_GDAL_LOG: &str = " GDAL Log ";
+pub const TITLE_LAYER_LIST: &str = " Layers ";
 
 /// Common colors
 pub struct TatPalette {
