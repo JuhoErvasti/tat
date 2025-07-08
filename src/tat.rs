@@ -163,12 +163,12 @@ impl Tat {
             KeyCode::PageDown => self.delegate_jump(TatNavJump::DownParagraph),
             KeyCode::PageUp => self.delegate_jump(TatNavJump::UpParagraph),
             KeyCode::Char('L') => self.log_visible = !self.log_visible,
-            KeyCode::Char('0') => {
+            KeyCode::Char('0') | KeyCode::Home => {
                 if in_table {
                     self.table.jump_first_column();
                 }
             }
-            KeyCode::Char('$') => {
+            KeyCode::Char('$') | KeyCode::End => {
                 if in_table {
                     self.table.jump_last_column();
                 }
