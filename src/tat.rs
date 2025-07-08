@@ -315,7 +315,7 @@ impl Tat {
 
         let title = format!(
                 "Value of \"{}\" for Feature {}",
-                self.table.relative_highlighted_column(),
+                self.table.current_column_name(),
                 self.table.selected_fid(),
             );
 
