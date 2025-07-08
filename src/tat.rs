@@ -5,7 +5,9 @@ use std::{
     }
 };
 
-use cli_log::debug;
+use cli_clipboard::{ClipboardContext, ClipboardProvider};
+
+use cli_log::{debug, error};
 use crossterm::event::{
     self,
     Event,
@@ -49,7 +51,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::{layerlist::TatLayerList, navparagraph::TatNavigableParagraph, shared::{self, HELP_TEXT_TABLE}, types::TatNavJump};
+use crate::{layerlist::TatLayerList, navparagraph::TatNavigableParagraph, shared::{self, HELP_TEXT_TABLE}, types::{TatNavJump, TatPopUpType, TatPopup}};
 use crate::table::TatTable;
 
 pub const LAYER_LIST_BORDER: symbols::border::Set = symbols::border::Set {
@@ -89,55 +91,6 @@ pub enum TatLayerSelectFocusedBlock {
 
 // TODO: a lot of these probably don't have to be public
 
-// TODO: move to types.rs
-pub enum TatPopUpType {
-    // TODO: really not sure this is that necessary?
-    Help,
-    GdalLog,
-    DebugLog,
-    FullValue,
-}
-
-pub struct TatPopup {
-    title: String,
-    paragraph: TatNavigableParagraph,
-    ptype: TatPopUpType,
-}
-
-impl TatPopup {
-    pub fn new(title: String, paragraph: TatNavigableParagraph, ptype: TatPopUpType) -> Self {
-        Self { title, paragraph, ptype }
-    }
-
-    pub fn set_available_rows(&mut self, value: usize) {
-        self.paragraph.set_available_rows(value);
-    }
-
-    pub fn paragraph(&self) -> Paragraph {
-        self.paragraph.paragraph()
-    }
-
-    pub fn scroll_state(&self) -> ScrollbarState {
-        self.paragraph.scroll_state()
-    }
-
-    pub fn lines(&self) -> usize {
-        self.paragraph.lines()
-    }
-
-    pub fn jump(&mut self, conf: TatNavJump) {
-        self.paragraph.jump(conf);
-    }
-
-    pub fn ptype(&self) -> &TatPopUpType {
-        &self.ptype
-    }
-
-    pub fn title(&self) -> &str {
-        &self.title
-    }
-}
-
 /// This holds the program's state.
 pub struct Tat {
     current_menu: TatMenu,
@@ -146,12 +99,20 @@ pub struct Tat {
     table: TatTable,
     layerlist: TatLayerList,
     focused_block: TatLayerSelectFocusedBlock,
+    clip: Option<ClipboardContext>,
 }
 
 impl Tat {
     pub fn new(ds: &'static Dataset) -> Self {
         let mut ls = ListState::default();
         ls.select_first();
+
+        let clip_res = ClipboardContext::new();
+        let clip = match clip_res {
+            Ok(_clip) => Some(_clip),
+            Err(_) => None
+        };
+
         Self {
             current_menu: TatMenu::LayerSelect,
             quit: false,
@@ -159,6 +120,7 @@ impl Tat {
             table: TatTable::new(),
             layerlist: TatLayerList::new(&ds),
             focused_block: TatLayerSelectFocusedBlock::LayerList,
+            clip,
         }
     }
 
@@ -255,7 +217,7 @@ impl Tat {
         let popup_open: bool = self.has_popup();
 
         match key.code {
-            KeyCode::Char('c') if ctrl_down => self.close(),
+            KeyCode::Char('q') if ctrl_down => self.close(),
             KeyCode::Char('q') | KeyCode::Esc => self.previous_menu(),
             KeyCode::Char('g') => self.delegate_jump(TatNavJump::First),
             KeyCode::Char('G') => self.delegate_jump(TatNavJump::Last),
@@ -267,6 +229,20 @@ impl Tat {
             KeyCode::Char('b') if ctrl_down => self.delegate_jump(TatNavJump::UpParagraph),
             KeyCode::PageDown => self.delegate_jump(TatNavJump::DownParagraph),
             KeyCode::PageUp => self.delegate_jump(TatNavJump::UpParagraph),
+            KeyCode::Char('c') if ctrl_down => {
+                if !in_table {
+                    return;
+                }
+
+                if let Some(clip) = self.clip.as_mut() {
+                    if let Some(text_to_copy) = self.table.selected_value() {
+                        match clip.set_contents(text_to_copy) {
+                            Ok(()) => return,
+                            Err(e) => error!("Could not set clipboard contents: {}", e.to_string()),
+                        }
+                    }
+                }
+            }
             KeyCode::Char('L') =>  {
                 if !popup_open {
                     self.show_gdal_log();
@@ -344,11 +320,11 @@ impl Tat {
             );
 
         self.modal_popup = Some(
-            TatPopup {
+            TatPopup::new(
                 title,
-                paragraph: p,
-                ptype: TatPopUpType::FullValue,
-            }
+                p,
+                TatPopUpType::FullValue,
+            )
         )
     }
 
@@ -362,11 +338,11 @@ impl Tat {
 
         let p = TatNavigableParagraph::new(text);
         self.modal_popup = Some(
-            TatPopup {
-                title: crate::shared::TITLE_DEBUG_LOG.to_string(),
-                paragraph: p,
-                ptype: TatPopUpType::DebugLog,
-            }
+            TatPopup::new(
+                crate::shared::TITLE_DEBUG_LOG.to_string(),
+                p,
+                TatPopUpType::DebugLog,
+            )
         )
     }
 
@@ -380,11 +356,11 @@ impl Tat {
 
         let p = TatNavigableParagraph::new(text);
         self.modal_popup = Some(
-            TatPopup {
-                title: crate::shared::TITLE_GDAL_LOG.to_string(),
-                paragraph: p,
-                ptype: TatPopUpType::GdalLog,
-            }
+            TatPopup::new(
+                crate::shared::TITLE_GDAL_LOG.to_string(),
+                p,
+                TatPopUpType::GdalLog,
+            )
         )
     }
 
@@ -396,11 +372,11 @@ impl Tat {
 
         let p = TatNavigableParagraph::new(help_text);
         self.modal_popup = Some(
-            TatPopup {
-                title: crate::shared::TITLE_HELP.to_string(),
-                paragraph: p,
-                ptype: TatPopUpType::Help,
-            }
+            TatPopup::new(
+                crate::shared::TITLE_HELP.to_string(),
+                p,
+                TatPopUpType::Help,
+            )
         )
     }
 

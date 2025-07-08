@@ -1,4 +1,7 @@
 use gdal::{spatial_ref::SpatialRef, vector::{geometry_type_to_name, Layer, LayerAccess}, Dataset};
+use ratatui::widgets::{Paragraph, ScrollbarState};
+
+use crate::navparagraph::TatNavigableParagraph;
 
 pub enum TatNavJump {
     First,
@@ -258,3 +261,50 @@ impl TatLayer {
     }
 }
 
+pub enum TatPopUpType {
+    // TODO: really not sure this is that necessary?
+    Help,
+    GdalLog,
+    DebugLog,
+    FullValue,
+}
+
+pub struct TatPopup {
+    title: String,
+    paragraph: TatNavigableParagraph,
+    ptype: TatPopUpType,
+}
+
+impl TatPopup {
+    pub fn new(title: String, paragraph: TatNavigableParagraph, ptype: TatPopUpType) -> Self {
+        Self { title, paragraph, ptype }
+    }
+
+    pub fn set_available_rows(&mut self, value: usize) {
+        self.paragraph.set_available_rows(value);
+    }
+
+    pub fn paragraph(&self) -> Paragraph {
+        self.paragraph.paragraph()
+    }
+
+    pub fn scroll_state(&self) -> ScrollbarState {
+        self.paragraph.scroll_state()
+    }
+
+    pub fn lines(&self) -> usize {
+        self.paragraph.lines()
+    }
+
+    pub fn jump(&mut self, conf: TatNavJump) {
+        self.paragraph.jump(conf);
+    }
+
+    pub fn ptype(&self) -> &TatPopUpType {
+        &self.ptype
+    }
+
+    pub fn title(&self) -> &str {
+        &self.title
+    }
+}

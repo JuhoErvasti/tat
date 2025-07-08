@@ -65,10 +65,7 @@ However, here are the features I would like to add (more or less in order of imp
 - Display geometry column(s) as WKT
 - Jumping to specific FID
   - (Maybe) jumping to specific cell?
-- Allow inspecting long attributes better, maybe in a pop-up
-- Allow copying value from cell
-  - (Maybe) allow copying geometry as WKB in addition to WKT?
-- Allow browsing the dataset / layerinfo blocks if the text overflows
+- (Maybe) allow copying geometry as WKB in addition to WKT?
 - Mouse support: scrolling the table with mouse wheel
 - Visual polish
 - Pre-calculate and cache layer feature counts asynchronously to speed up opening layers with a lot of features
@@ -101,5 +98,8 @@ Not going to do:
   maybe we collect the errors and add a pop-up widget to show a log of them or something like that?
 - Show scrollbars for the layer list and the table
   - Also a scrollbar for the columns. Or some other visual indicator when not every column is shown
+- Allow copying value from cell
+- Allow inspecting long attributes better, maybe in a pop-up
+- Allow browsing the dataset / layerinfo blocks if the text overflows
 
 </details>

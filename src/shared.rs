@@ -22,7 +22,7 @@ Basic Navigation:
 
 General:
     q: Previous Menu
-    CTRL + C or q when in Main Menu: Quit
+    CTRL + Q or q when in Main Menu: Quit
     ?: Show Help
 
 Advanced Navigation:
@@ -53,7 +53,7 @@ Basic Navigation:
 
 General:
     q: Previous Menu
-    CTRL + C: Quit
+    CTRL + Q: Quit
     ?: Show Help
 
 Advanced Navigation:

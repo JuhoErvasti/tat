@@ -32,12 +32,6 @@ use crate::types::{
     TatNavJump,
 };
 
-pub enum TatTableMode {
-    Scrolling,
-    GdalLog,
-    JumpTo,
-}
-
 /// Widget for displaying the attribute table
 pub struct TatTable {
     table_state: TableState,
