@@ -169,8 +169,8 @@ impl TatLayerList {
         self.scroll = self.scroll.position(self.state.selected().unwrap());
     }
 
-    pub fn render(&mut self, area: ratatui::prelude::Rect, frame: &mut Frame, selected: bool) {
-        let border_color = if selected {
+    pub fn render(&mut self, area: ratatui::prelude::Rect, frame: &mut Frame, highlight: bool) {
+        let border_color = if highlight {
             crate::shared::palette::DEFAULT.highlighted_fg
         } else {
             crate::shared::palette::DEFAULT.default_fg

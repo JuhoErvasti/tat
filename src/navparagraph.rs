@@ -3,7 +3,7 @@ use std::usize;
 use cli_log::debug;
 use ratatui::widgets::{
     Paragraph,
-    ScrollbarState,
+    ScrollbarState, Wrap,
 };
 
 use crate::types::TatNavJump;
@@ -32,6 +32,7 @@ impl TatNavigableParagraph {
     pub fn paragraph(&self) -> Paragraph {
         Paragraph::new(self.text.clone())
         .scroll((self.scroll_offset as u16, 0))
+        .wrap(Wrap { trim: false })
     }
 
     pub fn scroll_state(&self) -> ScrollbarState {
