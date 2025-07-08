@@ -14,7 +14,8 @@ use crate::types::TatNavJump;
 pub struct TatNavigableParagraph {
     text: String,
     lines: usize,
-    pub scroll_offset: usize, // TODO: make non-pub
+    scroll_offset: usize,
+    available_rows: usize,
 }
 
 impl TatNavigableParagraph {
@@ -24,6 +25,7 @@ impl TatNavigableParagraph {
             text,
             lines,
             scroll_offset: 0,
+            available_rows: 0,
         }
     }
 
@@ -33,11 +35,16 @@ impl TatNavigableParagraph {
     }
 
     pub fn scroll_state(&self) -> ScrollbarState {
-        ScrollbarState::new(self.lines - 1)
+        ScrollbarState::new(self.last_scrollable_line())
         .position(self.scroll_offset)
     }
 
     pub fn jump(&mut self, conf: TatNavJump) {
+        let total_rows = self.available_rows as i64;
+        if total_rows >= self.lines() as i64 {
+            return;
+        }
+
         let mut jump_by = |amount: i64| {
             let mut new_offset = self.scroll_offset as i64 + amount;
 
@@ -62,16 +69,16 @@ impl TatNavigableParagraph {
                 jump_by(-1);
             },
             TatNavJump::DownHalfParagraph => {
-                jump_by(25 );
+                jump_by(total_rows / 2 );
             },
             TatNavJump::UpHalfParagraph => {
-                jump_by(-25);
+                jump_by(-(total_rows / 2));
             },
             TatNavJump::DownParagraph => {
-                jump_by(50);
+                jump_by(total_rows);
             },
             TatNavJump::UpParagraph => {
-                jump_by(-50);
+                jump_by(-total_rows);
             },
             TatNavJump::Specific(row) => {
                 panic!("Not implemented! Cannot jump to row {}", row);
@@ -84,7 +91,7 @@ impl TatNavigableParagraph {
     }
 
     fn last_scrollable_line(&self) -> usize {
-        self.lines - 1
+        self.lines - self.available_rows
     }
 
     fn count_lines(text: &str) -> usize {
@@ -94,5 +101,13 @@ impl TatNavigableParagraph {
         }
 
         count
+    }
+
+    pub fn available_rows(&self) -> usize {
+        self.available_rows
+    }
+
+    pub fn set_available_rows(&mut self, available_rows: usize) {
+        self.available_rows = available_rows;
     }
 }

@@ -1,6 +1,6 @@
 use cli_log::debug;
 use crossterm::style::Colors;
-use gdal::{vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, LayerAccess}, Dataset};
+use gdal::{vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, LayerAccess}, Dataset, Metadata};
 use ratatui::{layout::{Constraint, Layout, Margin}, style::{palette::tailwind, Style}, symbols::{self, scrollbar::DOUBLE_VERTICAL}, text::Line, widgets::{Block, Borders, List, ListItem, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Widget}, Frame};
 use ratatui::widgets::HighlightSpacing;
 use ratatui::prelude::Stylize;
@@ -12,10 +12,10 @@ use crate::{navparagraph::TatNavigableParagraph, tat::LAYER_LIST_BORDER, types::
 pub struct TatLayerList {
     state: ListState,
     scroll: ScrollbarState,
-    // TODO: rethink this stuff, at least the gdal_ds being pub
-    pub gdal_ds: &'static Dataset,
+    gdal_ds: &'static Dataset,
     layers: Vec<TatLayer>,
     layer_infos: Vec<TatNavigableParagraph>,
+    available_rows: usize,
 }
 
 impl TatLayerList {
@@ -33,6 +33,7 @@ impl TatLayerList {
             layers: lyrs,
             gdal_ds: ds,
             layer_infos: infos,
+            available_rows: 0,
         }
     }
 
@@ -52,22 +53,20 @@ impl TatLayerList {
         self.layer(self.state.selected().unwrap())
     }
 
-    // TODO: not sure it's a good idea to return this as mutable
     pub fn current_layer_info(&mut self) -> &mut TatNavigableParagraph {
         self.layer_infos.get_mut(self.state.selected().unwrap()).unwrap()
     }
 
     pub fn jump(&mut self, conf: TatNavJump) {
-        // TODO: figure out the total number of visible layers
         match conf {
             TatNavJump::First => self.state.select_first(),
             TatNavJump::Last => self.state.select_last(),
             TatNavJump::DownOne => self.state.scroll_down_by(1),
             TatNavJump::UpOne => self.state.scroll_up_by(1),
-            TatNavJump::DownHalfParagraph => self.state.scroll_down_by(25),
-            TatNavJump::UpHalfParagraph => self.state.scroll_up_by(25),
-            TatNavJump::DownParagraph => self.state.scroll_down_by(50),
-            TatNavJump::UpParagraph => self.state.scroll_up_by(50),
+            TatNavJump::DownHalfParagraph => self.state.scroll_down_by(self.available_rows as u16 / 2),
+            TatNavJump::UpHalfParagraph => self.state.scroll_up_by(self.available_rows as u16 / 2),
+            TatNavJump::DownParagraph => self.state.scroll_down_by(self.available_rows as u16),
+            TatNavJump::UpParagraph => self.state.scroll_up_by(self.available_rows as u16),
             TatNavJump::Specific(row) => self.state.select(Some(row as usize)),
         }
 
@@ -83,6 +82,15 @@ impl TatLayerList {
         }
 
         layers
+    }
+
+    pub fn dataset_info_text(&self) -> String {
+        format!(
+            "- URI: \"{}\"\n- Driver: {} ({})",
+            self.gdal_ds().description().unwrap(),
+            self.gdal_ds().driver().long_name(),
+            self.gdal_ds().driver().short_name(),
+        )
     }
 
     pub fn layer_infos(layers: &Vec<TatLayer>) -> Vec<TatNavigableParagraph> {
@@ -187,23 +195,31 @@ impl TatLayerList {
             .highlight_style(crate::shared::palette::DEFAULT.selected_style())
             .highlight_spacing(HighlightSpacing::WhenSelected);
 
-        let scrollbar = Scrollbar::default()
-            .orientation(ScrollbarOrientation::VerticalRight)
-            .begin_symbol(Some(DOUBLE_VERTICAL.begin))
-            .end_symbol(Some(DOUBLE_VERTICAL.end));
-
-        let [_, scrollbar_area] = Layout::horizontal([
-            Constraint::Fill(1),
-            Constraint::Length(1),
-        ])
-        .areas(area);
 
         frame.render_stateful_widget(list, area, &mut self.state);
-        // TODO: don't show scrollbar if no need for it
-        frame.render_stateful_widget(
-            scrollbar,
-            scrollbar_area.inner(Margin { horizontal: 0, vertical: 1 }),
-            &mut self.scroll,
-        );
+
+        self.available_rows = area.height as usize - 2; // account for borders
+        if self.layers.len() > self.available_rows as usize {
+            let scrollbar = Scrollbar::default()
+                .orientation(ScrollbarOrientation::VerticalRight)
+                .begin_symbol(Some(DOUBLE_VERTICAL.begin))
+                .end_symbol(Some(DOUBLE_VERTICAL.end));
+
+            let [_, scrollbar_area] = Layout::horizontal([
+                Constraint::Fill(1),
+                Constraint::Length(1),
+            ])
+            .areas(area);
+
+            frame.render_stateful_widget(
+                scrollbar,
+                scrollbar_area.inner(Margin { horizontal: 0, vertical: 1 }),
+                &mut self.scroll,
+            );
+        }
+    }
+
+    fn gdal_ds(&self) -> &Dataset {
+        self.gdal_ds
     }
 }

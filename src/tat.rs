@@ -145,6 +145,7 @@ impl Tat {
         let ctrl_down: bool = key.modifiers.contains(KeyModifiers::CONTROL);
         let in_layer_list: bool = matches!(self.current_menu, TatMenu::LayerSelect) && matches!(self.focused_block, TatLayerSelectFocusedBlock::LayerList);
         let in_table: bool = matches!(self.current_menu, TatMenu::TableView);
+        let in_layer_select: bool = matches!(self.current_menu, TatMenu::LayerSelect);
 
         match key.code {
             KeyCode::Char('c') => self.close(),
@@ -175,7 +176,11 @@ impl Tat {
                     self.open_table();
                 }
             },
-            KeyCode::Tab | KeyCode::BackTab => self.cycle_block_selection(),
+            KeyCode::Tab | KeyCode::BackTab => {
+                if in_layer_select {
+                    self.cycle_block_selection();
+                }
+            }
             _ => {},
         }
     }
@@ -194,14 +199,22 @@ impl Tat {
 
     fn nav_left(&mut self) {
         match self.current_menu {
-            TatMenu::LayerSelect => self.cycle_block_selection(),
+            TatMenu::LayerSelect => {
+                if matches!(self.current_menu, TatMenu::LayerSelect) {
+                    self.cycle_block_selection();
+                }
+            },
             TatMenu::TableView => self.table.nav_left(),
         }
     }
 
     fn nav_right(&mut self) {
         match self.current_menu {
-            TatMenu::LayerSelect => self.cycle_block_selection(),
+            TatMenu::LayerSelect => {
+                if matches!(self.current_menu, TatMenu::LayerSelect) {
+                    self.cycle_block_selection();
+                }
+            },
             TatMenu::TableView => self.table.nav_right(),
         }
     }
@@ -261,14 +274,8 @@ impl Tat {
         //         }
         //     };
 
-        let text = vec![
-            // TODO: don't unwrap()
-            Line::from(format!("- URI: \"{}\"", self.layerlist.gdal_ds.description().unwrap())),
-            Line::from(format!("- Driver: {} ({})", self.layerlist.gdal_ds.driver().long_name(), self.layerlist.gdal_ds.driver().short_name())),
-        ];
-
         frame.render_widget(
-            Paragraph::new(text)
+            Paragraph::new(self.layerlist.dataset_info_text())
                 .fg(crate::shared::palette::DEFAULT.default_fg)
                 .block(block),
             area
@@ -309,10 +316,10 @@ impl Tat {
 
     fn render_layer_info(&mut self, area: Rect, frame: &mut Frame, selected: bool) {
         // TODO: better paletting system
-        let border_color = if selected {
-            crate::shared::palette::DEFAULT.highlighted_fg
+        let border_style = if selected {
+            crate::shared::palette::DEFAULT.highlighted_style()
         } else {
-            crate::shared::palette::DEFAULT.default_fg
+            crate::shared::palette::DEFAULT.default_style()
         };
 
 
@@ -320,7 +327,7 @@ impl Tat {
             .title(Line::raw(" Layer Information ").underlined().bold())
             .fg(crate::shared::palette::DEFAULT.default_fg)
             .border_set(LAYER_INFO_BORDER)
-            .border_style(Style::default().fg(border_color));
+            .border_style(border_style);
 
         let info = self.layerlist.current_layer_info();
 
@@ -329,11 +336,13 @@ impl Tat {
             area,
         );
 
-        // FIXME: This is probably not 100% accurate!!!
-        if info.lines() > area.height as usize {
+        let max_visible_rows = area.height - 2; // account for borders
+        info.set_available_rows(max_visible_rows as usize);
+
+        if info.lines() > max_visible_rows as usize {
             let scrollbar = Scrollbar::default()
                 .orientation(ScrollbarOrientation::VerticalRight)
-                .style(Style::default().fg(crate::shared::palette::DEFAULT.default_fg))
+                .style(border_style)
                 .begin_symbol(Some(DOUBLE_VERTICAL.begin))
                 .end_symbol(Some(DOUBLE_VERTICAL.end));
 

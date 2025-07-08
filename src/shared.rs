@@ -6,6 +6,7 @@ pub const SHOW_HELP: &str = " <type ? to show help> ";
 pub struct TatPalette {
     pub default_fg: Color,
     pub highlighted_fg: Color,
+    pub highlighted_darker_fg: Color,
     pub selected_bg: Color,
     pub selected_fg: Color,
 }
@@ -22,6 +23,11 @@ impl TatPalette {
         .fg(self.highlighted_fg)
     }
 
+    pub fn highlighted_darker_fg(&self) -> Style {
+        Style::default()
+        .fg(self.highlighted_darker_fg)
+    }
+
     pub fn default_style(&self) -> Style {
         Style::default()
         .fg(self.default_fg)
@@ -35,7 +41,8 @@ pub mod palette {
 
     pub const DEFAULT: TatPalette = TatPalette {
         default_fg: tailwind::SLATE.c100,
-        highlighted_fg: tailwind::SLATE.c500,
+        highlighted_fg: tailwind::SLATE.c400,
+        highlighted_darker_fg: tailwind::SLATE.c500,
         selected_bg: tailwind::SLATE.c400,
         selected_fg: tailwind::SLATE.c950,
     };

@@ -368,8 +368,8 @@ impl Widget for &mut TatTable {
         let header = Row::new(header_items);
 
         let cell_hs = crate::shared::palette::DEFAULT.selected_style();
-        let col_hs = crate::shared::palette::DEFAULT.highlighted_style();
-        let row_hs = crate::shared::palette::DEFAULT.highlighted_style();
+        let col_hs = crate::shared::palette::DEFAULT.highlighted_darker_fg();
+        let row_hs = crate::shared::palette::DEFAULT.highlighted_darker_fg();
 
         let table = Table::new(rows, widths)
             .header(header.underlined())
