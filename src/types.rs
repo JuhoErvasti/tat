@@ -217,6 +217,18 @@ impl TatLayer {
         self.fields.len() as u64
     }
 
+    pub fn get_value(&self, fid: u64, field_name: &str) -> Option<String> {
+        if let Some(f) = self.gdal_layer().feature(fid) {
+            if let Ok(Some(value)) = f.field_as_string_by_name(field_name) {
+                return Some(value)
+            } else {
+                return None
+            }
+        } else {
+            return None
+        }
+    }
+
     fn get_gdal_layer(dataset: &Dataset, layer_index: usize) -> Layer {
         match dataset.layer(layer_index) {
             Ok(lyr) => lyr,

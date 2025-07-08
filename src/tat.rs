@@ -1,10 +1,8 @@
 use std::{
-    env::temp_dir,
-    fs::File,
-    io::{
+    env::temp_dir, fmt::format, fs::File, io::{
         BufRead,
         Result,
-    },
+    }
 };
 
 use cli_log::debug;
@@ -97,6 +95,7 @@ pub enum TatPopUpType {
     Help,
     GdalLog,
     DebugLog,
+    FullValue,
 }
 
 pub struct TatPopup {
@@ -106,7 +105,6 @@ pub struct TatPopup {
 }
 
 impl TatPopup {
-
     pub fn new(title: String, paragraph: TatNavigableParagraph, ptype: TatPopUpType) -> Self {
         Self { title, paragraph, ptype }
     }
@@ -305,8 +303,15 @@ impl Tat {
                 }
             }
             KeyCode::Enter => {
-                if !in_table && in_layer_list && !popup_open {
-                    self.open_table();
+                match self.current_menu {
+                    TatMenu::LayerSelect => {
+                        if !in_table && in_layer_list && !popup_open {
+                            self.open_table();
+                        }
+                    },
+                    TatMenu::TableView => {
+                        self.show_full_value_popup();
+                    },
                 }
             },
             KeyCode::Tab | KeyCode::BackTab => {
@@ -316,6 +321,35 @@ impl Tat {
             }
             _ => {},
         }
+    }
+
+    fn show_full_value_popup(&mut self) {
+        let value = if let Some(_value) = self.table.selected_value() {
+            _value
+        } else {
+            "NULL".to_string()
+        };
+
+        let p = TatNavigableParagraph::new(
+            format!(
+                "{}",
+                value,
+            )
+        );
+
+        let title = format!(
+                "Value of \"{}\" for Feature {}",
+                self.table.relative_highlighted_column(),
+                self.table.selected_fid(),
+            );
+
+        self.modal_popup = Some(
+            TatPopup {
+                title,
+                paragraph: p,
+                ptype: TatPopUpType::FullValue,
+            }
+        )
     }
 
     fn show_debug_log(&mut self) {

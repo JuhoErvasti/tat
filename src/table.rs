@@ -87,9 +87,24 @@ impl TatTable {
         }
     }
 
-    fn current_column(&self) -> u64 {
+    pub fn relative_highlighted_column(&self) -> u64 {
         // see above (current_row)
         self.table_state.selected_column().unwrap() as u64
+    }
+
+    pub fn current_column_name(&self) -> &str {
+        if self.relative_highlighted_column() == 0 {
+            return "Feature";
+        }
+
+        if let Some(layer) = self.layer.as_ref() {
+            let field_idx = self.first_column + self.relative_highlighted_column() - 1;
+            if let Some(field) = layer.fields().get(field_idx as usize) {
+                return field.name();
+            }
+        }
+
+        "UNKNOWN"
     }
 
     fn update_v_scrollbar(&mut self) {
@@ -97,7 +112,7 @@ impl TatTable {
     }
 
     fn update_h_scrollbar(&mut self) {
-        self.h_scroll = self.h_scroll.position((self.first_column + self.current_column()) as usize);
+        self.h_scroll = self.h_scroll.position((self.first_column + self.relative_highlighted_column()) as usize);
     }
 
     pub fn jump_row(&mut self, conf: TatNavJump) {
@@ -168,6 +183,18 @@ impl TatTable {
         self.update_h_scrollbar();
     }
 
+    pub fn selected_fid(&self) -> u64 {
+        self.top_fid + self.current_row()
+    }
+
+    pub fn selected_value(&self) -> Option<String> {
+        if let Some(layer) = self.layer.as_ref() {
+            layer.get_value(self.selected_fid(), self.current_column_name())
+        } else {
+            None
+        }
+    }
+
     fn set_first_column(&mut self, col: i64) {
         let max_first_column: i64 = self.layer.as_ref().unwrap().field_count() as i64 - self.visible_columns as i64;
 
@@ -220,7 +247,7 @@ impl TatTable {
     }
 
     pub fn nav_left(&mut self) {
-        let col = self.current_column();
+        let col = self.relative_highlighted_column();
         if col == 0 {
             if self.first_column == 0 {
                 let cols =  self.layer.as_ref().unwrap().field_count();
@@ -237,7 +264,7 @@ impl TatTable {
     }
 
     pub fn nav_right(&mut self) {
-        let col = self.current_column();
+        let col = self.relative_highlighted_column();
         if col == self.visible_columns {
             let cols =  self.layer.as_ref().unwrap().field_count();
             if self.first_column + col == cols {
