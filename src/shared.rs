@@ -49,7 +49,10 @@ Basic Navigation:
      or j: Down
      or k: Up
      or l: Right
-    Enter: Display Selected value in Pop-Up 
+
+Table:
+    Enter: Display Selected Value in Pop-Up 
+    CTRL + C: Copy Selected Value to Clipboard
 
 General:
     q: Previous Menu
