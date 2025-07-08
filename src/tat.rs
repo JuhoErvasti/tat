@@ -45,7 +45,7 @@ use ratatui::{
         ListState,
         Paragraph,
         Scrollbar,
-        ScrollbarOrientation,
+        ScrollbarOrientation, ScrollbarState,
     },
     DefaultTerminal,
     Frame,
@@ -98,32 +98,44 @@ pub enum TatPopUpType {
     GdalLog,
 }
 
-impl TatPopUpType {
-    pub fn to_title(self) -> String {
-        match self {
-            TatPopUpType::Help => crate::shared::TITLE_HELP.to_string(),
-            TatPopUpType::GdalLog => crate::shared::TITLE_GDAL_LOG.to_string(),
-        }
-    }
-}
-
 pub struct TatPopup {
+    title: String,
     paragraph: TatNavigableParagraph,
     ptype: TatPopUpType,
 }
 
 impl TatPopup {
 
-    pub fn new(paragraph: TatNavigableParagraph, ptype: TatPopUpType) -> Self {
-        Self { paragraph, ptype }
+    pub fn new(title: String, paragraph: TatNavigableParagraph, ptype: TatPopUpType) -> Self {
+        Self { title, paragraph, ptype }
     }
 
-    pub fn paragraph_mut(&mut self) -> &mut TatNavigableParagraph {
-        &mut self.paragraph
+    pub fn set_available_rows(&mut self, value: usize) {
+        self.paragraph.set_available_rows(value);
+    }
+
+    pub fn paragraph(&self) -> Paragraph {
+        self.paragraph.paragraph()
+    }
+
+    pub fn scroll_state(&self) -> ScrollbarState {
+        self.paragraph.scroll_state()
+    }
+
+    pub fn lines(&self) -> usize {
+        self.paragraph.lines()
+    }
+
+    pub fn jump(&mut self, conf: TatNavJump) {
+        self.paragraph.jump(conf);
     }
 
     pub fn ptype(&self) -> &TatPopUpType {
         &self.ptype
+    }
+
+    pub fn title(&self) -> &str {
+        &self.title
     }
 }
 
@@ -175,8 +187,6 @@ impl Tat {
 
     fn draw_popup(&mut self, frame: &mut Frame) {
         if let Some(popup) = &mut self.modal_popup {
-            let nav_para = popup.paragraph_mut();
-
             let cleared_area = Tat::popup_area(frame.area(), 70, 70);
             let popup_area = cleared_area.inner(
                 Margin { horizontal: 1, vertical: 1 }
@@ -188,12 +198,12 @@ impl Tat {
                 0
             };
 
-            nav_para.set_available_rows(max_visible_rows as usize);
+            popup.set_available_rows(max_visible_rows as usize);
 
-            let block = nav_para.paragraph()
+            let block = popup.paragraph()
                 .block(
                     Block::default()
-                        .title(Line::raw(popup.ptype().to_title()).bold().underlined().centered())
+                        .title(Line::raw(popup.title()).bold().underlined().centered())
                         .borders(Borders::ALL)
                         .border_style(crate::shared::palette::DEFAULT.highlighted_style())
                         .border_type(BorderType::Rounded)
@@ -203,7 +213,7 @@ impl Tat {
             frame.render_widget(Clear, cleared_area);
             frame.render_widget(block, popup_area);
 
-            if nav_para.lines() > max_visible_rows as usize {
+            if popup.lines() > max_visible_rows as usize {
                 let scrollbar = Scrollbar::default()
                     .orientation(ScrollbarOrientation::VerticalRight)
                     .begin_symbol(Some(DOUBLE_VERTICAL.begin))
@@ -216,7 +226,7 @@ impl Tat {
                     frame.render_stateful_widget(
                         scrollbar,
                         scrollbar_area,
-                        &mut nav_para.scroll_state(),
+                        &mut popup.scroll_state(),
                     );
                 }
             }
@@ -306,6 +316,7 @@ impl Tat {
         let p = TatNavigableParagraph::new(text);
         self.modal_popup = Some(
             TatPopup {
+                title: crate::shared::TITLE_GDAL_LOG.to_string(),
                 paragraph: p,
                 ptype: TatPopUpType::GdalLog,
             }
@@ -321,6 +332,7 @@ impl Tat {
         let p = TatNavigableParagraph::new(help_text);
         self.modal_popup = Some(
             TatPopup {
+                title: crate::shared::TITLE_HELP.to_string(),
                 paragraph: p,
                 ptype: TatPopUpType::Help,
             }
@@ -387,7 +399,7 @@ impl Tat {
 
     fn delegate_jump(&mut self, conf: TatNavJump) {
         if let Some(pop) = &mut self.modal_popup {
-            pop.paragraph_mut().jump(conf);
+            pop.jump(conf);
             return;
         }
 
@@ -514,27 +526,5 @@ impl Tat {
         let [area] = horizontal.areas(area);
 
         area
-    }
-
-    fn draw_log(&self, area: Rect, frame: &mut Frame) {
-        let lines = std::io::BufReader::new(File::open(format!("{}/tat_gdal.log", temp_dir().display())).unwrap()).lines();
-        let mut text = String::from("");
-
-        for line in lines.map_while(Result::ok) {
-            text = format!("{}\n{}", text, line);
-        }
-
-        let block = Paragraph::new(text)
-            .block(
-                Block::default()
-                    .title(crate::shared::TITLE_GDAL_LOG)
-                    .borders(Borders::ALL)
-                    .border_type(BorderType::Rounded)
-            );
-
-        let area = Tat::popup_area(area, 60, 60);
-
-        frame.render_widget(Clear, area);
-        frame.render_widget(block, area);
     }
 }
