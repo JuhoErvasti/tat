@@ -309,20 +309,20 @@ impl Widget for &mut TatTable {
         // self.render_footer(footer_area, frame);
 
         let block = Block::new()
-            .title(
-                Line::raw(
-                    format!(
-                        " {} (debug - visible_rows: {}, visible_columns: {} bottom_fid: {}, top_fid: {}, area_width: {})",
-                        layer.name(),
-                        self.visible_rows,
-                        self.visible_columns,
-                        self.bottom_fid(),
-                        self.top_fid,
-                        area.width,
-                    ),
-                ).centered().bold().underlined(),
-            )
-            // .title(Line::raw(format!(" {} ", layer.name())))
+            // .title(
+            //     Line::raw(
+            //         format!(
+            //             " {} (debug - visible_rows: {}, visible_columns: {} bottom_fid: {}, top_fid: {}, area_width: {})",
+            //             layer.name(),
+            //             self.visible_rows,
+            //             self.visible_columns,
+            //             self.bottom_fid(),
+            //             self.top_fid,
+            //             area.width,
+            //         ),
+            //     ).centered().bold().underlined(),
+            // )
+            .title(Line::raw(format!(" {} ", layer.name())).centered().bold().underlined())
             .borders(Borders::BOTTOM)
             .padding(Padding::top(1))
             .fg(crate::shared::palette::DEFAULT.default_fg)
