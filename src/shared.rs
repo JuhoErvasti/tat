@@ -6,34 +6,35 @@ pub const TITLE_DATASET_INFO: &str = " Dataset ";
 pub const TITLE_LAYER_INFO: &str = " Layer Information ";
 pub const TITLE_GDAL_LOG: &str = " GDAL Log ";
 pub const TITLE_DEBUG_LOG: &str = " Debug Log ";
+pub const TITLE_FULL_VALUE: &str = " Debug Log ";
 pub const TITLE_LAYER_LIST: &str = " Layers ";
 pub const TITLE_HELP: &str = " Help ";
 pub const POPUP_HINT: &str = " <press q to close> ";
 pub const HELP_TEXT_LAYERSELECT: &str = "Keybinds for Main Menu
 ----------------------
 Basic Navigation:
-    Left:  or h
-    Down:  or j
-    Up:  or k
-    Right:  or l
-    Open Table: Enter
-    Switch between Layer List or Info: Tab and SHIFT+Tab or Left/Right
+     or h: Left
+     or j: Down
+     or k: Up
+     or l: Right
+    Enter: Open Table
+    Tab and SHIFT+Tab or Left/Right: Switch between Layer List or Info
 
 General:
-    Previous Menu: q
-    Quit: CTRL + C or q when in Main Menu
-    Show Help: ?
+    q: Previous Menu
+    CTRL + C or q when in Main Menu: Quit
+    ?: Show Help
 
 Advanced Navigation:
-    Scroll to Top: g
-    Scroll to Bottom: G
-    Scroll Down (half page): CTRL + D
-    Scroll Up (half page): CTRL + U
-    Scroll Down (full page): CTRL + F or PageDown
-    Scroll Up (full page): CTRL + B or PageUp
+    g: Scroll to Top
+    G: Scroll to Bottom
+    CTRL + D: Scroll Down (half page)
+    CTRL + U: Scroll Up (half page)
+    CTRL + F or PageDown: Scroll Down (full page)
+    CTRL + B or PageUp: Scroll Up (full page)
 
 Miscellaneous:
-    Open GDAL Log: L
+    L: Open GDAL Log
 
 Remarks
 -------
@@ -44,28 +45,29 @@ table.
 pub const HELP_TEXT_TABLE: &str = "Keybinds for Attribute Table
 ----------------------------
 Basic Navigation:
-    Left:  or h
-    Down:  or j
-    Up:  or k
-    Right:  or l
+     or h: Left
+     or j: Down
+     or k: Up
+     or l: Right
+    Enter: Display Selected value in Pop-Up 
 
 General:
-    Previous Menu: q
-    Quit: CTRL + C
-    Show Help: ?
+    q: Previous Menu
+    CTRL + C: Quit
+    ?: Show Help
 
 Advanced Navigation:
-    Jump to First Column: Home or 0
-    Jump to Last Column: End or $
-    Scroll to Top: g
-    Scroll to Bottom: G
-    Scroll Down (half page): CTRL + D
-    Scroll Up (half page): CTRL + U
-    Scroll Down (full page): CTRL + F or PageDown
-    Scroll Up (full page): CTRL + B or PageUp
+    Home or 0: Jump to First Column
+    End or $: Jump to Last Column
+    g: Scroll to Top
+    G: Scroll to Bottom
+    CTRL + D: Scroll Down (half page)
+    CTRL + U: Scroll Up (half page)
+    CTRL + F or PageDown: Scroll Down (full page)
+    CTRL + B or PageUp: Scroll Up (full page)
 
 Miscellaneous:
-    Open GDAL Log: L
+    L: Open GDAL Log
 
 Remarks
 -------
