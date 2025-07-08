@@ -5,6 +5,7 @@ pub const TITLE_PROGRAM: &str = " Terminal Attribute Table ";
 pub const TITLE_DATASET_INFO: &str = " Dataset ";
 pub const TITLE_LAYER_INFO: &str = " Layer Information ";
 pub const TITLE_GDAL_LOG: &str = " GDAL Log ";
+pub const TITLE_DEBUG_LOG: &str = " Debug Log ";
 pub const TITLE_LAYER_LIST: &str = " Layers ";
 pub const TITLE_HELP: &str = " Help ";
 pub const POPUP_HINT: &str = " <press q to close> ";

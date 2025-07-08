@@ -96,6 +96,7 @@ pub enum TatPopUpType {
     // TODO: really not sure this is that necessary?
     Help,
     GdalLog,
+    DebugLog,
 }
 
 pub struct TatPopup {
@@ -238,6 +239,13 @@ impl Tat {
     }
 
     fn handle_key(&mut self, key: KeyEvent) {
+        // TODO: remove this from releases somehow?
+        if let Some(popup) = &mut self.modal_popup {
+            if matches!(popup.ptype(), TatPopUpType::DebugLog) {
+                self.show_debug_log();
+            }
+        }
+
         if key.kind != KeyEventKind::Press {
             return;
         }
@@ -264,6 +272,11 @@ impl Tat {
             KeyCode::Char('L') =>  {
                 if !popup_open {
                     self.show_gdal_log();
+                }
+            },
+            KeyCode::Char('D') =>  {
+                if !popup_open {
+                    self.show_debug_log();
                 }
             },
             KeyCode::Char('?') =>  {
@@ -303,6 +316,24 @@ impl Tat {
             }
             _ => {},
         }
+    }
+
+    fn show_debug_log(&mut self) {
+        let lines = std::io::BufReader::new(File::open("tat.log").unwrap()).lines();
+        let mut text = String::from("");
+
+        for line in lines.map_while(Result::ok) {
+            text = format!("{}\n{}", text, line);
+        }
+
+        let p = TatNavigableParagraph::new(text);
+        self.modal_popup = Some(
+            TatPopup {
+                title: crate::shared::TITLE_DEBUG_LOG.to_string(),
+                paragraph: p,
+                ptype: TatPopUpType::DebugLog,
+            }
+        )
     }
 
     fn show_gdal_log(&mut self) {
