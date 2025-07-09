@@ -3,7 +3,7 @@ use ratatui::widgets::{Paragraph, ScrollbarState};
 
 use crate::navparagraph::TatNavigableParagraph;
 
-pub enum TatNavJump {
+pub enum TatNavVertical {
     First,
     Last,
     DownOne,
@@ -13,6 +13,13 @@ pub enum TatNavJump {
     DownParagraph,
     UpParagraph,
     Specific(u64),
+}
+
+pub enum TatNavHorizontal {
+    Home,
+    End,
+    RightOne,
+    LeftOne,
 }
 
 #[derive(Clone)]
@@ -296,8 +303,12 @@ impl TatPopup {
         self.paragraph.lines()
     }
 
-    pub fn jump(&mut self, conf: TatNavJump) {
-        self.paragraph.jump(conf);
+    pub fn nav_h(&mut self, conf: TatNavHorizontal) {
+        self.paragraph.nav_h(conf)
+    }
+
+    pub fn nav_v(&mut self, conf: TatNavVertical) {
+        self.paragraph.nav_v(conf);
     }
 
     pub fn ptype(&self) -> &TatPopUpType {

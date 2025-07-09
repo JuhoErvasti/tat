@@ -1,4 +1,4 @@
-use ratatui::style::{palette::tailwind, Color, Style};
+use ratatui::style::{Color, Style};
 
 pub const SHOW_HELP: &str = " <type ? to show help> ";
 pub const TITLE_PROGRAM: &str = " Terminal Attribute Table ";
@@ -6,7 +6,6 @@ pub const TITLE_DATASET_INFO: &str = " Dataset ";
 pub const TITLE_LAYER_INFO: &str = " Layer Information ";
 pub const TITLE_GDAL_LOG: &str = " GDAL Log ";
 pub const TITLE_DEBUG_LOG: &str = " Debug Log ";
-pub const TITLE_FULL_VALUE: &str = " Debug Log ";
 pub const TITLE_LAYER_LIST: &str = " Layers ";
 pub const TITLE_HELP: &str = " Help ";
 pub const POPUP_HINT: &str = " <press q to close> ";
@@ -60,8 +59,8 @@ General:
     ?: Show Help
 
 Advanced Navigation:
-    Home or 0: Jump to First Column
-    End or $: Jump to Last Column
+    Home or 0: nav to First Column
+    End or $: nav to Last Column
     g: Scroll to Top
     G: Scroll to Bottom
     CTRL + D: Scroll Down (half page)

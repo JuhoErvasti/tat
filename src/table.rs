@@ -28,8 +28,7 @@ use ratatui::{
 use gdal::vector::LayerAccess;
 
 use crate::types::{
-    TatLayer,
-    TatNavJump,
+    TatLayer, TatNavHorizontal, TatNavVertical
 };
 
 /// Widget for displaying the attribute table
@@ -109,9 +108,54 @@ impl TatTable {
         self.h_scroll = self.h_scroll.position((self.first_column + self.relative_highlighted_column()) as usize);
     }
 
-    pub fn jump_row(&mut self, conf: TatNavJump) {
+    pub fn nav_h(&mut self, conf: TatNavHorizontal) {
+        match conf {
+            TatNavHorizontal::Home => {
+                self.first_column = 0;
+                self.table_state.select_first_column();
+            },
+            TatNavHorizontal::End => {
+                self.set_first_column(self.layer.as_ref().unwrap().field_count() as i64 - self.visible_columns as i64);
+                self.table_state.select_column(Some(self.visible_columns as usize));
+            },
+            TatNavHorizontal::RightOne => {
+                let col = self.relative_highlighted_column();
+                if col == self.visible_columns {
+                    let cols =  self.layer.as_ref().unwrap().field_count();
+                    if self.first_column + col == cols {
+                        self.set_first_column(0);
+                        self.table_state.select_column(Some(0));
+                    } else {
+                        self.set_first_column(self.first_column as i64 + 1);
+                    }
+                    self.update_h_scrollbar();
+                    return;
+                }
+                self.table_state.select_next_column();
+            }
+            TatNavHorizontal::LeftOne => {
+                let col = self.relative_highlighted_column();
+                if col == 0 {
+                    if self.first_column == 0 {
+                        let cols =  self.layer.as_ref().unwrap().field_count();
+                        self.set_first_column(cols as i64 - self.visible_columns as i64);
+                        self.table_state.select_column(Some(self.first_column as usize + self.visible_columns as usize));
+                    } else {
+                        self.set_first_column(self.first_column as i64 - 1);
+                    }
+                    self.update_h_scrollbar();
+                    return;
+                }
+                self.table_state.select_previous_column();
+            }
+        }
+
+        self.update_h_scrollbar();
+    }
+
+    pub fn nav_v(&mut self, conf: TatNavVertical) {
         let visible_rows = self.visible_rows as i64;
-        let mut jump_by = |amount: i64| {
+        let mut nav_by = |amount: i64| {
             let row = self.current_row();
 
             if amount > 0 {
@@ -131,50 +175,38 @@ impl TatTable {
         };
 
         match conf {
-            TatNavJump::First => {
+            TatNavVertical::First => {
                 self.set_top_fid(1);
                 self.table_state.select_first();
             },
-            TatNavJump::Last => {
+            TatNavVertical::Last => {
                 self.set_top_fid(self.max_top_fid());
                 self.table_state.select(Some(visible_rows as usize));
             },
-            TatNavJump::DownOne => {
-                jump_by(1);
+            TatNavVertical::DownOne => {
+                nav_by(1);
             },
-            TatNavJump::UpOne => {
-                jump_by(-1);
+            TatNavVertical::UpOne => {
+                nav_by(-1);
             },
-            TatNavJump::DownHalfParagraph => {
-                jump_by(visible_rows / 2 );
+            TatNavVertical::DownHalfParagraph => {
+                nav_by(visible_rows / 2 );
             },
-            TatNavJump::UpHalfParagraph => {
-                jump_by(-(visible_rows / 2));
+            TatNavVertical::UpHalfParagraph => {
+                nav_by(-(visible_rows / 2));
             },
-            TatNavJump::DownParagraph => {
-                jump_by(visible_rows);
+            TatNavVertical::DownParagraph => {
+                nav_by(visible_rows);
             },
-            TatNavJump::UpParagraph => {
-                jump_by(-(visible_rows));
+            TatNavVertical::UpParagraph => {
+                nav_by(-(visible_rows));
             },
-            TatNavJump::Specific(row) => {
-                panic!("Not implemented! Cannot jump to row {}", row);
+            TatNavVertical::Specific(row) => {
+                panic!("Not implemented! Cannot nav to row {}", row);
             },
         }
 
         self.update_v_scrollbar();
-    }
-
-    pub fn jump_first_column(&mut self) {
-        self.first_column = 0;
-        self.table_state.select_first_column();
-        self.update_h_scrollbar();
-    }
-
-    pub fn jump_last_column(&mut self) {
-        self.set_first_column(self.layer.as_ref().unwrap().field_count() as i64 - self.visible_columns as i64);
-        self.table_state.select_column(Some(self.visible_columns as usize));
-        self.update_h_scrollbar();
     }
 
     pub fn selected_fid(&self) -> u64 {
@@ -238,40 +270,6 @@ impl TatTable {
 
     fn max_top_fid(&self) -> i64 {
         self.layer.as_ref().unwrap().gdal_layer().feature_count() as i64 - self.visible_rows as i64 + 1
-    }
-
-    pub fn nav_left(&mut self) {
-        let col = self.relative_highlighted_column();
-        if col == 0 {
-            if self.first_column == 0 {
-                let cols =  self.layer.as_ref().unwrap().field_count();
-                self.set_first_column(cols as i64 - self.visible_columns as i64);
-                self.table_state.select_column(Some(self.first_column as usize + self.visible_columns as usize));
-            } else {
-                self.set_first_column(self.first_column as i64 - 1);
-            }
-            self.update_h_scrollbar();
-            return;
-        }
-        self.table_state.select_previous_column();
-        self.update_h_scrollbar();
-    }
-
-    pub fn nav_right(&mut self) {
-        let col = self.relative_highlighted_column();
-        if col == self.visible_columns {
-            let cols =  self.layer.as_ref().unwrap().field_count();
-            if self.first_column + col == cols {
-                self.set_first_column(0);
-                self.table_state.select_column(Some(0));
-            } else {
-                self.set_first_column(self.first_column as i64 + 1);
-            }
-            self.update_h_scrollbar();
-            return;
-        }
-        self.table_state.select_next_column();
-        self.update_h_scrollbar();
     }
 
     fn current_layer(&self) -> TatLayer{
@@ -420,6 +418,7 @@ impl Widget for &mut TatTable {
                 .begin_symbol(Some(DOUBLE_HORIZONTAL.begin))
                 .end_symbol(Some(DOUBLE_HORIZONTAL.end));
 
+        // TODO: don't show vertical scrollbar if all rows are visible
         if !all_columns_visible {
             StatefulWidget::render(
                 vert_scrollbar,

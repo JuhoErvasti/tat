@@ -2,6 +2,12 @@
 name = "tat"
 version = "0.1.0"
 edition = "2024"
+authors = ["Juho Ervasti"]
+license = "MIT"
+description = "TUI for inspecting geospatial vector data"
+readme = "README.md"
+homepage = "https://github.com/JuhoErvasti/tat"
+repository = "https://github.com/JuhoErvasti/tat"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

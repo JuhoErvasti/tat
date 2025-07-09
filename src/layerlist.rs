@@ -1,12 +1,11 @@
 use cli_log::debug;
-use crossterm::style::Colors;
-use gdal::{vector::{field_type_to_name, geometry_type_to_name, Defn, Layer, LayerAccess}, Dataset, Metadata};
-use ratatui::{layout::{Constraint, Layout, Margin}, style::{palette::tailwind, Style}, symbols::{self, scrollbar::DOUBLE_VERTICAL}, text::Line, widgets::{Block, Borders, List, ListItem, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Widget}, Frame};
+use gdal::{vector::{field_type_to_name, Layer, LayerAccess}, Dataset, Metadata};
+use ratatui::{layout::{Constraint, Layout, Margin}, style::Style, symbols::scrollbar::DOUBLE_VERTICAL, text::Line, widgets::{Block, List, ListItem, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState}, Frame};
 use ratatui::widgets::HighlightSpacing;
 use ratatui::prelude::Stylize;
-use std::{any::Any, fmt::Write};
+use std::fmt::Write;
 
-use crate::{navparagraph::TatNavigableParagraph, tat::LAYER_LIST_BORDER, types::{TatLayer, TatNavJump}};
+use crate::{navparagraph::TatNavigableParagraph, tat::LAYER_LIST_BORDER, types::{TatLayer, TatNavVertical}};
 
 /// Widget for displaying and managing the layers in a dataset
 pub struct TatLayerList {
@@ -57,17 +56,17 @@ impl TatLayerList {
         self.layer_infos.get_mut(self.state.selected().unwrap()).unwrap()
     }
 
-    pub fn jump(&mut self, conf: TatNavJump) {
+    pub fn nav(&mut self, conf: TatNavVertical) {
         match conf {
-            TatNavJump::First => self.state.select_first(),
-            TatNavJump::Last => self.state.select_last(),
-            TatNavJump::DownOne => self.state.scroll_down_by(1),
-            TatNavJump::UpOne => self.state.scroll_up_by(1),
-            TatNavJump::DownHalfParagraph => self.state.scroll_down_by(self.available_rows as u16 / 2),
-            TatNavJump::UpHalfParagraph => self.state.scroll_up_by(self.available_rows as u16 / 2),
-            TatNavJump::DownParagraph => self.state.scroll_down_by(self.available_rows as u16),
-            TatNavJump::UpParagraph => self.state.scroll_up_by(self.available_rows as u16),
-            TatNavJump::Specific(row) => self.state.select(Some(row as usize)),
+            TatNavVertical::First => self.state.select_first(),
+            TatNavVertical::Last => self.state.select_last(),
+            TatNavVertical::DownOne => self.state.scroll_down_by(1),
+            TatNavVertical::UpOne => self.state.scroll_up_by(1),
+            TatNavVertical::DownHalfParagraph => self.state.scroll_down_by(self.available_rows as u16 / 2),
+            TatNavVertical::UpHalfParagraph => self.state.scroll_up_by(self.available_rows as u16 / 2),
+            TatNavVertical::DownParagraph => self.state.scroll_down_by(self.available_rows as u16),
+            TatNavVertical::UpParagraph => self.state.scroll_up_by(self.available_rows as u16),
+            TatNavVertical::Specific(row) => self.state.select(Some(row as usize)),
         }
 
         self.update_scrollbar();

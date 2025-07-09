@@ -51,7 +51,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::{layerlist::TatLayerList, navparagraph::TatNavigableParagraph, shared::{self, HELP_TEXT_TABLE}, types::{TatNavJump, TatPopUpType, TatPopup}};
+use crate::{layerlist::TatLayerList, navparagraph::TatNavigableParagraph, shared::{self, HELP_TEXT_TABLE}, types::{TatNavHorizontal, TatNavVertical, TatPopUpType, TatPopup}};
 use crate::table::TatTable;
 
 pub const LAYER_LIST_BORDER: symbols::border::Set = symbols::border::Set {
@@ -219,16 +219,20 @@ impl Tat {
         match key.code {
             KeyCode::Char('q') if ctrl_down => self.close(),
             KeyCode::Char('q') | KeyCode::Esc => self.previous_menu(),
-            KeyCode::Char('g') => self.delegate_jump(TatNavJump::First),
-            KeyCode::Char('G') => self.delegate_jump(TatNavJump::Last),
-            KeyCode::Char('k') | KeyCode::Up => self.delegate_jump(TatNavJump::UpOne),
-            KeyCode::Char('j') | KeyCode::Down => self.delegate_jump(TatNavJump::DownOne),
-            KeyCode::Char('d') if ctrl_down => self.delegate_jump(TatNavJump::DownHalfParagraph),
-            KeyCode::Char('u') if ctrl_down => self.delegate_jump(TatNavJump::UpHalfParagraph),
-            KeyCode::Char('f') if ctrl_down => self.delegate_jump(TatNavJump::DownParagraph),
-            KeyCode::Char('b') if ctrl_down => self.delegate_jump(TatNavJump::UpParagraph),
-            KeyCode::PageDown => self.delegate_jump(TatNavJump::DownParagraph),
-            KeyCode::PageUp => self.delegate_jump(TatNavJump::UpParagraph),
+            KeyCode::Char('g') => self.delegate_nav_v(TatNavVertical::First),
+            KeyCode::Char('G') => self.delegate_nav_v(TatNavVertical::Last),
+            KeyCode::Char('k') | KeyCode::Up => self.delegate_nav_v(TatNavVertical::UpOne),
+            KeyCode::Char('j') | KeyCode::Down => self.delegate_nav_v(TatNavVertical::DownOne),
+            KeyCode::Char('d') if ctrl_down => self.delegate_nav_v(TatNavVertical::DownHalfParagraph),
+            KeyCode::Char('u') if ctrl_down => self.delegate_nav_v(TatNavVertical::UpHalfParagraph),
+            KeyCode::Char('f') if ctrl_down => self.delegate_nav_v(TatNavVertical::DownParagraph),
+            KeyCode::Char('b') if ctrl_down => self.delegate_nav_v(TatNavVertical::UpParagraph),
+            KeyCode::PageDown => self.delegate_nav_v(TatNavVertical::DownParagraph),
+            KeyCode::PageUp => self.delegate_nav_v(TatNavVertical::UpParagraph),
+            KeyCode::Char('h') | KeyCode::Left => self.delegate_nav_h(TatNavHorizontal::LeftOne),
+            KeyCode::Char('l') | KeyCode::Right => self.delegate_nav_h(TatNavHorizontal::RightOne),
+            KeyCode::Char('0') | KeyCode::Home => self.delegate_nav_h(TatNavHorizontal::Home),
+            KeyCode::Char('$') | KeyCode::End => self.delegate_nav_h(TatNavHorizontal::End),
             KeyCode::Char('c') if ctrl_down => {
                 if !in_table {
                     return;
@@ -258,26 +262,6 @@ impl Tat {
                     self.show_help();
                 }
             },
-            KeyCode::Char('h') | KeyCode::Left => {
-                if !popup_open {
-                    self.nav_left();
-                }
-            },
-            KeyCode::Char('l') | KeyCode::Right => {
-                if !popup_open {
-                    self.nav_right();
-                }
-            }
-            KeyCode::Char('0') | KeyCode::Home => {
-                if in_table && !popup_open{
-                    self.table.jump_first_column();
-                }
-            }
-            KeyCode::Char('$') | KeyCode::End => {
-                if in_table && !popup_open{
-                    self.table.jump_last_column();
-                }
-            }
             KeyCode::Enter => {
                 match self.current_menu {
                     TatMenu::LayerSelect => {
@@ -314,9 +298,9 @@ impl Tat {
         );
 
         let title = format!(
-                "Value of \"{}\" for Feature {}",
-                self.table.current_column_name(),
+                " Feature {} - Value of \"{}\" ",
                 self.table.selected_fid(),
+                self.table.current_column_name(),
             );
 
         self.modal_popup = Some(
@@ -392,28 +376,6 @@ impl Tat {
         self.current_menu = TatMenu::TableView;
     }
 
-    fn nav_left(&mut self) {
-        match self.current_menu {
-            TatMenu::LayerSelect => {
-                if matches!(self.current_menu, TatMenu::LayerSelect) {
-                    self.cycle_block_selection();
-                }
-            },
-            TatMenu::TableView => self.table.nav_left(),
-        }
-    }
-
-    fn nav_right(&mut self) {
-        match self.current_menu {
-            TatMenu::LayerSelect => {
-                if matches!(self.current_menu, TatMenu::LayerSelect) {
-                    self.cycle_block_selection();
-                }
-            },
-            TatMenu::TableView => self.table.nav_right(),
-        }
-    }
-
     fn close_popup(&mut self) {
         self.modal_popup = None;
     }
@@ -438,20 +400,37 @@ impl Tat {
         }
     }
 
-    fn delegate_jump(&mut self, conf: TatNavJump) {
+    fn delegate_nav_v(&mut self, conf: TatNavVertical) {
         if let Some(pop) = &mut self.modal_popup {
-            pop.jump(conf);
+            pop.nav_v(conf);
             return;
         }
 
         match self.current_menu {
             TatMenu::LayerSelect => {
                 match self.focused_block {
-                    TatLayerSelectFocusedBlock::LayerList => self.layerlist.jump(conf),
-                    TatLayerSelectFocusedBlock::LayerInfo => self.layerlist.current_layer_info().jump(conf),
+                    TatLayerSelectFocusedBlock::LayerList => self.layerlist.nav(conf),
+                    TatLayerSelectFocusedBlock::LayerInfo => self.layerlist.current_layer_info().nav_v(conf),
                 }
             },
-            TatMenu::TableView => self.table.jump_row(conf),
+            TatMenu::TableView => self.table.nav_v(conf),
+        }
+    }
+
+    fn delegate_nav_h(&mut self, conf: TatNavHorizontal) {
+        if let Some(pop) = &mut self.modal_popup {
+            pop.nav_h(conf);
+            return;
+        }
+
+        match self.current_menu {
+            TatMenu::LayerSelect => {
+                match self.focused_block {
+                    TatLayerSelectFocusedBlock::LayerList => return,
+                    TatLayerSelectFocusedBlock::LayerInfo => self.layerlist.current_layer_info().nav_h(conf),
+                }
+            },
+            TatMenu::TableView => self.table.nav_h(conf),
         }
     }
 

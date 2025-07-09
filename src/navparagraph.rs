@@ -6,7 +6,7 @@ use ratatui::widgets::{
     ScrollbarState, Wrap,
 };
 
-use crate::types::TatNavJump;
+use crate::types::{TatNavHorizontal, TatNavVertical};
 
 
 
@@ -14,7 +14,8 @@ use crate::types::TatNavJump;
 pub struct TatNavigableParagraph {
     text: String,
     lines: usize,
-    scroll_offset: usize,
+    scroll_offset_v: usize,
+    scroll_offset_h: usize,
     available_rows: usize,
 }
 
@@ -24,30 +25,46 @@ impl TatNavigableParagraph {
         Self {
             text,
             lines,
-            scroll_offset: 0,
+            scroll_offset_v: 0,
+            scroll_offset_h: 0,
             available_rows: 0,
         }
     }
 
     pub fn paragraph(&self) -> Paragraph {
         Paragraph::new(self.text.clone())
-        .scroll((self.scroll_offset as u16, 0))
-        .wrap(Wrap { trim: false })
+        .scroll((self.scroll_offset_v as u16, self.scroll_offset_h as u16))
+        // .wrap(Wrap { trim: false })
     }
 
     pub fn scroll_state(&self) -> ScrollbarState {
         ScrollbarState::new(self.last_scrollable_line())
-        .position(self.scroll_offset)
+        .position(self.scroll_offset_v)
     }
 
-    pub fn jump(&mut self, conf: TatNavJump) {
+    pub fn nav_h(&mut self, conf: TatNavHorizontal) {
+        match conf {
+            TatNavHorizontal::Home => self.scroll_offset_h = 0,
+            TatNavHorizontal::End => self.scroll_offset_h = 1000, // FIXME: go to actual end
+            TatNavHorizontal::RightOne => self.scroll_offset_h +=1,
+            TatNavHorizontal::LeftOne => {
+                if self.scroll_offset_h == 0 {
+                    return;
+                }
+
+                self.scroll_offset_h -=1;
+            }
+        }
+    }
+
+    pub fn nav_v(&mut self, conf: TatNavVertical) {
         let total_rows = self.available_rows as i64;
         if total_rows >= self.lines() as i64 {
             return;
         }
 
-        let mut jump_by = |amount: i64| {
-            let mut new_offset = self.scroll_offset as i64 + amount;
+        let mut nav_by = |amount: i64| {
+            let mut new_offset = self.scroll_offset_v as i64 + amount;
 
             if new_offset < 0 {
                 new_offset = 0;
@@ -57,32 +74,32 @@ impl TatNavigableParagraph {
                 new_offset = self.last_scrollable_line() as i64
             }
 
-            self.scroll_offset = new_offset as usize;
+            self.scroll_offset_v = new_offset as usize;
         };
 
         match conf {
-            TatNavJump::First => self.scroll_offset = 0,
-            TatNavJump::Last => self.scroll_offset = self.last_scrollable_line(),
-            TatNavJump::DownOne => {
-                jump_by(1);
+            TatNavVertical::First => self.scroll_offset_v = 0,
+            TatNavVertical::Last => self.scroll_offset_v = self.last_scrollable_line(),
+            TatNavVertical::DownOne => {
+                nav_by(1);
             },
-            TatNavJump::UpOne => {
-                jump_by(-1);
+            TatNavVertical::UpOne => {
+                nav_by(-1);
             },
-            TatNavJump::DownHalfParagraph => {
-                jump_by(total_rows / 2 );
+            TatNavVertical::DownHalfParagraph => {
+                nav_by(total_rows / 2 );
             },
-            TatNavJump::UpHalfParagraph => {
-                jump_by(-(total_rows / 2));
+            TatNavVertical::UpHalfParagraph => {
+                nav_by(-(total_rows / 2));
             },
-            TatNavJump::DownParagraph => {
-                jump_by(total_rows);
+            TatNavVertical::DownParagraph => {
+                nav_by(total_rows);
             },
-            TatNavJump::UpParagraph => {
-                jump_by(-total_rows);
+            TatNavVertical::UpParagraph => {
+                nav_by(-total_rows);
             },
-            TatNavJump::Specific(row) => {
-                panic!("Not implemented! Cannot jump to row {}", row);
+            TatNavVertical::Specific(row) => {
+                panic!("Not implemented! Cannot nav to row {}", row);
             },
         }
     }
