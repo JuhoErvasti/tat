@@ -260,6 +260,17 @@ impl Tat {
         self.quit = true;
     }
 
+    fn copy_table_value_to_clipboard(&mut self) {
+        if let Some(clip) = self.clip.as_mut() {
+            if let Some(text_to_copy) = self.table.selected_value() {
+                match clip.set_contents(text_to_copy) {
+                    Ok(()) => return,
+                    Err(e) => error!("Could not set clipboard contents: {}", e.to_string()),
+                }
+            }
+        }
+    }
+
     fn handle_key(&mut self, key: KeyEvent) {
         // TODO: remove this from releases somehow?
         if let Some(popup) = &mut self.modal_popup {
@@ -295,20 +306,8 @@ impl Tat {
             KeyCode::Char('l') | KeyCode::Right => self.delegate_nav_h(TatNavHorizontal::RightOne),
             KeyCode::Char('0') | KeyCode::Home => self.delegate_nav_h(TatNavHorizontal::Home),
             KeyCode::Char('$') | KeyCode::End => self.delegate_nav_h(TatNavHorizontal::End),
-            KeyCode::Char('c') if ctrl_down => {
-                if !in_table {
-                    return;
-                }
-
-                if let Some(clip) = self.clip.as_mut() {
-                    if let Some(text_to_copy) = self.table.selected_value() {
-                        match clip.set_contents(text_to_copy) {
-                            Ok(()) => return,
-                            Err(e) => error!("Could not set clipboard contents: {}", e.to_string()),
-                        }
-                    }
-                }
-            }
+            KeyCode::Char('c') if ctrl_down && in_table => self.copy_table_value_to_clipboard(),
+            KeyCode::Char('y') if in_table => self.copy_table_value_to_clipboard(),
             KeyCode::Char('L') =>  {
                 if !popup_open {
                     self.show_gdal_log();
@@ -375,7 +374,15 @@ impl Tat {
     }
 
     fn show_debug_log(&mut self) {
-        let lines = std::io::BufReader::new(File::open("tat.log").unwrap()).lines();
+        let file = match File::open("tat.log") {
+            Ok(file) => file,
+            Err(e) => {
+                error!("Could not open file: {}", e.to_string());
+                return;
+            },
+        };
+
+        let lines = std::io::BufReader::new(file).lines();
         let mut text = String::from("");
 
         for line in lines.map_while(Result::ok) {
@@ -393,7 +400,15 @@ impl Tat {
     }
 
     fn show_gdal_log(&mut self) {
-        let lines = std::io::BufReader::new(File::open(format!("{}/tat_gdal.log", temp_dir().display())).unwrap()).lines();
+        let file = match File::open(format!("{}/tat_gdal.log", temp_dir().display())) {
+            Ok(file) => file,
+            Err(e) => {
+                error!("Could not open file: {}", e.to_string());
+                return;
+            },
+        };
+
+        let lines = std::io::BufReader::new(file).lines();
         let mut text = String::from("");
 
         for line in lines.map_while(Result::ok) {

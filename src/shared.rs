@@ -51,7 +51,7 @@ Basic Navigation:
 
 Table:
     Enter: Display Selected Value in Pop-Up 
-    CTRL + C: Copy Selected Value to Clipboard
+    y or CTRL + C: Copy Selected Value to Clipboard
 
 General:
     q: Previous Menu

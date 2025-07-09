@@ -213,6 +213,8 @@ impl TatLayer {
     }
 
     pub fn build_feature_index(&mut self) {
+        // TODO: there seems to be some weird bug with the indexing, see layer_styles of one of the
+        // test GPKGs, might be related to this??
         self.feature_index.clear();
 
         let mut i: Vec<u64> = vec![];

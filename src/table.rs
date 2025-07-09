@@ -12,17 +12,7 @@ use ratatui::{
     },
     text::Line,
     widgets::{
-        Block,
-        Borders,
-        Padding,
-        Row,
-        Scrollbar,
-        ScrollbarOrientation,
-        ScrollbarState,
-        StatefulWidget,
-        Table,
-        TableState,
-        Widget,
+        Block, Borders, HighlightSpacing, Padding, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Table, TableState, Widget
     },
 };
 use gdal::vector::LayerAccess;
@@ -397,16 +387,13 @@ impl Widget for &mut TatTable {
 
         let header = Row::new(header_items);
 
-        let cell_hs = crate::shared::palette::DEFAULT.selected_style();
-        let col_hs = crate::shared::palette::DEFAULT.highlighted_darker_fg();
-        let row_hs = crate::shared::palette::DEFAULT.highlighted_darker_fg();
-
         let table = Table::new(rows, widths)
             .header(header.underlined())
             .block(block)
-            .column_highlight_style(col_hs)
-            .row_highlight_style(row_hs)
-            .cell_highlight_style(cell_hs);
+            .column_highlight_style(crate::shared::palette::DEFAULT.highlighted_darker_fg())
+            .row_highlight_style(crate::shared::palette::DEFAULT.highlighted_darker_fg())
+            .cell_highlight_style(crate::shared::palette::DEFAULT.selected_style())
+            .column_spacing(1);
 
         let vert_scrollbar = Scrollbar::default()
                 .orientation(ScrollbarOrientation::VerticalRight)
