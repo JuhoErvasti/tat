@@ -148,7 +148,8 @@ impl TatLayerList {
         if layer.fields().len() > 0 {
             write!(
                 text,
-                "- Fields:\n"
+                "- Fields ({}):\n",
+                layer.fields().len(),
             ).unwrap();
 
             for field in layer.fields() {

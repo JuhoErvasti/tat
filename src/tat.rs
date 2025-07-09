@@ -273,11 +273,11 @@ impl Tat {
 
     fn handle_key(&mut self, key: KeyEvent) {
         // TODO: remove this from releases somehow?
-        if let Some(popup) = &mut self.modal_popup {
-            if matches!(popup.ptype(), TatPopUpType::DebugLog) {
-                self.show_debug_log();
-            }
-        }
+        // if let Some(popup) = &mut self.modal_popup {
+        //     if matches!(popup.ptype(), TatPopUpType::DebugLog) {
+        //         self.show_debug_log();
+        //     }
+        // }
 
         if key.kind != KeyEventKind::Press {
             return;
@@ -374,20 +374,20 @@ impl Tat {
     }
 
     fn show_debug_log(&mut self) {
+        let mut text = String::from("");
         let file = match File::open("tat.log") {
-            Ok(file) => file,
+            Ok(file) => {
+                let lines = std::io::BufReader::new(file).lines();
+
+                for line in lines.map_while(Result::ok) {
+                    text = format!("{}\n{}", text, line);
+                }
+            },
             Err(e) => {
                 error!("Could not open file: {}", e.to_string());
-                return;
+                text = format!("Could not open file: {}", e.to_string());
             },
         };
-
-        let lines = std::io::BufReader::new(file).lines();
-        let mut text = String::from("");
-
-        for line in lines.map_while(Result::ok) {
-            text = format!("{}\n{}", text, line);
-        }
 
         let p = TatNavigableParagraph::new(text);
         self.modal_popup = Some(
@@ -539,12 +539,14 @@ impl Tat {
     }
 
     fn render_table_view(&mut self, area: Rect, frame: &mut Frame) {
-        let [table_area] = Layout::vertical([
+        let [fid_col_area, table_area] = Layout::horizontal([
+            Constraint::Length(11),
             Constraint::Fill(1),
         ])
         .areas(area);
 
-        frame.render_widget(& mut self.table, table_area);
+        self.table.set_rects(table_area, fid_col_area);
+        self.table.render(frame);
     }
 
     fn render_layer_select(&mut self, area: Rect, frame: &mut Frame) {
