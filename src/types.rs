@@ -291,16 +291,28 @@ impl TatPopup {
         self.paragraph.set_available_rows(value);
     }
 
+    pub fn set_available_cols(&mut self, value: usize) {
+        self.paragraph.set_available_cols(value);
+    }
+
     pub fn paragraph(&self) -> Paragraph {
         self.paragraph.paragraph()
     }
 
-    pub fn scroll_state(&self) -> ScrollbarState {
-        self.paragraph.scroll_state()
+    pub fn max_line_len(&self) -> usize {
+        self.paragraph.max_line_len()
     }
 
-    pub fn lines(&self) -> usize {
-        self.paragraph.lines()
+    pub fn scroll_state_v(&self) -> ScrollbarState {
+        self.paragraph.scroll_state_v()
+    }
+
+    pub fn scroll_state_h(&self) -> ScrollbarState {
+        self.paragraph.scroll_state_h()
+    }
+
+    pub fn total_lines(&self) -> usize {
+        self.paragraph.total_lines()
     }
 
     pub fn nav_h(&mut self, conf: TatNavHorizontal) {

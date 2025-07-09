@@ -2,7 +2,7 @@ use std::{
     env::temp_dir, fmt::format, fs::File, io::{
         BufRead,
         Result,
-    }
+    }, usize
 };
 
 use cli_clipboard::{ClipboardContext, ClipboardProvider};
@@ -34,7 +34,7 @@ use ratatui::{
     },
     symbols::{
         self,
-        scrollbar::DOUBLE_VERTICAL,
+        scrollbar::{DOUBLE_HORIZONTAL, DOUBLE_VERTICAL},
     },
     text::Line,
     widgets::{
@@ -137,6 +137,44 @@ impl Tat {
         Ok(())
     }
 
+    /// Returns visible columns and rows of a bordered text area which
+    /// may or may not have horizontal and/or vertical scrollbars.
+    fn text_area_dimensions(rect: &Rect, max_cols: i64, max_rows: i64) -> (usize, bool, usize, bool) {
+        // TODO: there's gotta be a better way to do this
+        let original_cols = rect.width as i64;
+        let original_rows = rect.height as i64;
+
+        let mut visible_cols = 0;
+        let mut visible_rows = 0;
+
+        let mut has_v_scroll = false;
+        let mut has_h_scroll = false;
+
+        if original_cols >= 2 {
+            visible_cols = original_cols - 2;
+        }
+
+        if max_cols > visible_cols {
+            has_h_scroll = true;
+        }
+
+        if original_rows >= if has_h_scroll { 3 } else { 2 } {
+            visible_rows = original_rows - if has_h_scroll { 3 } else { 2 };
+        }
+
+        if max_rows > visible_rows {
+            has_v_scroll = true;
+        }
+
+        if has_v_scroll {
+            if original_cols >= 3 {
+                visible_cols = original_cols - 3;
+            }
+        }
+
+        (visible_cols as usize, has_h_scroll, visible_rows as usize, has_v_scroll)
+    }
+
     fn draw(&mut self, frame: &mut Frame) {
         match self.current_menu {
             TatMenu::LayerSelect => self.render_layer_select(frame.area(), frame),
@@ -153,13 +191,19 @@ impl Tat {
                 Margin { horizontal: 1, vertical: 1 }
             );
 
-            let max_visible_rows: u16 = if popup_area.height >= 2 {
-                popup_area.height - 2
-            } else {
-                0
-            };
+            let (
+                visible_cols,
+                has_h_scrollbar,
+                visible_rows,
+                has_v_scrollbar,
+            ) = Tat::text_area_dimensions(
+                &popup_area,
+                popup.max_line_len() as i64,
+                popup.total_lines() as i64,
+            );
 
-            popup.set_available_rows(max_visible_rows as usize);
+            popup.set_available_rows(visible_rows as usize);
+            popup.set_available_cols(visible_cols as usize);
 
             let block = popup.paragraph()
                 .block(
@@ -174,7 +218,7 @@ impl Tat {
             frame.render_widget(Clear, cleared_area);
             frame.render_widget(block, popup_area);
 
-            if popup.lines() > max_visible_rows as usize {
+            if has_v_scrollbar {
                 let scrollbar = Scrollbar::default()
                     .orientation(ScrollbarOrientation::VerticalRight)
                     .begin_symbol(Some(DOUBLE_VERTICAL.begin))
@@ -187,7 +231,25 @@ impl Tat {
                     frame.render_stateful_widget(
                         scrollbar,
                         scrollbar_area,
-                        &mut popup.scroll_state(),
+                        &mut popup.scroll_state_v(),
+                    );
+                }
+            }
+
+            if has_h_scrollbar {
+                let scrollbar = Scrollbar::default()
+                    .orientation(ScrollbarOrientation::HorizontalBottom)
+                    .begin_symbol(Some(DOUBLE_HORIZONTAL.begin))
+                    .style(crate::shared::palette::DEFAULT.highlighted_style())
+                    .end_symbol(Some(DOUBLE_HORIZONTAL.end));
+
+                let scrollbar_area = popup_area.inner(Margin { horizontal: 2, vertical: 1 });
+
+                if !scrollbar_area.is_empty() {
+                    frame.render_stateful_widget(
+                        scrollbar,
+                        scrollbar_area,
+                        &mut popup.scroll_state_h(),
                     );
                 }
             }
@@ -512,15 +574,21 @@ impl Tat {
             area,
         );
 
-        let max_visible_rows = if area.height >= 2 {
-            area.height - 2
-        } else {
-            0
-        };
+        let (
+            visible_cols,
+            has_h_scrollbar,
+            visible_rows,
+            has_v_scrollbar,
+        ) = Tat::text_area_dimensions(
+            &area,
+            info.max_line_len() as i64,
+            info.total_lines() as i64,
+        );
 
-        info.set_available_rows(max_visible_rows as usize);
+        info.set_available_rows(visible_rows as usize);
+        info.set_available_cols(visible_cols as usize);
 
-        if info.lines() > max_visible_rows as usize {
+        if has_v_scrollbar {
             let scrollbar = Scrollbar::default()
                 .orientation(ScrollbarOrientation::VerticalRight)
                 .style(border_style)
@@ -533,7 +601,25 @@ impl Tat {
                 frame.render_stateful_widget(
                     scrollbar,
                     scrollbar_area,
-                    &mut info.scroll_state(),
+                    &mut info.scroll_state_v(),
+                );
+            }
+        }
+
+        if has_h_scrollbar {
+            let scrollbar = Scrollbar::default()
+                .orientation(ScrollbarOrientation::HorizontalBottom)
+                .begin_symbol(Some(DOUBLE_HORIZONTAL.begin))
+                .style(crate::shared::palette::DEFAULT.highlighted_style())
+                .end_symbol(Some(DOUBLE_HORIZONTAL.end));
+
+            let scrollbar_area = area.inner(Margin { horizontal: 1, vertical: 1 });
+
+            if !scrollbar_area.is_empty() {
+                frame.render_stateful_widget(
+                    scrollbar,
+                    scrollbar_area,
+                    &mut info.scroll_state_h(),
                 );
             }
         }
