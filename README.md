@@ -122,7 +122,7 @@ Maybe (nice-to-haves):
 Unlikely:
 - Raster attribute tables
 - Some way of displaying geometries as other whan WKT/WKB
-  - Probably best bet would be to render the geometry as a temporary image and display it using the kitty terminal graphics protocol
+  - Probably best bet would be to render the geometry as a temporary image and display it with the kitty terminal graphics protocol using [viuer](using the kitty terminal graphics protocol)
   - However, this would be a significant undertaking and the actual utility of it is fairly minimal
   - But it would be pretty cool
 
