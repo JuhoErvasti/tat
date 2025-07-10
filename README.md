@@ -66,6 +66,7 @@ Here are the features which I'd like to add for the first proper version (more o
 - Display geometry column(s) as WKT
   - (Maybe) allow copying geometry as WKB in addition to WKT?
 - Optimize performance
+- Some kind of feedback when a value has been copied to the clipboard (or copying failed for that matter)
 - Mouse support
   - At least:
     - scrolling table
@@ -120,6 +121,10 @@ Maybe (nice-to-haves):
 
 Unlikely:
 - Raster attribute tables
+- Some way of displaying geometries as other whan WKT/WKB
+  - Probably best bet would be to render the geometry as a temporary image and display it using the kitty terminal graphics protocol
+  - However, this would be a significant undertaking and the actual utility of it is fairly minimal
+  - But it would be pretty cool
 
 Extremely unlikely:
 - Editing of any kind, the main impetus for developing this tool is to just inspect data
