@@ -1,5 +1,6 @@
 use ratatui::style::{Color, Style};
 
+pub const MISSING_VALUE: &str = "NULL";
 pub const SHOW_HELP: &str = " <type ? to show help> ";
 pub const TITLE_PROGRAM: &str = " Terminal Attribute Table ";
 pub const TITLE_DATASET_INFO: &str = " Dataset ";

@@ -59,7 +59,7 @@ impl TatLayerList {
     pub fn nav(&mut self, conf: TatNavVertical) {
         match conf {
             TatNavVertical::First => self.state.select_first(),
-            TatNavVertical::Last => self.state.select_last(),
+            TatNavVertical::Last => self.state.select(Some(self.layers.len() - 1)),
             TatNavVertical::DownOne => self.state.scroll_down_by(1),
             TatNavVertical::UpOne => self.state.scroll_up_by(1),
             TatNavVertical::DownHalfParagraph => self.state.scroll_down_by(self.available_rows as u16 / 2),

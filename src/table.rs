@@ -68,14 +68,13 @@ impl TatTable {
         }
     }
 
-    pub fn relative_highlighted_column(&self) -> u64 {
-        // see above (current_row)
-        self.table_state.selected_column().unwrap() as u64
+    fn current_column(&self) -> u64 {
+        self.first_column + self.relative_highlighted_column()
     }
 
     pub fn current_column_name(&self) -> &str {
         if let Some(layer) = self.layer.as_ref() {
-            let field_idx = self.first_column + self.relative_highlighted_column();
+            let field_idx =self.current_column();
             if let Some(field) = layer.fields().get(field_idx as usize) {
                 return field.name();
             }
@@ -84,12 +83,18 @@ impl TatTable {
         "UNKNOWN"
     }
 
+    pub fn relative_highlighted_column(&self) -> u64 {
+        // see above (current_row)
+        self.table_state.selected_column().unwrap() as u64
+    }
+
+
     fn update_v_scrollbar(&mut self) {
         self.v_scroll = self.v_scroll.position((self.top_fid + self.current_row() - 1) as usize);
     }
 
     fn update_h_scrollbar(&mut self) {
-        self.h_scroll = self.h_scroll.position((self.first_column + self.relative_highlighted_column()) as usize);
+        self.h_scroll = self.h_scroll.position(self.first_column as usize);
     }
 
     pub fn nav_h(&mut self, conf: TatNavHorizontal) {
@@ -97,23 +102,27 @@ impl TatTable {
             TatNavHorizontal::Home => {
                 self.set_first_column(0);
                 self.table_state.select_first_column();
+                self.update_h_scrollbar();
             },
             TatNavHorizontal::End => {
                 self.set_first_column(self.layer.as_ref().unwrap().field_count() as i64 - self.visible_columns() as i64);
-                self.table_state.select_column(Some(self.visible_columns() as usize));
+                self.table_state.select_column(Some(self.visible_columns() as usize - 1));
+                self.update_h_scrollbar();
             },
             TatNavHorizontal::RightOne => {
                 let relative_col = self.relative_highlighted_column();
-                let real_col = relative_col + self.first_column;
+                let real_col = self.current_column();
 
                 if relative_col == self.visible_columns() - 1 {
                     let cols =  self.layer.as_ref().unwrap().field_count();
 
                     if real_col == cols {
+                        self.update_h_scrollbar();
                         return;
                     } else {
                         self.set_first_column(self.first_column as i64 + 1);
                     }
+                    self.update_h_scrollbar();
                     return;
                 }
                 self.table_state.select_next_column();
@@ -122,17 +131,17 @@ impl TatTable {
                 let relative_col = self.relative_highlighted_column();
                 if relative_col == 0 {
                     if self.first_column == 0 {
+                        self.update_h_scrollbar();
                         return;
                     } else {
                         self.set_first_column(self.first_column as i64 - 1);
                     }
+                    self.update_h_scrollbar();
                     return;
                 }
                 self.table_state.select_previous_column();
             }
         }
-
-        self.update_h_scrollbar();
     }
 
     pub fn nav_v(&mut self, conf: TatNavVertical) {
@@ -141,7 +150,7 @@ impl TatTable {
             let row = self.current_row();
 
             if amount > 0 {
-                if row + amount as u64 >= self.visible_rows() {
+                if row + amount as u64 >= visible_rows as u64 {
                     self.set_top_fid(self.top_fid as i64 + amount as i64);
                 } else {
                     self.table_state.scroll_down_by(amount as u16);
@@ -162,8 +171,16 @@ impl TatTable {
                 self.table_state.select_first();
             },
             TatNavVertical::Last => {
-                self.set_top_fid(self.max_top_fid());
-                self.table_state.select(Some(visible_rows as usize));
+                if let Some(layer) = self.layer.as_ref() {
+                    let jump_to_relative = if self.all_rows_visible() {
+                        if layer.feature_count() > 0 { layer.feature_count() as i64 - 1 } else { 0 }
+                    } else {
+                        visible_rows - 1
+                    };
+
+                    self.set_top_fid(self.max_top_fid());
+                    self.table_state.select(Some(jump_to_relative as usize ));
+                }
             },
             TatNavVertical::DownOne => {
                 nav_by(1);
@@ -334,13 +351,13 @@ impl TatTable {
                 let str_opt = match feature.field_as_string(i as i32) {
                     Ok(str_opt) => str_opt,
                     // TODO: should the GdalError here be handled differently?
-                    Err(_) => Some(String::from("NULL")),
+                    Err(_) => Some(String::from(crate::shared::MISSING_VALUE)),
                 };
 
                 if let Some(str) = str_opt {
                     row_items.push(str);
                 } else {
-                    row_items.push(String::from("NULL"));
+                    row_items.push(String::from(crate::shared::MISSING_VALUE));
                 }
 
             }
@@ -369,17 +386,20 @@ impl TatTable {
     pub fn set_rects(&mut self, table_rect: Rect, fid_col_rect: Rect) {
         self.table_rect = table_rect;
         self.fid_col_rect = fid_col_rect;
+        self.h_scroll = ScrollbarState::new(self.layer.as_ref().unwrap().field_count() as usize - self.visible_columns() as usize + 1);
     }
 
     fn visible_rows(&self) -> u64 {
-        let mut value = if self.table_rect.height >= 6 {
-            (self.table_rect.height - 6) as u64
+        let value = if self.table_rect.height >= 5 {
+            (self.table_rect.height - 5) as u64
         } else {
             0
         };
 
-        if self.all_columns_visible() {
-            value += 2;
+        if let Some(layer) = self.layer.as_ref() {
+            if value > layer.feature_count() {
+                return layer.feature_count();
+            }
         }
 
         value
@@ -394,7 +414,11 @@ impl TatTable {
     }
 
     fn all_columns_visible(&self) -> bool {
-        self.visible_columns() == self.current_layer().field_count()
+        self.visible_columns() >= self.current_layer().field_count()
+    }
+
+    fn all_rows_visible(&self) -> bool {
+        self.visible_rows() >= self.current_layer().feature_count()
     }
 
     fn show_h_scrollbar(&self) -> bool {
@@ -453,7 +477,9 @@ impl TatTable {
             table_area,
             &mut self.table_state.clone(),
         );
-        // FIXME: there might be an issue with the bottom feature not showing,
-        // investigate
+    }
+
+    pub fn layer(&self) -> Option<&TatLayer> {
+        self.layer.as_ref()
     }
 }

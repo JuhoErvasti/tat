@@ -100,6 +100,7 @@ pub struct Tat {
     layerlist: TatLayerList,
     focused_block: TatLayerSelectFocusedBlock,
     clip: Option<ClipboardContext>,
+    table_area: Rect,
 }
 
 impl Tat {
@@ -121,6 +122,7 @@ impl Tat {
             layerlist: TatLayerList::new(&ds),
             focused_block: TatLayerSelectFocusedBlock::LayerList,
             clip,
+            table_area: Rect::default(),
         }
     }
 
@@ -176,9 +178,11 @@ impl Tat {
     }
 
     fn draw(&mut self, frame: &mut Frame) {
+        self.table_area = frame.area();
+
         match self.current_menu {
             TatMenu::LayerSelect => self.render_layer_select(frame.area(), frame),
-            TatMenu::TableView => self.render_table_view(frame.area(), frame),
+            TatMenu::TableView => self.render_table_view(frame),
         }
 
         self.draw_popup(frame);
@@ -272,13 +276,6 @@ impl Tat {
     }
 
     fn handle_key(&mut self, key: KeyEvent) {
-        // TODO: remove this from releases somehow?
-        // if let Some(popup) = &mut self.modal_popup {
-        //     if matches!(popup.ptype(), TatPopUpType::DebugLog) {
-        //         self.show_debug_log();
-        //     }
-        // }
-
         if key.kind != KeyEventKind::Press {
             return;
         }
@@ -348,7 +345,7 @@ impl Tat {
         let value = if let Some(_value) = self.table.selected_value() {
             _value
         } else {
-            "NULL".to_string()
+            crate::shared::MISSING_VALUE.to_string()
         };
 
         let p = TatNavigableParagraph::new(
@@ -375,7 +372,7 @@ impl Tat {
 
     fn show_debug_log(&mut self) {
         let mut text = String::from("");
-        let file = match File::open("tat.log") {
+        match File::open("tat.log") {
             Ok(file) => {
                 let lines = std::io::BufReader::new(file).lines();
 
@@ -449,7 +446,12 @@ impl Tat {
     }
 
     fn open_table(&mut self) {
-        self.table.set_layer(self.layerlist.current_layer().unwrap().clone());
+        if let Some(layer) = self.layerlist.current_layer() {
+            self.table.set_layer(layer.clone());
+        }
+
+        let (fid_col_area, table_rect) = self.table_rects();
+        self.table.set_rects(table_rect, fid_col_area);
         self.current_menu = TatMenu::TableView;
     }
 
@@ -477,6 +479,16 @@ impl Tat {
         }
     }
 
+    fn table_rects(&self) -> (Rect, Rect) {
+        let [fid_col_area, table_rect] = Layout::horizontal([
+            Constraint::Length(11),
+            Constraint::Fill(1),
+        ])
+        .areas(self.table_area);
+
+        (fid_col_area, table_rect)
+    }
+
     fn delegate_nav_v(&mut self, conf: TatNavVertical) {
         if let Some(pop) = &mut self.modal_popup {
             pop.nav_v(conf);
@@ -486,7 +498,9 @@ impl Tat {
         match self.current_menu {
             TatMenu::LayerSelect => {
                 match self.focused_block {
-                    TatLayerSelectFocusedBlock::LayerList => self.layerlist.nav(conf),
+                    TatLayerSelectFocusedBlock::LayerList => {
+                        self.layerlist.nav(conf);
+                    },
                     TatLayerSelectFocusedBlock::LayerInfo => self.layerlist.current_layer_info().nav_v(conf),
                 }
             },
@@ -538,14 +552,9 @@ impl Tat {
 
     }
 
-    fn render_table_view(&mut self, area: Rect, frame: &mut Frame) {
-        let [fid_col_area, table_area] = Layout::horizontal([
-            Constraint::Length(11),
-            Constraint::Fill(1),
-        ])
-        .areas(area);
-
-        self.table.set_rects(table_area, fid_col_area);
+    fn render_table_view(&mut self, frame: &mut Frame) {
+        let (fid_col_area, table_rect) = self.table_rects();
+        self.table.set_rects(table_rect, fid_col_area);
         self.table.render(frame);
     }
 
