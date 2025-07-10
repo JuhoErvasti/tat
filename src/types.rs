@@ -12,7 +12,7 @@ pub enum TatNavVertical {
     UpHalfParagraph,
     DownParagraph,
     UpParagraph,
-    Specific(u64),
+    Specific(i64),
 }
 
 pub enum TatNavHorizontal {

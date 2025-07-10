@@ -116,7 +116,7 @@ pub mod palette {
     use super::TatPalette;
 
     pub const DEFAULT: TatPalette = TatPalette {
-        default_fg: tailwind::SLATE.c100,
+        default_fg: tailwind::SLATE.c200,
         highlighted_fg: tailwind::SLATE.c400,
         highlighted_darker_fg: tailwind::SLATE.c500,
         selected_bg: tailwind::SLATE.c400,

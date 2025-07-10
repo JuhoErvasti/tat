@@ -51,7 +51,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::{layerlist::TatLayerList, navparagraph::TatNavigableParagraph, shared::{self, HELP_TEXT_TABLE}, types::{TatNavHorizontal, TatNavVertical, TatPopUpType, TatPopup}};
+use crate::{layerlist::TatLayerList, navparagraph::TatNavigableParagraph, shared::{self, HELP_TEXT_TABLE}, table::TableRects, types::{TatNavHorizontal, TatNavVertical, TatPopUpType, TatPopup}};
 use crate::table::TatTable;
 
 pub const LAYER_LIST_BORDER: symbols::border::Set = symbols::border::Set {
@@ -450,8 +450,7 @@ impl Tat {
             self.table.set_layer(layer.clone());
         }
 
-        let (fid_col_area, table_rect) = self.table_rects();
-        self.table.set_rects(table_rect, fid_col_area);
+        self.table.set_rects(self.table_rects());
         self.current_menu = TatMenu::TableView;
     }
 
@@ -479,14 +478,20 @@ impl Tat {
         }
     }
 
-    fn table_rects(&self) -> (Rect, Rect) {
-        let [fid_col_area, table_rect] = Layout::horizontal([
+    fn table_rects(&self) -> TableRects {
+        let [table_rect_temp, scroll_h_area] = Layout::vertical([
+            Constraint::Fill(1),
+            Constraint::Length(1),
+        ]).areas(self.table_area);
+
+        let [fid_col_area, table_rect, scroll_v_area] = Layout::horizontal([
             Constraint::Length(11),
             Constraint::Fill(1),
+            Constraint::Length(1),
         ])
-        .areas(self.table_area);
+        .areas(table_rect_temp);
 
-        (fid_col_area, table_rect)
+        (table_rect, fid_col_area, scroll_v_area, scroll_h_area)
     }
 
     fn delegate_nav_v(&mut self, conf: TatNavVertical) {
@@ -553,8 +558,8 @@ impl Tat {
     }
 
     fn render_table_view(&mut self, frame: &mut Frame) {
-        let (fid_col_area, table_rect) = self.table_rects();
-        self.table.set_rects(table_rect, fid_col_area);
+        self.table.set_rects(self.table_rects());
+
         self.table.render(frame);
     }
 

@@ -1,17 +1,19 @@
+use std::{error::Error, fmt::{format, write, Display, Formatter}};
+
 use cli_log::debug;
 
 use ratatui::{
     layout::{
-        Constraint, Layout, Margin, Rect
+        Constraint, Layout, Rect
     },
     style::Stylize,
-    symbols::scrollbar::{
+    symbols::{self, scrollbar::{
         DOUBLE_HORIZONTAL,
         DOUBLE_VERTICAL,
-    },
+    }},
     text::Line,
     widgets::{
-        Block, Borders, HighlightSpacing, Padding, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Table, TableState, Widget
+        Block, BorderType, Borders, Padding, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table, TableState
     }, Frame,
 };
 use gdal::vector::LayerAccess;
@@ -19,6 +21,13 @@ use gdal::vector::LayerAccess;
 use crate::types::{
     TatLayer, TatNavHorizontal, TatNavVertical
 };
+
+pub const FID_COLUMN_BORDER: symbols::border::Set = symbols::border::Set {
+    bottom_right: symbols::line::HORIZONTAL_UP,
+    ..symbols::border::ROUNDED
+};
+
+pub type TableRects = (Rect, Rect, Rect, Rect);
 
 /// Widget for displaying the attribute table
 pub struct TatTable {
@@ -30,6 +39,8 @@ pub struct TatTable {
     layer: Option<TatLayer>,
     table_rect: Rect,
     fid_col_rect: Rect,
+    v_scroll_area: Rect,
+    h_scroll_area: Rect,
 }
 
 impl TatTable {
@@ -47,25 +58,18 @@ impl TatTable {
             layer: Option::None,
             table_rect: Rect::default(),
             fid_col_rect: Rect::default(),
+            v_scroll_area: Rect::default(),
+            h_scroll_area: Rect::default(),
         }
     }
 
     pub fn set_layer(&mut self, layer: TatLayer) {
-        self.v_scroll = ScrollbarState::new(layer.feature_count() as usize);
-        self.h_scroll = ScrollbarState::new(layer.field_count() as usize);
         self.layer = Some(layer);
     }
 
+    /// Returns currently selected row's fid
     fn current_row(&self) -> u64 {
-        // the idea is to avoid unwrapping/whatever everywhere
-        // TODO: not sure how idiomatic this is in Rust, maybe reconsider
-        // the approach, feels like this is just trying skirt around
-        // the whole point of using Options and such, but idk
-        if let Some(sel) = self.table_state.selected() {
-            return sel as u64;
-        } else {
-            return 0;
-        }
+        self.top_fid + self.relative_highlighted_row()
     }
 
     fn current_column(&self) -> u64 {
@@ -83,21 +87,38 @@ impl TatTable {
         "UNKNOWN"
     }
 
+    fn relative_highlighted_row(&self) -> u64 {
+        // the idea is to avoid unwrapping/whatever everywhere
+        // TODO: not sure how idiomatic this is in Rust, maybe reconsider
+        // the approach, feels like this is just trying skirt around
+        // the whole point of using Options and such, but idk
+        if let Some(sel) = self.table_state.selected() {
+            return sel as u64;
+        } else {
+            return 0;
+        }
+    }
+
     pub fn relative_highlighted_column(&self) -> u64 {
-        // see above (current_row)
+        // see above (relative_highlighted_row)
         self.table_state.selected_column().unwrap() as u64
     }
 
-
     fn update_v_scrollbar(&mut self) {
-        self.v_scroll = self.v_scroll.position((self.top_fid + self.current_row() - 1) as usize);
+        self.v_scroll = ScrollbarState::new(self.layer.as_ref().unwrap().feature_count() as usize - self.visible_rows() as usize + 1);
+        self.v_scroll = self.v_scroll.position(self.top_fid as usize);
     }
 
     fn update_h_scrollbar(&mut self) {
+        self.h_scroll = ScrollbarState::new(self.layer.as_ref().unwrap().field_count() as usize - self.visible_columns() as usize + 1);
         self.h_scroll = self.h_scroll.position(self.first_column as usize);
     }
 
     pub fn nav_h(&mut self, conf: TatNavHorizontal) {
+        if self.visible_columns() <= 0 {
+            return;
+        }
+
         match conf {
             TatNavHorizontal::Home => {
                 self.set_first_column(0);
@@ -146,8 +167,11 @@ impl TatTable {
 
     pub fn nav_v(&mut self, conf: TatNavVertical) {
         let visible_rows = self.visible_rows() as i64;
+        if visible_rows <= 0 {
+            return;
+        }
         let mut nav_by = |amount: i64| {
-            let row = self.current_row();
+            let row = self.relative_highlighted_row();
 
             if amount > 0 {
                 if row + amount as u64 >= visible_rows as u64 {
@@ -200,8 +224,15 @@ impl TatTable {
             TatNavVertical::UpParagraph => {
                 nav_by(-(visible_rows));
             },
-            TatNavVertical::Specific(row) => {
-                panic!("Not implemented! Cannot nav to row {}", row);
+            TatNavVertical::Specific(fid) => {
+                // TODO: if you wanna get real fancy, you could preserve the proportional distance
+                // to the top fid
+                if self.fid_visible(fid as i64) {
+                    self.table_state.select(Some(self.fid_relative_row(fid).unwrap() as usize));
+                } else {
+                    self.set_top_fid(fid as i64);
+                    self.table_state.select_first();
+                }
             },
         }
 
@@ -209,7 +240,7 @@ impl TatTable {
     }
 
     pub fn selected_fid(&self) -> u64 {
-        self.top_fid + self.current_row()
+        self.top_fid + self.relative_highlighted_row()
     }
 
     pub fn selected_value(&self) -> Option<String> {
@@ -218,6 +249,21 @@ impl TatTable {
         } else {
             None
         }
+    }
+
+    fn fid_relative_row(&self, fid: i64) -> Result<u64, &str> {
+        if !self.fid_visible(fid) {
+            return Err("Fid is not visible!");
+        }
+
+        Ok((fid - self.top_fid as i64) as u64)
+    }
+
+    fn fid_visible(&self, fid: i64) -> bool {
+        let top = self.top_fid as i64;
+        let bottom = self.bottom_fid() as i64;
+
+        return fid >= top && fid <= bottom;
     }
 
     fn set_first_column(&mut self, col: i64) {
@@ -300,6 +346,7 @@ impl TatTable {
             )
             // .title(Line::raw(format!(" {} ", layer.name())))
             .borders(Borders::BOTTOM)
+            .border_set(symbols::border::PLAIN)
             .padding(Padding::top(1))
             .fg(crate::shared::palette::DEFAULT.default_fg)
             .title_bottom(Line::raw(crate::shared::SHOW_HELP).centered());
@@ -383,15 +430,36 @@ impl TatTable {
         self.table_rect
     }
 
-    pub fn set_rects(&mut self, table_rect: Rect, fid_col_rect: Rect) {
-        self.table_rect = table_rect;
-        self.fid_col_rect = fid_col_rect;
-        self.h_scroll = ScrollbarState::new(self.layer.as_ref().unwrap().field_count() as usize - self.visible_columns() as usize + 1);
+    pub fn set_rects(&mut self, (table_rect, fid_col_rect, v_scroll_area, h_scroll_area): TableRects) {
+        let old_fid = self.current_row();
+        let first_update = self.table_rect.is_empty();
+
+        let rect_changed = if self.table_rect != table_rect {
+            true
+        } else { false };
+
+        if rect_changed {
+            self.table_rect = table_rect;
+            self.fid_col_rect = fid_col_rect;
+            self.v_scroll_area = v_scroll_area;
+            self.h_scroll_area = h_scroll_area;
+
+            self.update_v_scrollbar();
+            self.update_h_scrollbar();
+
+            if self.bottom_fid() + self.top_fid >= self.layer.as_ref().unwrap().feature_count() {
+                self.set_top_fid(self.max_top_fid());
+            }
+
+            if !first_update {
+                self.nav_v(TatNavVertical::Specific(old_fid as i64));
+            }
+        }
     }
 
     fn visible_rows(&self) -> u64 {
-        let value = if self.table_rect.height >= 5 {
-            (self.table_rect.height - 5) as u64
+        let value = if self.table_rect.height >= 4 {
+            (self.table_rect.height - 4) as u64
         } else {
             0
         };
@@ -429,28 +497,63 @@ impl TatTable {
         true
     }
 
-    pub fn render(&mut self, frame: &mut Frame) {
-        // TODO: I think we have to render the Feature "Column" separately, not in the table
-        // 1. allows distinguishing it visually
-        // 2. makes the visible columns calculation more straightforward
+    fn render_fid_column(&mut self, frame: &mut Frame) {
+        if self.fid_col_rect.height <= 2 {
+            return;
+        }
 
-        // TODO: If value will not fit the cell, distinguish it, for example with …
+        let block = Block::new()
+            .border_set(FID_COLUMN_BORDER)
+            .fg(crate::shared::palette::DEFAULT.default_fg)
+            .borders(Borders::BOTTOM | Borders::RIGHT);
+
+        let fid_header = Line::raw(
+            "Feature",
+        ).bold().underlined().fg(crate::shared::palette::DEFAULT.default_fg);
+
+        let header_area = Rect {
+            x: 0,
+            y: self.fid_col_rect.y + 2,
+            height: 1,
+            width: 11,
+        };
+
+        let block_rect = Rect {
+            x: self.fid_col_rect.x,
+            y: self.fid_col_rect.y + 2,
+            height: self.fid_col_rect.height - 2,
+            width: self.fid_col_rect.width,
+        };
+
+        frame.render_widget(block, block_rect);
+        frame.render_widget(fid_header, header_area);
+
+        for (i, fid) in (self.top_fid..=self.bottom_fid()).enumerate() {
+            let line = Line::raw(
+                format!(
+                    "{}",
+                    fid,
+                ),
+            ).bold().fg(crate::shared::palette::DEFAULT.default_fg);
+            let rect = Rect {
+                x: self.fid_col_rect.x,
+                y: self.fid_col_rect.y + i as u16 + 3,
+                height: 1,
+                width: 11,
+            };
+
+            frame.render_widget(line, rect);
+        }
+    }
+
+    pub fn render(&mut self, frame: &mut Frame) {
+        self.render_fid_column(frame);
+
+        // TODO: If value will not fit the cell, distinguish it, for example with the … symbol
         let vert_scrollbar = Scrollbar::default()
                 .orientation(ScrollbarOrientation::VerticalRight)
                 .begin_symbol(Some(DOUBLE_VERTICAL.begin))
                 .end_symbol(Some(DOUBLE_VERTICAL.end));
-
-        let [table_area, v_scroll_area] = Layout::horizontal([
-            Constraint::Fill(1),
-            Constraint::Length(1),
-        ])
-        .areas(self.table_rect);
-
-        let [table_area, h_scroll_area] = Layout::vertical([
-            Constraint::Fill(1),
-            Constraint::Length(1),
-        ])
-        .areas(table_area);
 
         // TODO: maybe: only show scrollbars when needed
 
@@ -461,20 +564,20 @@ impl TatTable {
 
         frame.render_stateful_widget(
             vert_scrollbar,
-            v_scroll_area,
+            self.v_scroll_area,
             &mut self.v_scroll,
         );
 
         frame.render_stateful_widget(
             horz_scrollbar,
-            h_scroll_area,
+            self.h_scroll_area,
             &mut self.h_scroll,
         );
 
         let table = self.get_table();
         frame.render_stateful_widget(
             table,
-            table_area,
+            self.table_rect,
             &mut self.table_state.clone(),
         );
     }
