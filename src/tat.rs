@@ -1,5 +1,5 @@
 use std::{
-    env::temp_dir, fmt::format, fs::File, io::{
+    env::temp_dir, fs::File, io::{
         BufRead,
         Result,
     }, usize
@@ -16,10 +16,9 @@ use crossterm::event::{
     KeyEventKind,
     KeyModifiers,
 };
-use gdal::{
-    Dataset,
-    Metadata,
-};
+use gdal::
+    Dataset
+;
 use ratatui::{
     layout::{
         Constraint,
@@ -28,10 +27,9 @@ use ratatui::{
         Margin,
         Rect,
     },
-    style::{
-        Style,
-        Stylize,
-    },
+    style::
+        Stylize
+    ,
     symbols::{
         self,
         scrollbar::{DOUBLE_HORIZONTAL, DOUBLE_VERTICAL},
@@ -45,35 +43,34 @@ use ratatui::{
         ListState,
         Paragraph,
         Scrollbar,
-        ScrollbarOrientation, ScrollbarState,
+        ScrollbarOrientation,
     },
     DefaultTerminal,
     Frame,
 };
 
-use crate::{layerlist::TatLayerList, navparagraph::TatNavigableParagraph, shared::{self, HELP_TEXT_TABLE}, table::TableRects, types::{TatNavHorizontal, TatNavVertical, TatPopUpType, TatPopup}};
+use crate::{
+    layerlist::TatLayerList,
+    navparagraph::TatNavigableParagraph,
+    table::TableRects,
+    types::{TatNavHorizontal, TatNavVertical, TatPopUpType, TatPopup},
+};
 use crate::table::TatTable;
 
 pub const LAYER_LIST_BORDER: symbols::border::Set = symbols::border::Set {
     top_left: symbols::line::ROUNDED.vertical,
     top_right: symbols::line::ROUNDED.horizontal,
-    bottom_left: symbols::line::ROUNDED.bottom_left,
     bottom_right: symbols::line::ROUNDED.horizontal,
-    vertical_left: symbols::line::ROUNDED.vertical,
     vertical_right: " ",
-    horizontal_top: symbols::line::ROUNDED.horizontal,
-    horizontal_bottom: symbols::line::ROUNDED.horizontal,
+    ..symbols::border::ROUNDED
 };
 
 pub const LAYER_INFO_BORDER: symbols::border::Set = symbols::border::Set {
     top_left: symbols::line::ROUNDED.horizontal_down,
-    top_right: symbols::line::NORMAL.vertical_left,
+    top_right: symbols::line::NORMAL.horizontal_down,
     bottom_left: symbols::line::ROUNDED.horizontal_up,
-    bottom_right: symbols::line::ROUNDED.bottom_right,
-    vertical_left: symbols::line::ROUNDED.vertical,
-    vertical_right: symbols::line::ROUNDED.vertical,
-    horizontal_top: symbols::line::ROUNDED.horizontal,
-    horizontal_bottom: symbols::line::ROUNDED.horizontal,
+    bottom_right: symbols::line::ROUNDED.horizontal_up,
+    ..symbols::border::ROUNDED
 };
 
 pub enum TatMenu {
@@ -127,6 +124,10 @@ impl Tat {
     }
 
     pub fn run(mut self, terminal: &mut DefaultTerminal) -> Result<()> {
+        if let Some(layer) = self.layerlist.current_layer() {
+            self.table.set_layer(layer.clone());
+        }
+
         while !self.quit {
             terminal.draw(|frame| {
                 self.draw(frame);
@@ -450,7 +451,7 @@ impl Tat {
             self.table.set_layer(layer.clone());
         }
 
-        self.table.set_rects(self.table_rects());
+        self.table.set_rects(self.table_rects(false));
         self.current_menu = TatMenu::TableView;
     }
 
@@ -471,6 +472,7 @@ impl Tat {
         match self.current_menu {
             TatMenu::TableView => {
                 // TODO: maybe don't reset?
+                // and save table_state for each layer?
                 self.table.reset();
                 self.current_menu = TatMenu::LayerSelect;
             },
@@ -478,20 +480,39 @@ impl Tat {
         }
     }
 
-    fn table_rects(&self) -> TableRects {
-        let [table_rect_temp, scroll_h_area] = Layout::vertical([
-            Constraint::Fill(1),
-            Constraint::Length(1),
-        ]).areas(self.table_area);
+    fn table_rects(&self, preview: bool) -> TableRects {
+        let rects = if preview {
+            let [_, table_rect_temp] = Layout::vertical([
+                Constraint::Length(1),
+                Constraint::Fill(1),
+            ]).areas(self.table_area);
 
-        let [fid_col_area, table_rect, scroll_v_area] = Layout::horizontal([
-            Constraint::Length(11),
-            Constraint::Fill(1),
-            Constraint::Length(1),
-        ])
-        .areas(table_rect_temp);
+            let [fid_col_area, mut table_rect] = Layout::horizontal([
+                Constraint::Length(11),
+                Constraint::Fill(1),
+            ])
+            .areas(table_rect_temp);
 
-        (table_rect, fid_col_area, scroll_v_area, scroll_h_area)
+            table_rect.height += 1;
+
+            (table_rect, fid_col_area, Rect::default(), Rect::default())
+        } else {
+            let [table_rect_temp, scroll_h_area] = Layout::vertical([
+                Constraint::Fill(1),
+                Constraint::Length(1),
+            ]).areas(self.table_area);
+
+            let [fid_col_area, table_rect, scroll_v_area] = Layout::horizontal([
+                Constraint::Length(11),
+                Constraint::Fill(1),
+                Constraint::Length(1),
+            ])
+            .areas(table_rect_temp);
+
+            (table_rect, fid_col_area, scroll_v_area, scroll_h_area)
+        };
+
+        rects
     }
 
     fn delegate_nav_v(&mut self, conf: TatNavVertical) {
@@ -505,6 +526,8 @@ impl Tat {
                 match self.focused_block {
                     TatLayerSelectFocusedBlock::LayerList => {
                         self.layerlist.nav(conf);
+
+                        self.table.set_layer(self.layerlist.current_layer().unwrap().clone());
                     },
                     TatLayerSelectFocusedBlock::LayerInfo => self.layerlist.current_layer_info().nav_v(conf),
                 }
@@ -558,7 +581,7 @@ impl Tat {
     }
 
     fn render_table_view(&mut self, frame: &mut Frame) {
-        self.table.set_rects(self.table_rects());
+        self.table.set_rects(self.table_rects(false));
 
         self.table.render(frame);
     }
@@ -571,9 +594,11 @@ impl Tat {
         ])
         .areas(area);
 
-        let [list_area, info_area] =
+        // TODO: only show preview table if there's reasonably space for it?
+        let [list_area, info_area, preview_table_area] =
             Layout::horizontal([
                 Constraint::Fill(1),
+                Constraint::Fill(2),
                 Constraint::Fill(4),
         ]).areas(layer_area);
 
@@ -581,6 +606,22 @@ impl Tat {
         self.render_dataset_info(dataset_area, frame);
         self.layerlist.render(list_area, frame, matches!(self.focused_block, TatLayerSelectFocusedBlock::LayerList) && !self.has_popup());
         self.render_layer_info(info_area, frame,  matches!(self.focused_block, TatLayerSelectFocusedBlock::LayerInfo));
+
+        self.table_area = preview_table_area;
+        self.table.set_rects(self.table_rects(true));
+
+        let block = Block::new()
+            .title(
+                Line::raw(
+                    " Preview Table ",
+                ).bold().underlined().left_aligned().fg(crate::shared::palette::DEFAULT.default_fg),
+            )
+            .title_bottom(Line::raw(" <ENTER> to open full table ").centered())
+            .borders(Borders::BOTTOM | Borders::RIGHT | Borders::TOP);
+
+        frame.render_widget(block, preview_table_area);
+
+        self.table.render_preview(frame);
     }
 
 

@@ -1,10 +1,8 @@
-use std::{error::Error, fmt::{format, write, Display, Formatter}};
-
 use cli_log::debug;
 
 use ratatui::{
     layout::{
-        Constraint, Layout, Rect
+        Constraint, Margin, Rect
     },
     style::Stylize,
     symbols::{self, scrollbar::{
@@ -13,7 +11,7 @@ use ratatui::{
     }},
     text::Line,
     widgets::{
-        Block, BorderType, Borders, Padding, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table, TableState
+        Block, Borders, Padding, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table, TableState
     }, Frame,
 };
 use gdal::vector::LayerAccess;
@@ -22,10 +20,16 @@ use crate::types::{
     TatLayer, TatNavHorizontal, TatNavVertical
 };
 
-pub const FID_COLUMN_BORDER: symbols::border::Set = symbols::border::Set {
+pub const FID_COLUMN_BORDER_FULL: symbols::border::Set = symbols::border::Set {
     bottom_right: symbols::line::HORIZONTAL_UP,
     ..symbols::border::ROUNDED
 };
+
+pub const FID_COLUMN_BORDER_PREVIEW: symbols::border::Set = symbols::border::Set {
+    top_right: symbols::line::HORIZONTAL_DOWN,
+    ..FID_COLUMN_BORDER_FULL
+};
+
 
 pub type TableRects = (Rect, Rect, Rect, Rect);
 
@@ -326,30 +330,33 @@ impl TatTable {
     }
 
     /// Returns table based on current state
-    fn get_table(&self) -> Table {
+    fn get_table(&self, preview: bool) -> Table {
         let layer = self.current_layer();
         let gdal_layer = layer.gdal_layer();
 
-        let block = Block::new()
-            .title(
-                Line::raw(
-                    format!(
-                        " {} (debug - visible_rows: {}, visible_columns: {} bottom_fid: {}, top_fid: {}, area_width: {})",
-                        layer.name(),
-                        self.visible_rows(),
-                        self.visible_columns(),
-                        self.bottom_fid(),
-                        self.top_fid,
-                        self.table_rect.width,
-                    ),
-                ).centered().bold().underlined(),
-            )
-            // .title(Line::raw(format!(" {} ", layer.name())))
-            .borders(Borders::BOTTOM)
-            .border_set(symbols::border::PLAIN)
-            .padding(Padding::top(1))
-            .fg(crate::shared::palette::DEFAULT.default_fg)
-            .title_bottom(Line::raw(crate::shared::SHOW_HELP).centered());
+        // TODO: render the title separately in self.render()
+        // ALSO THE BOTTOM LINE AND HINT TO OPEN HELP FROM ?
+
+        // let block = Block::new()
+        //     .title(
+        //         Line::raw(
+        //             format!(
+        //                 " {} (debug - visible_rows: {}, visible_columns: {} bottom_fid: {}, top_fid: {}, area_width: {})",
+        //                 layer.name(),
+        //                 self.visible_rows(),
+        //                 self.visible_columns(),
+        //                 self.bottom_fid(),
+        //                 self.top_fid,
+        //                 self.table_rect.width,
+        //             ),
+        //         ).centered().bold().underlined(),
+        //     )
+        //     // .title(Line::raw(format!(" {} ", layer.name())))
+        //     .borders(Borders::BOTTOM)
+        //     .border_set(symbols::border::PLAIN)
+        //     .padding(Padding::top(1))
+        //     .fg(crate::shared::palette::DEFAULT.default_fg)
+        //     .title_bottom(Line::raw(crate::shared::SHOW_HELP).centered());
 
         let mut header_items: Vec<String> = vec![];
 
@@ -417,10 +424,15 @@ impl TatTable {
         // TODO: don't just construct all the rows every time we render the table
         let table = Table::new(rows, widths)
             .header(header.underlined())
-            .block(block)
-            .column_highlight_style(crate::shared::palette::DEFAULT.highlighted_darker_fg())
-            .row_highlight_style(crate::shared::palette::DEFAULT.highlighted_darker_fg())
-            .cell_highlight_style(crate::shared::palette::DEFAULT.selected_style())
+            .column_highlight_style(
+                if preview {crate::shared::palette::DEFAULT.default_style()} else {crate::shared::palette::DEFAULT.highlighted_darker_fg()}
+            )
+            .row_highlight_style(
+                if preview {crate::shared::palette::DEFAULT.default_style()} else {crate::shared::palette::DEFAULT.highlighted_darker_fg()}
+            )
+            .cell_highlight_style(
+                if preview {crate::shared::palette::DEFAULT.default_style()} else {crate::shared::palette::DEFAULT.selected_style()}
+            )
             .column_spacing(1);
 
         table
@@ -497,32 +509,53 @@ impl TatTable {
         true
     }
 
-    fn render_fid_column(&mut self, frame: &mut Frame) {
+    fn render_fid_column(&mut self, frame: &mut Frame, preview: bool) {
         if self.fid_col_rect.height <= 2 {
             return;
         }
 
-        let block = Block::new()
-            .border_set(FID_COLUMN_BORDER)
-            .fg(crate::shared::palette::DEFAULT.default_fg)
-            .borders(Borders::BOTTOM | Borders::RIGHT);
+        let borders = if preview { Borders::RIGHT | Borders::BOTTOM } else { Borders::BOTTOM | Borders::RIGHT };
+        let border_symbols = if preview { FID_COLUMN_BORDER_PREVIEW } else { FID_COLUMN_BORDER_FULL };
+
+        let mut block = Block::new()
+            .border_set(border_symbols)
+            .borders(borders)
+            .fg(crate::shared::palette::DEFAULT.default_fg);
 
         let fid_header = Line::raw(
-            "Feature",
+            "Feature"
         ).bold().underlined().fg(crate::shared::palette::DEFAULT.default_fg);
 
-        let header_area = Rect {
-            x: 0,
-            y: self.fid_col_rect.y + 2,
-            height: 1,
-            width: 11,
+        let header_area = if preview {
+            Rect {
+                x: self.fid_col_rect.x,
+                y: self.fid_col_rect.y + 1,
+                height: 1,
+                width: 11,
+            }
+        } else { 
+            Rect {
+                x: self.fid_col_rect.x,
+                y: self.fid_col_rect.y + 2,
+                height: 1,
+                width: 11,
+            }
         };
 
-        let block_rect = Rect {
-            x: self.fid_col_rect.x,
-            y: self.fid_col_rect.y + 2,
-            height: self.fid_col_rect.height - 2,
-            width: self.fid_col_rect.width,
+        let block_rect = if preview {
+            Rect {
+                x: self.fid_col_rect.x,
+                y: self.fid_col_rect.y,
+                height: self.fid_col_rect.height + 1,
+                width: self.fid_col_rect.width,
+            }
+        } else {
+            Rect {
+                x: self.fid_col_rect.x,
+                y: self.fid_col_rect.y + 2,
+                height: self.fid_col_rect.height - 2,
+                width: self.fid_col_rect.width,
+            }
         };
 
         frame.render_widget(block, block_rect);
@@ -537,7 +570,7 @@ impl TatTable {
             ).bold().fg(crate::shared::palette::DEFAULT.default_fg);
             let rect = Rect {
                 x: self.fid_col_rect.x,
-                y: self.fid_col_rect.y + i as u16 + 3,
+                y: self.fid_col_rect.y + i as u16 + if preview { 2 } else { 3 },
                 height: 1,
                 width: 11,
             };
@@ -546,8 +579,31 @@ impl TatTable {
         }
     }
 
+    pub fn render_preview(&mut self, frame: &mut Frame) {
+        if self.fid_col_rect.is_empty() || self.table_rect.is_empty() {
+            return;
+        }
+
+        self.render_fid_column(frame, true);
+
+        let table = self.get_table(true);
+
+        let table_widget_rect = Rect {
+            x: self.table_rect.x,
+            y: self.table_rect.y + 1,
+            width: self.table_rect.width - 1,
+            height: self.table_rect.height,
+        };
+
+        frame.render_stateful_widget(
+            table,
+            table_widget_rect,
+            &mut self.table_state.clone(),
+        );
+    }
+
     pub fn render(&mut self, frame: &mut Frame) {
-        self.render_fid_column(frame);
+        self.render_fid_column(frame, false);
 
         // TODO: If value will not fit the cell, distinguish it, for example with the … symbol
         let vert_scrollbar = Scrollbar::default()
@@ -574,10 +630,17 @@ impl TatTable {
             &mut self.h_scroll,
         );
 
-        let table = self.get_table();
+        let table_widget_rect = Rect {
+            x: self.table_rect.x,
+            y: self.table_rect.y + 2,
+            width: self.table_rect.width,
+            height: self.table_rect.height - 3,
+        };
+
+        let table = self.get_table(false);
         frame.render_stateful_widget(
             table,
-            self.table_rect,
+            table_widget_rect,
             &mut self.table_state.clone(),
         );
     }
