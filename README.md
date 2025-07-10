@@ -80,7 +80,7 @@ Here are the features which I'd like to add for the first proper version (more o
 <summary>More details</summary>
 <details>
 <summary>Completed</summary>
-Completed:
+
 - Fix issues with some layers not opening in the table
 - Improve performance on large layers (only render what can be seen)
   - Improve performance on opening large layers
