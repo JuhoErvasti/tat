@@ -78,13 +78,14 @@ pub const BORDER_PREVIEW_TABLE: symbols::border::Set = symbols::border::Set {
 };
 
 pub enum TatMenu {
-    LayerSelect,
+    MainMenu,
     TableView,
 }
 
-pub enum TatLayerSelectFocusedBlock {
+pub enum TatMainMenuFocusedBlock {
     LayerList,
     LayerInfo,
+    PreviewTable,
 }
 
 // TODO: there's a bug with TatNavigableParagraph when the text wraps it doesn't
@@ -99,7 +100,7 @@ pub struct Tat {
     modal_popup: Option<TatPopup>,
     table: TatTable,
     layerlist: TatLayerList,
-    focused_block: TatLayerSelectFocusedBlock,
+    focused_block: TatMainMenuFocusedBlock,
     clip: Option<ClipboardContext>,
     table_area: Rect,
     number_input: Option<TatNumberInput>,
@@ -118,12 +119,12 @@ impl Tat {
         };
 
         Self {
-            current_menu: TatMenu::LayerSelect,
+            current_menu: TatMenu::MainMenu,
             quit: false,
             modal_popup: None,
             table: TatTable::new(),
             layerlist: TatLayerList::new(&ds),
-            focused_block: TatLayerSelectFocusedBlock::LayerList,
+            focused_block: TatMainMenuFocusedBlock::LayerList,
             clip,
             table_area: Rect::default(),
             number_input: None,
@@ -200,7 +201,7 @@ impl Tat {
         self.table_area = frame.area();
 
         match self.current_menu {
-            TatMenu::LayerSelect => self.render_layer_select(frame.area(), frame),
+            TatMenu::MainMenu => self.render_main_menu(frame.area(), frame),
             TatMenu::TableView => self.render_table_view(frame),
         }
 
@@ -363,9 +364,10 @@ impl Tat {
         }
 
         let ctrl_down: bool = key.modifiers.contains(KeyModifiers::CONTROL);
-        let in_layer_list: bool = matches!(self.current_menu, TatMenu::LayerSelect) && matches!(self.focused_block, TatLayerSelectFocusedBlock::LayerList);
+        let in_layer_list: bool = matches!(self.current_menu, TatMenu::MainMenu) && matches!(self.focused_block, TatMainMenuFocusedBlock::LayerList);
         let in_table: bool = matches!(self.current_menu, TatMenu::TableView);
-        let in_layer_select: bool = matches!(self.current_menu, TatMenu::LayerSelect);
+        let in_main_menu: bool = matches!(self.current_menu, TatMenu::MainMenu);
+        let in_preview_table: bool = matches!(self.focused_block, TatMainMenuFocusedBlock::PreviewTable);
         let popup_open: bool = self.has_popup();
 
         if in_table {
@@ -429,8 +431,8 @@ impl Tat {
             },
             KeyCode::Enter => {
                 match self.current_menu {
-                    TatMenu::LayerSelect => {
-                        if !in_table && in_layer_list && !popup_open {
+                    TatMenu::MainMenu => {
+                        if !in_table && !popup_open && (in_preview_table || in_layer_list) {
                             self.open_table();
                         }
                     },
@@ -440,7 +442,7 @@ impl Tat {
                 }
             },
             KeyCode::Tab | KeyCode::BackTab => {
-                if in_layer_select && !popup_open {
+                if in_main_menu && !popup_open {
                     self.cycle_block_selection();
                 }
             },
@@ -543,7 +545,7 @@ impl Tat {
     fn show_help(&mut self) {
         let help_text = match self.current_menu {
             TatMenu::TableView => crate::shared::HELP_TEXT_TABLE,
-            TatMenu::LayerSelect => crate::shared::HELP_TEXT_LAYERSELECT,
+            TatMenu::MainMenu => crate::shared::HELP_TEXT_LAYERSELECT,
         }.to_string();
 
         let p = TatNavigableParagraph::new(help_text);
@@ -558,8 +560,9 @@ impl Tat {
 
     fn cycle_block_selection(&mut self) {
         self.focused_block = match self.focused_block {
-            TatLayerSelectFocusedBlock::LayerList => TatLayerSelectFocusedBlock::LayerInfo,
-            TatLayerSelectFocusedBlock::LayerInfo => TatLayerSelectFocusedBlock::LayerList,
+            TatMainMenuFocusedBlock::LayerList => TatMainMenuFocusedBlock::LayerInfo,
+            TatMainMenuFocusedBlock::LayerInfo => TatMainMenuFocusedBlock::PreviewTable,
+            TatMainMenuFocusedBlock::PreviewTable => TatMainMenuFocusedBlock::LayerList,
         }
     }
 
@@ -595,9 +598,9 @@ impl Tat {
                 // TODO: maybe don't reset?
                 // and save table_state for each layer?
                 self.table.reset();
-                self.current_menu = TatMenu::LayerSelect;
+                self.current_menu = TatMenu::MainMenu;
             },
-            TatMenu::LayerSelect => self.close(),
+            TatMenu::MainMenu => self.close(),
         }
     }
 
@@ -643,9 +646,9 @@ impl Tat {
         }
 
         match self.current_menu {
-            TatMenu::LayerSelect => {
+            TatMenu::MainMenu => {
                 match self.focused_block {
-                    TatLayerSelectFocusedBlock::LayerList => {
+                    TatMainMenuFocusedBlock::LayerList => {
                         self.layerlist.nav(conf);
 
                         if let Some(layer) = self.layerlist.current_layer() {
@@ -653,7 +656,10 @@ impl Tat {
                         }
                         // self.table.set_layer(self.layerlist.current_layer().unwrap().clone());
                     },
-                    TatLayerSelectFocusedBlock::LayerInfo => self.layerlist.current_layer_info().nav_v(conf),
+                    TatMainMenuFocusedBlock::LayerInfo => self.layerlist.current_layer_info().nav_v(conf),
+                    TatMainMenuFocusedBlock::PreviewTable => {
+                        self.table.nav_v(conf);
+                    }
                 }
             },
             TatMenu::TableView => self.table.nav_v(conf),
@@ -667,10 +673,13 @@ impl Tat {
         }
 
         match self.current_menu {
-            TatMenu::LayerSelect => {
+            TatMenu::MainMenu => {
                 match self.focused_block {
-                    TatLayerSelectFocusedBlock::LayerList => return,
-                    TatLayerSelectFocusedBlock::LayerInfo => self.layerlist.current_layer_info().nav_h(conf),
+                    TatMainMenuFocusedBlock::LayerList => return,
+                    TatMainMenuFocusedBlock::LayerInfo => self.layerlist.current_layer_info().nav_h(conf),
+                    TatMainMenuFocusedBlock::PreviewTable => {
+                        self.table.nav_h(conf);
+                    }
                 }
             },
             TatMenu::TableView => self.table.nav_h(conf),
@@ -710,7 +719,7 @@ impl Tat {
         self.table.render(frame);
     }
 
-    fn render_layer_select(&mut self, area: Rect, frame: &mut Frame) {
+    fn render_main_menu(&mut self, area: Rect, frame: &mut Frame) {
         let [header_area, dataset_area, layer_area] = Layout::vertical([
             Constraint::Length(2),
             Constraint::Length(4),
@@ -728,8 +737,8 @@ impl Tat {
 
         Tat::render_header(header_area, frame);
         self.render_dataset_info(dataset_area, frame);
-        self.layerlist.render(list_area, frame, matches!(self.focused_block, TatLayerSelectFocusedBlock::LayerList) && !self.has_popup());
-        self.render_layer_info(info_area, frame,  matches!(self.focused_block, TatLayerSelectFocusedBlock::LayerInfo));
+        self.layerlist.render(list_area, frame, matches!(self.focused_block, TatMainMenuFocusedBlock::LayerList) && !self.has_popup());
+        self.render_layer_info(info_area, frame,  matches!(self.focused_block, TatMainMenuFocusedBlock::LayerInfo));
 
         self.table_area = preview_table_area;
         self.table.set_rects(self.table_rects(true));
@@ -738,15 +747,18 @@ impl Tat {
             .title(
                 Line::raw(
                     " Preview Table ",
-                ).bold().underlined().left_aligned().fg(crate::shared::palette::DEFAULT.default_fg),
-            )
+                ).bold().underlined().left_aligned().fg(
+                    if matches!(self.focused_block, TatMainMenuFocusedBlock::PreviewTable) {crate::shared::palette::DEFAULT.highlighted_fg} else {crate::shared::palette::DEFAULT.default_fg}
+                    ),
+                )
+            .border_style(if matches!(self.focused_block, TatMainMenuFocusedBlock::PreviewTable) {crate::shared::palette::DEFAULT.highlighted_style()} else {crate::shared::palette::DEFAULT.default_style()})
             .title_bottom(Line::raw(" <Enter> to open full table ").centered())
             .border_set(BORDER_PREVIEW_TABLE)
             .borders(Borders::BOTTOM | Borders::RIGHT | Borders::TOP);
 
-        frame.render_widget(block, preview_table_area);
-
         self.table.render_preview(frame);
+
+        frame.render_widget(block, preview_table_area);
     }
 
 

@@ -432,14 +432,18 @@ impl TatTable {
         // TODO: don't just construct all the rows every time we render the table
         let table = Table::new(rows, widths)
             .header(header.underlined())
+            .style(crate::shared::palette::DEFAULT.default_style())
             .column_highlight_style(
-                if preview {crate::shared::palette::DEFAULT.default_style()} else {crate::shared::palette::DEFAULT.highlighted_darker_fg()}
+                crate::shared::palette::DEFAULT.highlighted_darker_fg()
+                // if preview {crate::shared::palette::DEFAULT.default_style()} else {crate::shared::palette::DEFAULT.highlighted_darker_fg()}
             )
             .row_highlight_style(
-                if preview {crate::shared::palette::DEFAULT.default_style()} else {crate::shared::palette::DEFAULT.highlighted_darker_fg()}
+                crate::shared::palette::DEFAULT.highlighted_darker_fg()
+                // if preview {crate::shared::palette::DEFAULT.default_style()} else {crate::shared::palette::DEFAULT.highlighted_darker_fg()}
             )
             .cell_highlight_style(
-                if preview {crate::shared::palette::DEFAULT.default_style()} else {crate::shared::palette::DEFAULT.selected_style()}
+                crate::shared::palette::DEFAULT.selected_style()
+                // if preview {crate::shared::palette::DEFAULT.default_style()} else {crate::shared::palette::DEFAULT.selected_style()}
             )
             .column_spacing(1);
 
