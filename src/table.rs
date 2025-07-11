@@ -231,11 +231,15 @@ impl TatTable {
             TatNavVertical::Specific(fid) => {
                 // TODO: if you wanna get real fancy, you could preserve the proportional distance
                 // to the top fid
+                if fid >= self.layer().unwrap().feature_count() as i64 {
+                    self.nav_v(TatNavVertical::Last);
+                    return;
+                }
                 if self.fid_visible(fid as i64) {
                     self.table_state.select(Some(self.fid_relative_row(fid).unwrap() as usize));
                 } else {
                     self.set_top_fid(fid as i64);
-                    self.table_state.select_first();
+                    self.table_state.select(Some(self.fid_relative_row(fid).unwrap() as usize));
                 }
             },
         }
@@ -604,6 +608,8 @@ impl TatTable {
 
     pub fn render(&mut self, frame: &mut Frame) {
         self.render_fid_column(frame, false);
+
+        // TODO: handle potential overflows
 
         // TODO: If value will not fit the cell, distinguish it, for example with the … symbol
         let vert_scrollbar = Scrollbar::default()

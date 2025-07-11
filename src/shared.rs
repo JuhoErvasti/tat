@@ -13,28 +13,28 @@ pub const POPUP_HINT: &str = " <press q to close> ";
 pub const HELP_TEXT_LAYERSELECT: &str = "Keybinds for Main Menu
 ----------------------
 Basic Navigation:
-     or h: Left
-     or j: Down
-     or k: Up
-     or l: Right
+     or 'h': Left
+     or 'j': Down
+     or 'k': Up
+     or 'l': Right
     Enter: Open Table
     Tab and SHIFT+Tab or Left/Right: Switch between Layer List or Info
 
 General:
-    q: Previous Menu
-    CTRL + Q or q when in Main Menu: Quit
-    ?: Show Help
+    'q': Previous Menu
+    CTRL + Q or 'q' when in Main Menu: Quit
+    '?': Show Help
 
 Advanced Navigation:
-    g: Scroll to Top
-    G: Scroll to Bottom
+    'g': Scroll to Top
+    'G': Scroll to Bottom
     CTRL + D: Scroll Down (half page)
     CTRL + U: Scroll Up (half page)
     CTRL + F or PageDown: Scroll Down (full page)
     CTRL + B or PageUp: Scroll Up (full page)
 
 Miscellaneous:
-    L: Open GDAL Log
+    'L': Open GDAL Log
 
 Remarks
 -------
@@ -45,32 +45,33 @@ table.
 pub const HELP_TEXT_TABLE: &str = "Keybinds for Attribute Table
 ----------------------------
 Basic Navigation:
-     or h: Left
-     or j: Down
-     or k: Up
-     or l: Right
+     or 'h': Left
+     or 'j': Down
+     or 'k': Up
+     or 'l': Right
 
 Table:
+    ':' : Open Dialog to Jump to Specific Feature
     Enter: Display Selected Value in Pop-Up 
     y or CTRL + C: Copy Selected Value to Clipboard
 
 General:
-    q: Previous Menu
+    'q': Previous Menu
     CTRL + Q: Quit
-    ?: Show Help
+    '?': Show Help
 
 Advanced Navigation:
-    Home or 0: nav to First Column
-    End or $: nav to Last Column
-    g: Scroll to Top
-    G: Scroll to Bottom
+    Home or '0': nav to First Column
+    End or '$': nav to Last Column
+    'g': Scroll to Top
+    'G': Scroll to Bottom
     CTRL + D: Scroll Down (half page)
     CTRL + U: Scroll Up (half page)
     CTRL + F or PageDown: Scroll Down (full page)
     CTRL + B or PageUp: Scroll Up (full page)
 
 Miscellaneous:
-    L: Open GDAL Log
+    'L': Open GDAL Log
 
 Remarks
 -------

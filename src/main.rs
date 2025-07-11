@@ -11,6 +11,7 @@ mod layerlist;
 mod tat;
 mod navparagraph;
 mod shared;
+mod numberinput;
 
 fn show_usage() {
     // TODO:

@@ -50,14 +50,11 @@ use ratatui::{
 };
 
 use crate::{
-    layerlist::TatLayerList,
-    navparagraph::TatNavigableParagraph,
-    table::TableRects,
-    types::{TatNavHorizontal, TatNavVertical, TatPopUpType, TatPopup},
+    layerlist::TatLayerList, navparagraph::TatNavigableParagraph, numberinput::{TatNumberInput, TatNumberInputResult}, table::TableRects, types::{TatNavHorizontal, TatNavVertical, TatPopUpType, TatPopup}
 };
 use crate::table::TatTable;
 
-pub const LAYER_LIST_BORDER: symbols::border::Set = symbols::border::Set {
+pub const BORDER_LAYER_LIST: symbols::border::Set = symbols::border::Set {
     top_left: symbols::line::ROUNDED.vertical,
     top_right: symbols::line::ROUNDED.horizontal,
     bottom_right: symbols::line::ROUNDED.horizontal,
@@ -65,11 +62,17 @@ pub const LAYER_LIST_BORDER: symbols::border::Set = symbols::border::Set {
     ..symbols::border::ROUNDED
 };
 
-pub const LAYER_INFO_BORDER: symbols::border::Set = symbols::border::Set {
+pub const BORDER_LAYER_INFO: symbols::border::Set = symbols::border::Set {
     top_left: symbols::line::ROUNDED.horizontal_down,
     top_right: symbols::line::NORMAL.horizontal_down,
     bottom_left: symbols::line::ROUNDED.horizontal_up,
     bottom_right: symbols::line::ROUNDED.horizontal_up,
+    ..symbols::border::ROUNDED
+};
+
+pub const BORDER_PREVIEW_TABLE: symbols::border::Set = symbols::border::Set {
+    top_right: symbols::line::NORMAL.vertical_left,
+    bottom_left: symbols::line::ROUNDED.horizontal_up,
     ..symbols::border::ROUNDED
 };
 
@@ -98,6 +101,7 @@ pub struct Tat {
     focused_block: TatLayerSelectFocusedBlock,
     clip: Option<ClipboardContext>,
     table_area: Rect,
+    number_input: Option<TatNumberInput>,
 }
 
 impl Tat {
@@ -120,6 +124,7 @@ impl Tat {
             focused_block: TatLayerSelectFocusedBlock::LayerList,
             clip,
             table_area: Rect::default(),
+            number_input: None,
         }
     }
 
@@ -187,6 +192,27 @@ impl Tat {
         }
 
         self.draw_popup(frame);
+        self.draw_number_input(frame);
+    }
+
+    fn draw_number_input(&mut self, frame: &mut Frame) {
+        if let Some(number_input) = self.number_input.as_mut() {
+            let cleared_area = Tat::number_input_area(frame.area(), 50);
+            let block_area = cleared_area.inner(Margin { horizontal: 1, vertical: 1 });
+
+            let block = Block::default()
+                        .title(Line::raw(" Jump To Feature ").bold().underlined().centered())
+                        .borders(Borders::ALL)
+                        .border_style(crate::shared::palette::DEFAULT.highlighted_style())
+                        .border_type(BorderType::Rounded)
+                        .title_bottom(Line::raw( " <press Enter to jump, q to cancel> ").centered());
+
+            let input_area = block_area.inner(Margin { horizontal: 1, vertical: 1 });
+
+            frame.render_widget(Clear, cleared_area);
+            frame.render_widget(block, block_area);
+            number_input.render(frame, input_area);
+        }
     }
 
     fn draw_popup(&mut self, frame: &mut Frame) {
@@ -287,6 +313,24 @@ impl Tat {
         let in_layer_select: bool = matches!(self.current_menu, TatMenu::LayerSelect);
         let popup_open: bool = self.has_popup();
 
+        if in_table {
+            if let Some(number_input) = & mut self.number_input {
+                let res = number_input.key_press(key.code, ctrl_down);
+
+                match res {
+                    TatNumberInputResult::Close => self.number_input = None,
+                    TatNumberInputResult::Accept(num) => {
+                        self.table.nav_v(TatNavVertical::Specific(num));
+                        self.number_input = None;
+                    }
+                    _ => (),
+                }
+
+                return;
+            }
+        }
+
+
         match key.code {
             KeyCode::Char('q') if ctrl_down => self.close(),
             KeyCode::Char('q') | KeyCode::Esc => self.previous_menu(),
@@ -337,7 +381,14 @@ impl Tat {
                 if in_layer_select && !popup_open {
                     self.cycle_block_selection();
                 }
-            }
+            },
+            KeyCode::Char(':') =>  {
+                if in_table {
+                    self.number_input = Some(
+                        TatNumberInput::new(),
+                    )
+                }
+            },
             _ => {},
         }
     }
@@ -527,7 +578,10 @@ impl Tat {
                     TatLayerSelectFocusedBlock::LayerList => {
                         self.layerlist.nav(conf);
 
-                        self.table.set_layer(self.layerlist.current_layer().unwrap().clone());
+                        if let Some(layer) = self.layerlist.current_layer() {
+                            self.table.set_layer(layer.clone());
+                        }
+                        // self.table.set_layer(self.layerlist.current_layer().unwrap().clone());
                     },
                     TatLayerSelectFocusedBlock::LayerInfo => self.layerlist.current_layer_info().nav_v(conf),
                 }
@@ -616,7 +670,8 @@ impl Tat {
                     " Preview Table ",
                 ).bold().underlined().left_aligned().fg(crate::shared::palette::DEFAULT.default_fg),
             )
-            .title_bottom(Line::raw(" <ENTER> to open full table ").centered())
+            .title_bottom(Line::raw(" <Enter> to open full table ").centered())
+            .border_set(BORDER_PREVIEW_TABLE)
             .borders(Borders::BOTTOM | Borders::RIGHT | Borders::TOP);
 
         frame.render_widget(block, preview_table_area);
@@ -636,7 +691,7 @@ impl Tat {
         let block = Block::bordered()
             .title(Line::raw(crate::shared::TITLE_LAYER_INFO).bold().underlined())
             .fg(crate::shared::palette::DEFAULT.default_fg)
-            .border_set(LAYER_INFO_BORDER)
+            .border_set(BORDER_LAYER_INFO)
             .border_style(border_style);
 
         let info = self.layerlist.current_layer_info();
@@ -695,6 +750,15 @@ impl Tat {
                 );
             }
         }
+    }
+
+    fn number_input_area(area: Rect, percent_x: u16) -> Rect {
+        let vertical = Layout::vertical([Constraint::Length(5)]).flex(Flex::Center);
+        let horizontal = Layout::horizontal([Constraint::Percentage(percent_x)]).flex(Flex::Center);
+        let [area] = vertical.areas(area);
+        let [area] = horizontal.areas(area);
+
+        area
     }
 
     fn popup_area(area: Rect, percent_x: u16, percent_y: u16) -> Rect {

@@ -5,7 +5,7 @@ use ratatui::widgets::HighlightSpacing;
 use ratatui::prelude::Stylize;
 use std::fmt::Write;
 
-use crate::{navparagraph::TatNavigableParagraph, tat::LAYER_LIST_BORDER, types::{TatLayer, TatNavVertical}};
+use crate::{navparagraph::TatNavigableParagraph, tat::BORDER_LAYER_LIST, types::{TatLayer, TatNavVertical}};
 
 /// Widget for displaying and managing the layers in a dataset
 pub struct TatLayerList {
@@ -178,7 +178,7 @@ impl TatLayerList {
 
         let block = Block::bordered()
             .title(Line::raw(crate::shared::TITLE_LAYER_LIST).underlined().bold())
-            .border_set(LAYER_LIST_BORDER)
+            .border_set(BORDER_LAYER_LIST)
             .border_style(Style::default().fg(border_color)
         );
 
