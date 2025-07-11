@@ -105,10 +105,10 @@ impl TatNavigableParagraph {
             TatNavVertical::UpHalfParagraph => {
                 nav_by(-(total_rows / 2));
             },
-            TatNavVertical::MouseScrollUp => {
+            TatNavVertical::MouseScrollDown => {
                 nav_by(total_rows / 3 );
             },
-            TatNavVertical::MouseScrollDown => {
+            TatNavVertical::MouseScrollUp => {
                 nav_by(-(total_rows / 3));
             },
             TatNavVertical::DownParagraph => {

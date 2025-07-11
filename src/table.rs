@@ -228,10 +228,10 @@ impl TatTable {
             TatNavVertical::UpParagraph => {
                 nav_by(-(visible_rows));
             },
-            TatNavVertical::MouseScrollUp => {
+            TatNavVertical::MouseScrollDown => {
                 nav_by(visible_rows / 3 );
             },
-            TatNavVertical::MouseScrollDown => {
+            TatNavVertical::MouseScrollUp => {
                 nav_by(-(visible_rows / 3));
             },
             TatNavVertical::Specific(fid) => {

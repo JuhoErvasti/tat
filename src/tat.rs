@@ -152,8 +152,8 @@ impl Tat {
 
     fn handle_mouse(&mut self, event: MouseEvent) {
         match event.kind {
-            MouseEventKind::ScrollUp => self.delegate_nav_v(TatNavVertical::UpHalfParagraph),
-            MouseEventKind::ScrollDown => self.delegate_nav_v(TatNavVertical::DownHalfParagraph),
+            MouseEventKind::ScrollUp => self.delegate_nav_v(TatNavVertical::MouseScrollUp),
+            MouseEventKind::ScrollDown => self.delegate_nav_v(TatNavVertical::MouseScrollDown),
             _ => (),
         }
     }
