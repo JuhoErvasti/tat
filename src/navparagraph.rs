@@ -118,7 +118,7 @@ impl TatNavigableParagraph {
                 nav_by(-total_rows);
             },
             TatNavVertical::Specific(row) => {
-                panic!("Not implemented! Cannot nav to row {}", row);
+                unimplemented!("Cannot nav to row {}", row);
             },
         }
     }
