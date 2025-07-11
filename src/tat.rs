@@ -1,5 +1,5 @@
 use std::{
-    env::temp_dir, fs::File, io::{
+    env::temp_dir, error::Error, fs::File, io::{
         BufRead,
         Result,
     }, usize
@@ -48,6 +48,7 @@ use ratatui::{
     DefaultTerminal,
     Frame,
 };
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::{
     layerlist::TatLayerList, navparagraph::TatNavigableParagraph, numberinput::{TatNumberInput, TatNumberInputResult}, table::TableRects, types::{TatNavHorizontal, TatNavVertical, TatPopUpType, TatPopup}
@@ -102,6 +103,7 @@ pub struct Tat {
     clip: Option<ClipboardContext>,
     table_area: Rect,
     number_input: Option<TatNumberInput>,
+    clipboard_feedback: Option<String>,
 }
 
 impl Tat {
@@ -125,6 +127,7 @@ impl Tat {
             clip,
             table_area: Rect::default(),
             number_input: None,
+            clipboard_feedback: None,
         }
     }
 
@@ -193,6 +196,26 @@ impl Tat {
 
         self.draw_popup(frame);
         self.draw_number_input(frame);
+        self.draw_clipboard_feedback(frame);
+    }
+
+    fn draw_clipboard_feedback(&mut self, frame: &mut Frame) {
+        if let Some(feedback) = self.clipboard_feedback.as_mut() {
+            let cleared_area = Tat::number_input_area(frame.area(), 50);
+            let block_area = cleared_area.inner(Margin { horizontal: 1, vertical: 1 });
+
+            let block = Block::default()
+                        .borders(Borders::ALL)
+                        .border_style(crate::shared::palette::DEFAULT.highlighted_style())
+                        .border_type(BorderType::Rounded)
+                        .title_bottom(Line::raw( " <press any key to continue> ").centered());
+
+            let text_area = block_area.inner(Margin { horizontal: 1, vertical: 1 });
+
+            frame.render_widget(Clear, cleared_area);
+            frame.render_widget(block, block_area);
+            frame.render_widget(feedback.clone(), text_area);
+        }
     }
 
     fn draw_number_input(&mut self, frame: &mut Frame) {
@@ -291,14 +314,36 @@ impl Tat {
         self.quit = true;
     }
 
+    fn set_clipboard_feedback(&mut self, text: String) {
+        self.clipboard_feedback = Some(text);
+    }
+
     fn copy_table_value_to_clipboard(&mut self) {
         if let Some(clip) = self.clip.as_mut() {
             if let Some(text_to_copy) = self.table.selected_value() {
-                match clip.set_contents(text_to_copy) {
-                    Ok(()) => return,
-                    Err(e) => error!("Could not set clipboard contents: {}", e.to_string()),
+                match clip.set_contents(text_to_copy.clone()) {
+                    Ok(()) => {
+                        let postscript = " copied to clipboard!";
+                        let max_len = 50;
+                        if text_to_copy.chars().count() < max_len {
+                            self.set_clipboard_feedback(format!("\"{text_to_copy}\"{postscript}"));
+                        } else {
+                            let graph = text_to_copy.graphemes(true);
+                            let substring: String = graph.into_iter().take(max_len).collect();
+
+                            self.set_clipboard_feedback(format!("\"{}…\"{}", &substring, postscript));
+                        }
+                        return;
+                    }
+                    Err(e) => {
+                        self.clipboard_feedback = Some(format!("ERROR! Could not copy to clipboard: {}", e.to_string()));
+                    }
                 }
+            } else {
+                self.clipboard_feedback = Some(format!("NULL value NOT copied to clipboard!"));
             }
+        } else {
+            self.clipboard_feedback = Some("ERROR! Could not copy to clipboard: clipboard context does not exist!".to_string());
         }
     }
 
@@ -348,8 +393,15 @@ impl Tat {
             KeyCode::Char('l') | KeyCode::Right => self.delegate_nav_h(TatNavHorizontal::RightOne),
             KeyCode::Char('0') | KeyCode::Home => self.delegate_nav_h(TatNavHorizontal::Home),
             KeyCode::Char('$') | KeyCode::End => self.delegate_nav_h(TatNavHorizontal::End),
-            KeyCode::Char('c') if ctrl_down && in_table => self.copy_table_value_to_clipboard(),
-            KeyCode::Char('y') if in_table => self.copy_table_value_to_clipboard(),
+            KeyCode::Char('c') if ctrl_down && in_table => {
+                self.copy_table_value_to_clipboard();
+                return;
+            },
+            KeyCode::Char('y') if in_table => {
+                self.copy_table_value_to_clipboard();
+
+                return;
+            },
             KeyCode::Char('L') =>  {
                 if !popup_open {
                     self.show_gdal_log();
@@ -390,6 +442,10 @@ impl Tat {
                 }
             },
             _ => {},
+        }
+
+        if self.clipboard_feedback.is_some() {
+            self.clipboard_feedback = None;
         }
     }
 
@@ -517,6 +573,10 @@ impl Tat {
     fn previous_menu(&mut self) {
         if self.has_popup() {
             self.close_popup();
+            return;
+        }
+
+        if self.clipboard_feedback.is_some() {
             return;
         }
 
