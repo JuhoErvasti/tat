@@ -15,6 +15,7 @@ use ratatui::{
     }, Frame,
 };
 use gdal::vector::LayerAccess;
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::types::{
     TatLayer, TatNavHorizontal, TatNavVertical
@@ -29,6 +30,9 @@ pub const FID_COLUMN_BORDER_PREVIEW: symbols::border::Set = symbols::border::Set
     top_right: symbols::line::HORIZONTAL_DOWN,
     ..FID_COLUMN_BORDER_FULL
 };
+
+const MIN_COLUMN_LENGTH: i32 = 30;
+const THEORETICAL_MAX_COLUMN_UTF8_BYTE_SIZE: i32 = MIN_COLUMN_LENGTH * 4;
 
 
 pub type TableRects = (Rect, Rect, Rect, Rect);
@@ -257,7 +261,7 @@ impl TatTable {
 
     pub fn selected_value(&self) -> Option<String> {
         if let Some(layer) = self.layer.as_ref() {
-            layer.get_value(self.selected_fid(), self.current_column_name())
+            layer.get_value_by_id(self.selected_fid(), self.current_column() as i32)
         } else {
             None
         }
@@ -368,24 +372,12 @@ impl TatTable {
 
         let mut header_items: Vec<String> = vec![];
 
-        let mut field_idx = 0;
-        for field in layer.gdal_layer().defn().fields() {
-            if self.visible_columns() == 0 {
-                break;
+        for i in self.first_column..self.first_column + self.visible_columns() {
+            if let Some(field_name) = layer.field_name_by_id(i as i32) {
+                header_items.push(field_name);
+            } else {
+                panic!();
             }
-
-            if field_idx < self.first_column {
-                field_idx += 1;
-                continue;
-            }
-
-            if field_idx > self.first_column + self.visible_columns() - 1 {
-                break;
-            }
-
-            field_idx += 1;
-
-            header_items.push(field.name());
         }
 
         let mut rows: Vec<Row> = [].to_vec();
@@ -401,23 +393,31 @@ impl TatTable {
                 None => break,
             };
 
-
-            let feature = match gdal_layer.feature(*fid) {
-                Some(f) => f,
-                None => break,
-            };
-
             let mut row_items: Vec<String> = vec![];
 
             for i in self.first_column..self.first_column + self.visible_columns() {
-                let str_opt = match feature.field_as_string(i as i32) {
-                    Ok(str_opt) => str_opt,
-                    // TODO: should the GdalError here be handled differently?
-                    Err(_) => Some(String::from(crate::shared::MISSING_VALUE)),
-                };
+                if let Some(str) = layer.get_value_by_id(*fid, i as i32) {
+                    // this is (maybe a premature (lol)) optimization fast path
+                    // since str.len() is O(1) and str.chars().count() is O(n),
+                    // we check first if a theoretically full 4 byte UTF-8 would overflow
+                    // which would mean that the string definitely will overflow no matter
+                    // what. only then we check with the actual string "length" i.e. the
+                    // number of actual symbols, not unicode code points
+                    let squish_contents: bool = if str.len() > THEORETICAL_MAX_COLUMN_UTF8_BYTE_SIZE as usize {
+                        true
+                    } else if str.chars().count() > MIN_COLUMN_LENGTH as usize {
+                        true
+                    } else {
+                        false
+                    };
 
-                if let Some(str) = str_opt {
-                    row_items.push(str);
+                    if squish_contents {
+                        let graph = str.graphemes(true);
+                        let substring: String = graph.into_iter().take(MIN_COLUMN_LENGTH as usize).collect();
+                        row_items.push(format!("{substring}…",));
+                    } else {
+                        row_items.push(str);
+                    }
                 } else {
                     row_items.push(String::from(crate::shared::MISSING_VALUE));
                 }
@@ -494,10 +494,10 @@ impl TatTable {
     }
 
     fn visible_columns(&self) -> u64 {
-        if self.current_layer().field_count() * 30 < self.table_rect.width as u64 {
+        if self.current_layer().field_count() * (MIN_COLUMN_LENGTH as u64) < self.table_rect.width as u64 {
             self.current_layer().field_count() as u64
         } else {
-            (self.table_rect.width / 30) as u64
+            (self.table_rect.width / MIN_COLUMN_LENGTH as u16) as u64
         }
     }
 

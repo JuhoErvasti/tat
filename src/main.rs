@@ -145,6 +145,7 @@ fn main() {
 
         let _result = Tat::new(&ds).run(&mut terminal);
 
+        // FIXME: if there's a panic this will not happen
         crossterm::execute!(std::io::stdout(), DisableMouseCapture).unwrap();
         ratatui::restore();
     } else {

@@ -1,3 +1,4 @@
+use cli_log::debug;
 use gdal::{spatial_ref::SpatialRef, vector::{geometry_type_to_name, Layer, LayerAccess}, Dataset};
 use ratatui::widgets::{Paragraph, ScrollbarState};
 
@@ -228,10 +229,68 @@ impl TatLayer {
     }
 
     pub fn field_count(&self) -> u64 {
-        self.fields.len() as u64
+        self.fields.len() as u64 + self.geom_fields().len() as u64
+    }
+
+    pub fn field_name_by_id(&self, field_idx: i32) -> Option<String> {
+        let total_geom_fields: i32 = self.geom_fields().len() as i32;
+
+        if field_idx < total_geom_fields {
+            if let Some(field) = self.geom_fields.get(field_idx as usize) {
+                return Some(field.name().to_string());
+            } else {
+                panic!();
+            }
+        } else {
+            let attribute_field_idx = field_idx - total_geom_fields;
+            if let Some(field) = self.fields.get(attribute_field_idx as usize) {
+                return Some(field.name().to_string());
+            } else {
+                panic!();
+            }
+        }
+    }
+
+    pub fn get_value_by_id(&self, fid: u64, field_idx: i32) -> Option<String> {
+        // TODO: handle the potential GdalError better
+        // also this function is kind of a mess otherwise too,
+        // refactor
+        if let Some(f) = self.gdal_layer().feature(fid) {
+            let total_geom_fields: i32 = self.geom_fields().len() as i32;
+
+            if total_geom_fields == 0 {
+                if let Ok(Some(value)) = f.field_as_string(field_idx) {
+                    return Some(value);
+                } else {
+                    return None;
+                }
+            }
+
+            if field_idx < total_geom_fields {
+                if let Ok(geom) = f.geometry_by_index(field_idx as usize) {
+                    if let Ok(wkt) = geom.wkt() {
+                        return Some(wkt);
+                    } else {
+                        return None;
+                    }
+                } else {
+                    return None;
+                }
+            } else {
+                let attribute_field_idx = field_idx - total_geom_fields;
+                if let Ok(Some(value)) = f.field_as_string(attribute_field_idx) {
+                    return Some(value);
+                } else {
+                    return None;
+                }
+            }
+        } else {
+            return None
+        }
     }
 
     pub fn get_value(&self, fid: u64, field_name: &str) -> Option<String> {
+        // TODO: handle the potential GdalError better
         if let Some(f) = self.gdal_layer().feature(fid) {
             if let Ok(Some(value)) = f.field_as_string_by_name(field_name) {
                 return Some(value)
