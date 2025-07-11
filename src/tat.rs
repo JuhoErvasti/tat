@@ -14,7 +14,7 @@ use crossterm::event::{
     KeyCode,
     KeyEvent,
     KeyEventKind,
-    KeyModifiers,
+    KeyModifiers, MouseEvent, MouseEventKind,
 };
 use gdal::
     Dataset
@@ -140,12 +140,22 @@ impl Tat {
             terminal.draw(|frame| {
                 self.draw(frame);
             })?;
-            if let Event::Key(key) = event::read()? {
-                self.handle_key(key);
-            };
+            match event::read()? {
+                Event::Key(key) => self.handle_key(key),
+                Event::Mouse(mouse) => self.handle_mouse(mouse),
+                _ => (),
+            }
         }
 
         Ok(())
+    }
+
+    fn handle_mouse(&mut self, event: MouseEvent) {
+        match event.kind {
+            MouseEventKind::ScrollUp => self.delegate_nav_v(TatNavVertical::UpHalfParagraph),
+            MouseEventKind::ScrollDown => self.delegate_nav_v(TatNavVertical::DownHalfParagraph),
+            _ => (),
+        }
     }
 
     /// Returns visible columns and rows of a bordered text area which

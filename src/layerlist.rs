@@ -66,6 +66,8 @@ impl TatLayerList {
             TatNavVertical::UpHalfParagraph => self.state.scroll_up_by(self.available_rows as u16 / 2),
             TatNavVertical::DownParagraph => self.state.scroll_down_by(self.available_rows as u16),
             TatNavVertical::UpParagraph => self.state.scroll_up_by(self.available_rows as u16),
+            TatNavVertical::MouseScrollDown => self.state.scroll_down_by(self.available_rows as u16 / 3),
+            TatNavVertical::MouseScrollUp => self.state.scroll_up_by(self.available_rows as u16 / 3),
             TatNavVertical::Specific(row) => self.state.select(Some(row as usize)),
         }
 

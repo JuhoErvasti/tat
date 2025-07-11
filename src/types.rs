@@ -13,6 +13,8 @@ pub enum TatNavVertical {
     DownParagraph,
     UpParagraph,
     Specific(i64),
+    MouseScrollUp,
+    MouseScrollDown,
 }
 
 pub enum TatNavHorizontal {

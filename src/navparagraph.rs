@@ -3,7 +3,7 @@ use std::usize;
 use cli_log::debug;
 use ratatui::widgets::{
     Paragraph,
-    ScrollbarState, Wrap,
+    ScrollbarState,
 };
 
 use crate::types::{TatNavHorizontal, TatNavVertical};
@@ -104,6 +104,12 @@ impl TatNavigableParagraph {
             },
             TatNavVertical::UpHalfParagraph => {
                 nav_by(-(total_rows / 2));
+            },
+            TatNavVertical::MouseScrollUp => {
+                nav_by(total_rows / 3 );
+            },
+            TatNavVertical::MouseScrollDown => {
+                nav_by(-(total_rows / 3));
             },
             TatNavVertical::DownParagraph => {
                 nav_by(total_rows);

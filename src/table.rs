@@ -2,7 +2,7 @@ use cli_log::debug;
 
 use ratatui::{
     layout::{
-        Constraint, Margin, Rect
+        Constraint, Rect
     },
     style::Stylize,
     symbols::{self, scrollbar::{
@@ -11,7 +11,7 @@ use ratatui::{
     }},
     text::Line,
     widgets::{
-        Block, Borders, Padding, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table, TableState
+        Block, Borders, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table, TableState
     }, Frame,
 };
 use gdal::vector::LayerAccess;
@@ -227,6 +227,12 @@ impl TatTable {
             },
             TatNavVertical::UpParagraph => {
                 nav_by(-(visible_rows));
+            },
+            TatNavVertical::MouseScrollUp => {
+                nav_by(visible_rows / 3 );
+            },
+            TatNavVertical::MouseScrollDown => {
+                nav_by(-(visible_rows / 3));
             },
             TatNavVertical::Specific(fid) => {
                 // TODO: if you wanna get real fancy, you could preserve the proportional distance

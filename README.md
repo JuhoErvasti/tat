@@ -64,15 +64,11 @@ Here are the features which I'd like to add for the first proper version (more o
 - Display geometry column(s) as WKT
   - (Maybe) allow copying geometry as WKB in addition to WKT?
 - Optimize performance
-- Mouse support
-  - At least:
-    - scrolling table
-  - Maybe:
-    - scrolling text/layer list contents
-  - Nice-to-have:
-    - Opening layers
-    - Selecting cells
-    - Copying cell values (Right/Middle click or something?)
+- General refactoring and handling errors etc. better
+- (Maybe more) Mouse support:
+  - Opening layers
+  - Selecting cells
+  - Copying cell values (Right/Middle click or something?)
 
 <details>
 <summary>More details</summary>
@@ -93,7 +89,7 @@ Here are the features which I'd like to add for the first proper version (more o
   Unlikely:
   - Raster attribute tables
   - Some way of displaying geometries as other whan WKT/WKB
-    - Probably best bet would be to render the geometry as a temporary image and display it with using [viuer](https://github.com/atanunq/viuer)
+    - Probably best bet would be to render the geometry as a temporary image and display it using [viuer](https://github.com/atanunq/viuer)
     - However, this would be a significant undertaking and the actual utility of it is fairly minimal
     - But it would be pretty cool
 
@@ -128,5 +124,10 @@ Here are the features which I'd like to add for the first proper version (more o
     - Display preview table in Main Menu
     - Jumping to specific FID
     - Some kind of feedback when a value has been copied to the clipboard (or copying failed for that matter)
+    - Mouse support:
+      - At least:
+        - scrolling table
+      - Maybe:
+        - scrolling text/layer list contents
   </details>
 </details>

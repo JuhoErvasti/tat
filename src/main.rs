@@ -1,9 +1,12 @@
+use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use gdal::{errors::{CplErrType, GdalError}, Dataset, DatasetOptions, GdalOpenFlags};
 use tat::Tat;
 use core::panic;
 use std::{env::{self, temp_dir}, fs::{File, OpenOptions}, process::exit};
 use cli_log::*;
 use std::io::prelude::*;
+
+use ratatui::backend::CrosstermBackend as Backend;
 
 mod table;
 mod types;
@@ -138,8 +141,11 @@ fn main() {
 
     if let Some(ds) = open_dataset(path.to_string(), &mut err) {
         let mut terminal = ratatui::init();
+        crossterm::execute!(std::io::stdout(), EnableMouseCapture).unwrap();
+
         let _result = Tat::new(&ds).run(&mut terminal);
 
+        crossterm::execute!(std::io::stdout(), DisableMouseCapture).unwrap();
         ratatui::restore();
     } else {
         println!("ERROR: Could not open dataset from path!\n{}\nUsage:", err);
