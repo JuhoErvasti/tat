@@ -61,8 +61,6 @@ without any collaborators.
 Here are the features which I'd like to add for the first proper version (more or less in order of importance):
 
 - Tests and CI
-- Display preview table in Main Menu
-- Jumping to specific FID
 - Display geometry column(s) as WKT
   - (Maybe) allow copying geometry as WKB in addition to WKT?
 - Optimize performance
@@ -79,53 +77,54 @@ Here are the features which I'd like to add for the first proper version (more o
 
 <details>
 <summary>More details</summary>
-<details>
-<summary>Completed</summary>
+  Following are features which I've thought of but aren't very high in priority.
 
-- Fix issues with some layers not opening in the table
-- Improve performance on large layers (only render what can be seen)
-  - Improve performance on opening large layers
-- Fit columns differently so not all are crammed into the table, instead allow browsing them
-- Show FID in table
-  - Fix issue with the bottom-most rows not showing
-- Fix issue when attempting navigation on an empty layer
-- Fix issue "Error browsing database for PostGIS Raster tables" when attempting to open with PostGIS driver
-- Fix weird issue with shapefile not being correctly read and (probably?) stderr output from gdal being printed all over the place
-  - The worst of it is fixed by setting an error handler for gdal, which currently does nothing special. This is obviously not the best solution,
-  maybe we collect the errors and add a pop-up widget to show a log of them or something like that?
-- Show scrollbars for the layer list and the table
-  - Also a scrollbar for the columns. Or some other visual indicator when not every column is shown
-- Allow copying value from cell
-- Allow inspecting long attributes better, maybe in a pop-up
-- Allow browsing the dataset / layerinfo blocks if the text overflows
-- Distinguish the "Feature" column more clearly
-- Visual polish
-</details>
+  Maybe (nice-to-haves):
+  - Some support for looking at raster metadata (not displaying raster itself, similar to `gdalinfo`)?
+  - Ability to select a whole feature in the attribute table
+    - (Maybe) allow selecting multiple features?
+    - (Maybe) copy it/them as GeoJSON/GML(?)
+  - Allow exporting dataset as a GeoPackage
+    - (Maybe) as any ogr-supported driver
+    - (Maybe) allow selecting which layers are exported
+    - (Maybe) if selecting features are implemented, export only those features
 
-Wontfix:
-- ~~(Maybe) jumping to specific cell?~~
-  - I figure there's really no clean solution for this that would be actually convenient
+  Unlikely:
+  - Raster attribute tables
+  - Some way of displaying geometries as other whan WKT/WKB
+    - Probably best bet would be to render the geometry as a temporary image and display it with using [viuer](https://github.com/atanunq/viuer)
+    - However, this would be a significant undertaking and the actual utility of it is fairly minimal
+    - But it would be pretty cool
 
+  Extremely unlikely:
+  - Editing of any kind, the main impetus for developing this tool is to just inspect data
 
-Following are features which I've thought of but aren't very high in priority.
+  Wontfix:
+  - ~~(Maybe) jumping to specific cell?~~
+    - I figure there's really no clean solution for this that would be actually convenient
 
-Maybe (nice-to-haves):
-- Some support for looking at raster metadata (not displaying raster itself, similar to `gdalinfo`)?
-- Ability to select a whole feature in the attribute table
-  - (Maybe) allow selecting multiple features?
-  - (Maybe) copy it/them as GeoJSON/GML(?)
-- Allow exporting dataset as a GeoPackage
-  - (Maybe) as any ogr-supported driver
-  - (Maybe) allow selecting which layers are exported
-  - (Maybe) if selecting features are implemented, export only those features
+  <details>
+  <summary>Completed</summary>
 
-Unlikely:
-- Raster attribute tables
-- Some way of displaying geometries as other whan WKT/WKB
-  - Probably best bet would be to render the geometry as a temporary image and display it with using [viuer](https://github.com/atanunq/viuer)
-  - However, this would be a significant undertaking and the actual utility of it is fairly minimal
-  - But it would be pretty cool
-
-Extremely unlikely:
-- Editing of any kind, the main impetus for developing this tool is to just inspect data
+    - Fix issues with some layers not opening in the table
+    - Improve performance on large layers (only render what can be seen)
+      - Improve performance on opening large layers
+    - Fit columns differently so not all are crammed into the table, instead allow browsing them
+    - Show FID in table
+      - Fix issue with the bottom-most rows not showing
+    - Fix issue when attempting navigation on an empty layer
+    - Fix issue "Error browsing database for PostGIS Raster tables" when attempting to open with PostGIS driver
+    - Fix weird issue with shapefile not being correctly read and (probably?) stderr output from gdal being printed all over the place
+      - The worst of it is fixed by setting an error handler for gdal, which currently does nothing special. This is obviously not the best solution,
+      maybe we collect the errors and add a pop-up widget to show a log of them or something like that?
+    - Show scrollbars for the layer list and the table
+      - Also a scrollbar for the columns. Or some other visual indicator when not every column is shown
+    - Allow copying value from cell
+    - Allow inspecting long attributes better, maybe in a pop-up
+    - Allow browsing the dataset / layerinfo blocks if the text overflows
+    - Distinguish the "Feature" column more clearly
+    - Visual polish
+    - Display preview table in Main Menu
+    - Jumping to specific FID
+  </details>
 </details>
