@@ -246,7 +246,7 @@ impl TatLayer {
             if let Some(field) = self.fields.get(attribute_field_idx as usize) {
                 return Some(field.name().to_string());
             } else {
-                panic!();
+                panic!(); // FIXME: this happens
             }
         }
     }

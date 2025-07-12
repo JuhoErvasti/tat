@@ -1,11 +1,20 @@
 use cli_log::debug;
 use gdal::{vector::{field_type_to_name, Layer, LayerAccess}, Dataset, Metadata};
-use ratatui::{layout::{Constraint, Layout, Margin}, style::Style, symbols::scrollbar::DOUBLE_VERTICAL, text::Line, widgets::{Block, List, ListItem, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState}, Frame};
+use ratatui::{layout::{Constraint, Layout, Margin}, style::Style, symbols::{self, scrollbar::DOUBLE_VERTICAL}, text::Line, widgets::{Block, List, ListItem, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState}, Frame};
 use ratatui::widgets::HighlightSpacing;
 use ratatui::prelude::Stylize;
 use std::fmt::Write;
 
-use crate::{navparagraph::TatNavigableParagraph, tat::BORDER_LAYER_LIST, types::{TatLayer, TatNavVertical}};
+use crate::{navparagraph::TatNavigableParagraph, types::{TatLayer, TatNavVertical}};
+
+const BORDER_LAYER_LIST: symbols::border::Set = symbols::border::Set {
+    top_left: symbols::line::ROUNDED.vertical,
+    top_right: symbols::line::ROUNDED.horizontal,
+    bottom_right: symbols::line::ROUNDED.horizontal,
+    vertical_right: " ",
+    ..symbols::border::ROUNDED
+};
+
 
 /// Widget for displaying and managing the layers in a dataset
 pub struct TatLayerList {

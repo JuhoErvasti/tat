@@ -88,9 +88,6 @@ pub enum TatMainMenuFocusedBlock {
     PreviewTable,
 }
 
-// TODO: there's a bug with TatNavigableParagraph when the text wraps it doesn't
-// correctly update its available rows, leading to scrolling issues
-
 // TODO: a lot of these probably don't have to be public
 
 /// This holds the program's state.
