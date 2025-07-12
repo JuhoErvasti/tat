@@ -1,11 +1,20 @@
 use cli_log::debug;
-use gdal::{vector::{field_type_to_name, Layer, LayerAccess}, Dataset, Metadata};
+use gdal::{
+    vector::{
+        field_type_to_name, Layer, LayerAccess
+    },
+    Dataset,
+};
 use ratatui::{layout::{Constraint, Layout, Margin}, style::Style, symbols::{self, scrollbar::DOUBLE_VERTICAL}, text::Line, widgets::{Block, List, ListItem, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState}, Frame};
 use ratatui::widgets::HighlightSpacing;
 use ratatui::prelude::Stylize;
 use std::fmt::Write;
 
-use crate::{navparagraph::TatNavigableParagraph, types::{TatLayer, TatNavVertical}};
+use crate::{
+    navparagraph::TatNavigableParagraph,
+    types::TatNavVertical,
+    layer::TatLayer,
+};
 
 const BORDER_LAYER_LIST: symbols::border::Set = symbols::border::Set {
     top_left: symbols::line::ROUNDED.vertical,
@@ -15,14 +24,14 @@ const BORDER_LAYER_LIST: symbols::border::Set = symbols::border::Set {
     ..symbols::border::ROUNDED
 };
 
+pub type TatLayerInfo = (String, TatNavigableParagraph);
+
 
 /// Widget for displaying and managing the layers in a dataset
 pub struct TatLayerList {
     state: ListState,
     scroll: ScrollbarState,
-    gdal_ds: &'static Dataset,
-    layers: Vec<TatLayer>,
-    layer_infos: Vec<TatNavigableParagraph>,
+    layer_infos: Vec<TatLayerInfo>,
     available_rows: usize,
 }
 
@@ -31,44 +40,26 @@ impl TatLayerList {
         let mut ls = ListState::default();
         ls.select_first();
 
-        let lyrs = TatLayerList::layers_from_ds(&ds);
-        let scr = ScrollbarState::new(lyrs.len());
-        let infos = TatLayerList::layer_infos(&lyrs);
+        let infos = TatLayerList::layer_infos(&ds);
+        let scr = ScrollbarState::new(infos.len());
 
         Self {
             state: ls,
             scroll: scr,
-            layers: lyrs,
-            gdal_ds: ds,
             layer_infos: infos,
             available_rows: 0,
         }
     }
 
-    pub fn gdal_layer<'a>(&'a self, layer_index: usize) -> Layer<'a> {
-        match self.gdal_ds.layer(layer_index) {
-            Ok(lyr) => lyr,
-            // TODO: maybe don't panic
-            Err(_) => panic!(),
-        }
-    }
-
-    pub fn layer<'a>(&'a self, layer_index: usize) -> Option <&'a TatLayer> {
-        self.layers.get(layer_index)
-    }
-
-    pub fn current_layer<'a>(&'a self) -> Option<&'a TatLayer> {
-        self.layer(self.state.selected().unwrap())
-    }
-
-    pub fn current_layer_info(&mut self) -> &mut TatNavigableParagraph {
-        self.layer_infos.get_mut(self.state.selected().unwrap()).unwrap()
+    pub fn current_layer_info_paragraph(&mut self) -> &mut TatNavigableParagraph {
+        let (_, para) = self.layer_infos.get_mut(self.state.selected().unwrap()).unwrap();
+        para
     }
 
     pub fn nav(&mut self, conf: TatNavVertical) {
         match conf {
             TatNavVertical::First => self.state.select_first(),
-            TatNavVertical::Last => self.state.select(Some(self.layers.len() - 1)),
+            TatNavVertical::Last => self.state.select(Some(self.layer_infos.len() - 1)),
             TatNavVertical::DownOne => self.state.scroll_down_by(1),
             TatNavVertical::UpOne => self.state.scroll_up_by(1),
             TatNavVertical::DownHalfParagraph => self.state.scroll_down_by(self.available_rows as u16 / 2),
@@ -83,37 +74,24 @@ impl TatLayerList {
         self.update_scrollbar();
     }
 
-    pub fn layers_from_ds(ds: &'static Dataset) -> Vec<TatLayer> {
-        let mut layers: Vec<TatLayer> = vec![];
-        for (i, _) in ds.layers().enumerate() {
-            let mut lyr = TatLayer::new(&ds, i);
-            lyr.build_feature_index();
-            layers.push(lyr);
-        }
-
-        layers
+    pub fn layer_index(&self) -> usize {
+        self.state.selected().unwrap()
     }
 
-    pub fn dataset_info_text(&self) -> String {
-        format!(
-            "- URI: \"{}\"\n- Driver: {} ({})",
-            self.gdal_ds().description().unwrap(),
-            self.gdal_ds().driver().long_name(),
-            self.gdal_ds().driver().short_name(),
-        )
-    }
-
-    pub fn layer_infos(layers: &Vec<TatLayer>) -> Vec<TatNavigableParagraph> {
-        let mut infos: Vec<TatNavigableParagraph> = vec![];
-        for layer in layers {
-            let p = TatNavigableParagraph::new(TatLayerList::layer_info_text(&layer));
-            infos.push(p);
+    pub fn layer_infos(ds: &'static Dataset) -> Vec<TatLayerInfo> {
+        let mut infos: Vec<TatLayerInfo> = vec![];
+        for (i, layer) in ds.layers().enumerate() {
+            let p = TatNavigableParagraph::new(TatLayerList::layer_info_text(ds, i));
+            infos.push((layer.name().to_string(), p));
         }
 
         infos
     }
 
-    fn layer_info_text(layer: &TatLayer) -> String {
+    fn layer_info_text(ds: &'static Dataset, layer_index: usize) -> String {
+        // TODO: not sure I like the fact that these are constructed twice
+        let layer = TatLayer::new(&ds, layer_index);
+
         let mut text: String = format!("- Name: {}\n", layer.name());
 
         if let Some(crs) = layer.crs() {
@@ -193,13 +171,16 @@ impl TatLayerList {
             .border_style(Style::default().fg(border_color)
         );
 
-        let items: Vec<ListItem> = self
-            .gdal_ds
-            .layers()
-            .map(|layer_item| {
-                ListItem::new(Line::raw(layer_item.name()))
-            })
-            .collect();
+        let mut items: Vec<ListItem> = vec![];
+
+        for (name, _) in self.layer_infos.iter() {
+            items.push(
+                ListItem::new(
+                    Line::raw(name),
+                ),
+            );
+        }
+
 
         let list = List::new(items)
             .block(block)
@@ -215,7 +196,7 @@ impl TatLayerList {
             self.available_rows = 0;
         }
 
-        if self.layers.len() > self.available_rows as usize {
+        if self.layer_infos.len() > self.available_rows as usize {
             let scrollbar = Scrollbar::default()
                 .orientation(ScrollbarOrientation::VerticalRight)
                 .begin_symbol(Some(DOUBLE_VERTICAL.begin))
@@ -236,9 +217,5 @@ impl TatLayerList {
                 );
             }
         }
-    }
-
-    fn gdal_ds(&self) -> &Dataset {
-        self.gdal_ds
     }
 }

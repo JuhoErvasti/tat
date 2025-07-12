@@ -8,13 +8,14 @@ use std::io::prelude::*;
 
 use ratatui::backend::CrosstermBackend as Backend;
 
-mod table;
-mod types;
+mod layer;
 mod layerlist;
-mod tat;
 mod navparagraph;
-mod shared;
 mod numberinput;
+mod shared;
+mod table;
+mod tat;
+mod types;
 
 fn show_usage() {
     // TODO:

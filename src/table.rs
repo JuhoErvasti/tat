@@ -14,12 +14,13 @@ use ratatui::{
         Block, Borders, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table, TableState
     }, Frame,
 };
-use gdal::vector::LayerAccess;
+use gdal::{vector::LayerAccess, Dataset, Metadata};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::types::{
-    TatLayer, TatNavHorizontal, TatNavVertical
+    TatNavHorizontal, TatNavVertical
 };
+use crate::layer::TatLayer;
 
 pub const FID_COLUMN_BORDER_FULL: symbols::border::Set = symbols::border::Set {
     bottom_right: symbols::line::HORIZONTAL_UP,
@@ -40,11 +41,13 @@ pub type TableRects = (Rect, Rect, Rect, Rect);
 /// Widget for displaying the attribute table
 pub struct TatTable {
     table_state: TableState,
+    gdal_ds: &'static Dataset,
     top_fid: u64,
     first_column: u64,
     v_scroll: ScrollbarState,
     h_scroll: ScrollbarState,
-    layer: Option<TatLayer>,
+    layer_index: usize,
+    layers: Vec<TatLayer>,
     table_rect: Rect,
     fid_col_rect: Rect,
     v_scroll_area: Rect,
@@ -52,7 +55,7 @@ pub struct TatTable {
 }
 
 impl TatTable {
-    pub fn new() -> Self {
+    pub fn new(ds: &'static Dataset) -> Self {
         let mut ts = TableState::default();
         ts.select_first();
         ts.select_first_column();
@@ -63,16 +66,43 @@ impl TatTable {
             first_column: 0,
             v_scroll: ScrollbarState::default(),
             h_scroll: ScrollbarState::default(),
-            layer: Option::None,
+            layer_index: 0,
             table_rect: Rect::default(),
             fid_col_rect: Rect::default(),
             v_scroll_area: Rect::default(),
             h_scroll_area: Rect::default(),
+            layers: TatTable::layers_from_ds(ds),
+            gdal_ds: ds,
         }
     }
 
-    pub fn set_layer(&mut self, layer: TatLayer) {
-        self.layer = Some(layer);
+    pub fn layers_from_ds(ds: &'static Dataset) -> Vec<TatLayer> {
+        let mut layers: Vec<TatLayer> = vec![];
+        for (i, _) in ds.layers().enumerate() {
+            let mut lyr = TatLayer::new(&ds, i);
+            lyr.build_feature_index();
+            layers.push(lyr);
+        }
+
+        layers
+    }
+
+
+    pub fn dataset_info_text(&self) -> String {
+        format!(
+            "- URI: \"{}\"\n- Driver: {} ({})",
+            self.gdal_ds.description().unwrap(),
+            self.gdal_ds.driver().long_name(),
+            self.gdal_ds.driver().short_name(),
+        )
+    }
+
+    pub fn set_layer_index(&mut self, idx: usize) {
+        self.layer_index = idx;
+    }
+
+    fn layer(&self) -> &TatLayer {
+        self.layers.get(self.layer_index).unwrap()
     }
 
     /// Returns currently selected row's fid
@@ -85,11 +115,9 @@ impl TatTable {
     }
 
     pub fn current_column_name(&self) -> &str {
-        if let Some(layer) = self.layer.as_ref() {
-            let field_idx =self.current_column();
-            if let Some(field) = layer.fields().get(field_idx as usize) {
-                return field.name();
-            }
+        let field_idx =self.current_column();
+        if let Some(field) = self.layer().fields().get(field_idx as usize) {
+            return field.name();
         }
 
         "UNKNOWN"
@@ -113,12 +141,12 @@ impl TatTable {
     }
 
     fn update_v_scrollbar(&mut self) {
-        self.v_scroll = ScrollbarState::new(self.layer.as_ref().unwrap().feature_count() as usize - self.visible_rows() as usize + 1);
+        self.v_scroll = ScrollbarState::new(self.layer().feature_count() as usize - self.visible_rows() as usize + 1);
         self.v_scroll = self.v_scroll.position(self.top_fid as usize);
     }
 
     fn update_h_scrollbar(&mut self) {
-        self.h_scroll = ScrollbarState::new(self.layer.as_ref().unwrap().field_count() as usize - self.visible_columns() as usize + 1);
+        self.h_scroll = ScrollbarState::new(self.layer().field_count() as usize - self.visible_columns() as usize + 1);
         self.h_scroll = self.h_scroll.position(self.first_column as usize);
     }
 
@@ -134,7 +162,7 @@ impl TatTable {
                 self.update_h_scrollbar();
             },
             TatNavHorizontal::End => {
-                self.set_first_column(self.layer.as_ref().unwrap().field_count() as i64 - self.visible_columns() as i64);
+                self.set_first_column(self.layer().field_count() as i64 - self.visible_columns() as i64);
                 self.table_state.select_column(Some(self.visible_columns() as usize - 1));
                 self.update_h_scrollbar();
             },
@@ -143,7 +171,7 @@ impl TatTable {
                 let real_col = self.current_column();
 
                 if relative_col == self.visible_columns() - 1 {
-                    let cols =  self.layer.as_ref().unwrap().field_count();
+                    let cols =  self.layer().field_count();
 
                     if real_col == cols {
                         self.update_h_scrollbar();
@@ -203,16 +231,14 @@ impl TatTable {
                 self.table_state.select_first();
             },
             TatNavVertical::Last => {
-                if let Some(layer) = self.layer.as_ref() {
-                    let jump_to_relative = if self.all_rows_visible() {
-                        if layer.feature_count() > 0 { layer.feature_count() as i64 - 1 } else { 0 }
-                    } else {
-                        visible_rows - 1
-                    };
+                let jump_to_relative = if self.all_rows_visible() {
+                    if self.layer().feature_count() > 0 { self.layer().feature_count() as i64 - 1 } else { 0 }
+                } else {
+                    visible_rows - 1
+                };
 
-                    self.set_top_fid(self.max_top_fid());
-                    self.table_state.select(Some(jump_to_relative as usize ));
-                }
+                self.set_top_fid(self.max_top_fid());
+                self.table_state.select(Some(jump_to_relative as usize ));
             },
             TatNavVertical::DownOne => {
                 nav_by(1);
@@ -239,7 +265,7 @@ impl TatTable {
                 nav_by(-(visible_rows / 3));
             },
             TatNavVertical::Specific(fid) => {
-                if fid >= self.layer().unwrap().feature_count() as i64 {
+                if fid >= self.layer().feature_count() as i64 {
                     self.nav_v(TatNavVertical::Last);
                     return;
                 }
@@ -260,11 +286,7 @@ impl TatTable {
     }
 
     pub fn selected_value(&self) -> Option<String> {
-        if let Some(layer) = self.layer.as_ref() {
-            layer.get_value_by_id(self.selected_fid(), self.current_column() as i32)
-        } else {
-            None
-        }
+        self.layer().get_value_by_id(self.selected_fid(), self.current_column() as i32)
     }
 
     fn fid_relative_row(&self, fid: i64) -> Result<u64, &str> {
@@ -283,7 +305,7 @@ impl TatTable {
     }
 
     fn set_first_column(&mut self, col: i64) {
-        let max_first_column: i64 = self.layer.as_ref().unwrap().field_count() as i64 - self.visible_columns() as i64;
+        let max_first_column: i64 = self.layer().field_count() as i64 - self.visible_columns() as i64;
 
         if col >= max_first_column {
             self.first_column = max_first_column as u64;
@@ -330,22 +352,11 @@ impl TatTable {
     }
 
     fn max_top_fid(&self) -> i64 {
-        self.layer.as_ref().unwrap().gdal_layer().feature_count() as i64 - self.visible_rows() as i64 + 1
-    }
-
-    fn current_layer(&self) -> TatLayer {
-        if let Some(lyr) = &self.layer {
-            lyr.clone()
-        } else {
-            panic!();
-        }
+        self.layer().gdal_layer().feature_count() as i64 - self.visible_rows() as i64 + 1
     }
 
     /// Returns table based on current state
-    fn get_table(&self, preview: bool) -> Table {
-        let layer = self.current_layer();
-        let gdal_layer = layer.gdal_layer();
-
+    fn get_table(&self) -> Table {
         // TODO: render the title separately in self.render()
         // ALSO THE BOTTOM LINE AND HINT TO OPEN HELP FROM ?
 
@@ -373,7 +384,7 @@ impl TatTable {
         let mut header_items: Vec<String> = vec![];
 
         for i in self.first_column..self.first_column + self.visible_columns() {
-            if let Some(field_name) = layer.field_name_by_id(i as i32) {
+            if let Some(field_name) = self.layer().field_name_by_id(i as i32) {
                 header_items.push(field_name);
             } else {
                 panic!();
@@ -388,7 +399,7 @@ impl TatTable {
         }
 
         for i in self.top_fid..self.bottom_fid() + 1 {
-            let fid = match layer.feature_index().get(i as usize - 1) {
+            let fid = match self.layer().feature_index().get(i as usize - 1) {
                 Some(fid) => fid,
                 None => break,
             };
@@ -396,7 +407,7 @@ impl TatTable {
             let mut row_items: Vec<String> = vec![];
 
             for i in self.first_column..self.first_column + self.visible_columns() {
-                if let Some(str) = layer.get_value_by_id(*fid, i as i32) {
+                if let Some(str) = self.layer().get_value_by_id(*fid, i as i32) {
                     // this is (maybe a premature (lol)) optimization fast path
                     // since str.len() is O(1) and str.chars().count() is O(n),
                     // we check first if a theoretically full 4 byte UTF-8 would overflow
@@ -435,15 +446,12 @@ impl TatTable {
             .style(crate::shared::palette::DEFAULT.default_style())
             .column_highlight_style(
                 crate::shared::palette::DEFAULT.highlighted_darker_fg()
-                // if preview {crate::shared::palette::DEFAULT.default_style()} else {crate::shared::palette::DEFAULT.highlighted_darker_fg()}
             )
             .row_highlight_style(
                 crate::shared::palette::DEFAULT.highlighted_darker_fg()
-                // if preview {crate::shared::palette::DEFAULT.default_style()} else {crate::shared::palette::DEFAULT.highlighted_darker_fg()}
             )
             .cell_highlight_style(
                 crate::shared::palette::DEFAULT.selected_style()
-                // if preview {crate::shared::palette::DEFAULT.default_style()} else {crate::shared::palette::DEFAULT.selected_style()}
             )
             .column_spacing(1);
 
@@ -471,7 +479,7 @@ impl TatTable {
             self.update_v_scrollbar();
             self.update_h_scrollbar();
 
-            if self.bottom_fid() + self.top_fid >= self.layer.as_ref().unwrap().feature_count() {
+            if self.bottom_fid() + self.top_fid >= self.layer().feature_count() {
                 self.set_top_fid(self.max_top_fid());
             }
 
@@ -488,29 +496,27 @@ impl TatTable {
             0
         };
 
-        if let Some(layer) = self.layer.as_ref() {
-            if value > layer.feature_count() {
-                return layer.feature_count();
-            }
+        if value > self.layer().feature_count() {
+            return self.layer().feature_count();
         }
 
         value
     }
 
     fn visible_columns(&self) -> u64 {
-        if self.current_layer().field_count() * (MIN_COLUMN_LENGTH as u64) < self.table_rect.width as u64 {
-            self.current_layer().field_count() as u64
+        if self.layer().field_count() * (MIN_COLUMN_LENGTH as u64) < self.table_rect.width as u64 {
+            self.layer().field_count() as u64
         } else {
             (self.table_rect.width / MIN_COLUMN_LENGTH as u16) as u64
         }
     }
 
     fn all_columns_visible(&self) -> bool {
-        self.visible_columns() >= self.current_layer().field_count()
+        self.visible_columns() >= self.layer().field_count()
     }
 
     fn all_rows_visible(&self) -> bool {
-        self.visible_rows() >= self.current_layer().feature_count()
+        self.visible_rows() >= self.layer().feature_count()
     }
 
     fn show_h_scrollbar(&self) -> bool {
@@ -529,7 +535,7 @@ impl TatTable {
         let borders = if preview { Borders::RIGHT | Borders::BOTTOM } else { Borders::BOTTOM | Borders::RIGHT };
         let border_symbols = if preview { FID_COLUMN_BORDER_PREVIEW } else { FID_COLUMN_BORDER_FULL };
 
-        let mut block = Block::new()
+        let block = Block::new()
             .border_set(border_symbols)
             .borders(borders)
             .fg(crate::shared::palette::DEFAULT.default_fg);
@@ -598,7 +604,7 @@ impl TatTable {
 
         self.render_fid_column(frame, true);
 
-        let table = self.get_table(true);
+        let table = self.get_table();
 
         let table_widget_rect = Rect {
             x: self.table_rect.x,
@@ -651,15 +657,11 @@ impl TatTable {
             height: self.table_rect.height - 3,
         };
 
-        let table = self.get_table(false);
+        let table = self.get_table();
         frame.render_stateful_widget(
             table,
             table_widget_rect,
             &mut self.table_state.clone(),
         );
-    }
-
-    pub fn layer(&self) -> Option<&TatLayer> {
-        self.layer.as_ref()
     }
 }

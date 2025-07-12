@@ -1,8 +1,8 @@
 use std::{
-    env::temp_dir, error::Error, fs::File, io::{
+    env::temp_dir, fs::File, io::{
         BufRead,
         Result,
-    }, usize
+    }
 };
 
 use cli_clipboard::{ClipboardContext, ClipboardProvider};
@@ -55,15 +55,7 @@ use crate::{
 };
 use crate::table::TatTable;
 
-pub const BORDER_LAYER_LIST: symbols::border::Set = symbols::border::Set {
-    top_left: symbols::line::ROUNDED.vertical,
-    top_right: symbols::line::ROUNDED.horizontal,
-    bottom_right: symbols::line::ROUNDED.horizontal,
-    vertical_right: " ",
-    ..symbols::border::ROUNDED
-};
-
-pub const BORDER_LAYER_INFO: symbols::border::Set = symbols::border::Set {
+const BORDER_LAYER_INFO: symbols::border::Set = symbols::border::Set {
     top_left: symbols::line::ROUNDED.horizontal_down,
     top_right: symbols::line::NORMAL.horizontal_down,
     bottom_left: symbols::line::ROUNDED.horizontal_up,
@@ -71,18 +63,18 @@ pub const BORDER_LAYER_INFO: symbols::border::Set = symbols::border::Set {
     ..symbols::border::ROUNDED
 };
 
-pub const BORDER_PREVIEW_TABLE: symbols::border::Set = symbols::border::Set {
+const BORDER_PREVIEW_TABLE: symbols::border::Set = symbols::border::Set {
     top_right: symbols::line::NORMAL.vertical_left,
     bottom_left: symbols::line::ROUNDED.horizontal_up,
     ..symbols::border::ROUNDED
 };
 
-pub enum TatMenu {
+enum TatMenu {
     MainMenu,
     TableView,
 }
 
-pub enum TatMainMenuFocusedBlock {
+enum TatMainMenuFocusedBlock {
     LayerList,
     LayerInfo,
     PreviewTable,
@@ -119,8 +111,8 @@ impl Tat {
             current_menu: TatMenu::MainMenu,
             quit: false,
             modal_popup: None,
-            table: TatTable::new(),
             layerlist: TatLayerList::new(&ds),
+            table: TatTable::new(&ds),
             focused_block: TatMainMenuFocusedBlock::LayerList,
             clip,
             table_area: Rect::default(),
@@ -130,10 +122,6 @@ impl Tat {
     }
 
     pub fn run(mut self, terminal: &mut DefaultTerminal) -> Result<()> {
-        if let Some(layer) = self.layerlist.current_layer() {
-            self.table.set_layer(layer.clone());
-        }
-
         while !self.quit {
             terminal.draw(|frame| {
                 self.draw(frame);
@@ -439,6 +427,7 @@ impl Tat {
                 }
             },
             KeyCode::Tab | KeyCode::BackTab => {
+                // FIXME: BackTab is not actually respected
                 if in_main_menu && !popup_open {
                     self.cycle_block_selection();
                 }
@@ -564,10 +553,6 @@ impl Tat {
     }
 
     fn open_table(&mut self) {
-        if let Some(layer) = self.layerlist.current_layer() {
-            self.table.set_layer(layer.clone());
-        }
-
         self.table.set_rects(self.table_rects(false));
         self.current_menu = TatMenu::TableView;
     }
@@ -648,12 +633,9 @@ impl Tat {
                     TatMainMenuFocusedBlock::LayerList => {
                         self.layerlist.nav(conf);
 
-                        if let Some(layer) = self.layerlist.current_layer() {
-                            self.table.set_layer(layer.clone());
-                        }
-                        // self.table.set_layer(self.layerlist.current_layer().unwrap().clone());
+                        self.table.set_layer_index(self.layerlist.layer_index());
                     },
-                    TatMainMenuFocusedBlock::LayerInfo => self.layerlist.current_layer_info().nav_v(conf),
+                    TatMainMenuFocusedBlock::LayerInfo => self.layerlist.current_layer_info_paragraph().nav_v(conf),
                     TatMainMenuFocusedBlock::PreviewTable => {
                         self.table.nav_v(conf);
                     }
@@ -673,7 +655,7 @@ impl Tat {
             TatMenu::MainMenu => {
                 match self.focused_block {
                     TatMainMenuFocusedBlock::LayerList => return,
-                    TatMainMenuFocusedBlock::LayerInfo => self.layerlist.current_layer_info().nav_h(conf),
+                    TatMainMenuFocusedBlock::LayerInfo => self.layerlist.current_layer_info_paragraph().nav_h(conf),
                     TatMainMenuFocusedBlock::PreviewTable => {
                         self.table.nav_h(conf);
                     }
@@ -702,7 +684,7 @@ impl Tat {
             .title_top(Line::raw(crate::shared::SHOW_HELP).centered());
 
         frame.render_widget(
-            Paragraph::new(self.layerlist.dataset_info_text())
+            Paragraph::new(self.table.dataset_info_text())
                 .fg(crate::shared::palette::DEFAULT.default_fg)
                 .block(block),
             area
@@ -773,7 +755,7 @@ impl Tat {
             .border_set(BORDER_LAYER_INFO)
             .border_style(border_style);
 
-        let info = self.layerlist.current_layer_info();
+        let info = self.layerlist.current_layer_info_paragraph();
 
         frame.render_widget(
             info.paragraph().block(block),
