@@ -58,14 +58,14 @@ Since this is and likely will remain a single-author repository I'm also using t
 basically as project management because creating and managing issues feels clunky and unnecessary
 without any collaborators.
 
-Here are the features which I'd like to add for the first proper version (more or less in order of importance):
+For the first proper version the following are still under development:
 
 - Tests and CI
 
+Further features I've considered for future versions:
+
 <details>
 <summary>More details</summary>
-
-  Following are features which I've thought of but aren't top priority.
 
   Most important:
   - Optimize performance
@@ -79,8 +79,6 @@ Here are the features which I'd like to add for the first proper version (more o
   - Preserve table state for each layer instead of resetting it every time when closing layer
   - Some support for looking at raster metadata similar to `gdalinfo` (not displaying raster itself)
   - Allow viewing/copying geometry as WKB in addition to WKT
-  - Allow setting an attribute filter to the dataset
-    - (Maybe) also a spatial filter?
   - Ability to select a whole feature in the attribute table
     - (Maybe) allow selecting multiple features?
     - (Maybe) copy it/them as GeoJSON/GML(?)
@@ -88,6 +86,7 @@ Here are the features which I'd like to add for the first proper version (more o
     - (Maybe) as any ogr-supported driver?
     - (Maybe) allow selecting which layers are exported?
     - (Maybe) if selecting features are implemented, export only those features?
+  - Allow setting a spatial filter on a dataset
 
   Unlikely:
   - Raster attribute tables
