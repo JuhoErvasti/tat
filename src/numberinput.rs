@@ -3,11 +3,7 @@ use std::num::IntErrorKind;
 use crossterm::event::KeyCode;
 use ratatui::{layout::{Position, Rect}, Frame};
 
-pub struct TatNumberInput {
-    string: String,
-    cursor_pos: u16,
-}
-
+/// Result of completing the input dialog
 pub enum TatNumberInputResult {
     UnacceptedKey,
     AcceptedKey,
@@ -15,7 +11,14 @@ pub enum TatNumberInputResult {
     Accept(i64),
 }
 
+/// A widget for getting a number value from the user. Number must be a positive integer.
+pub struct TatNumberInput {
+    string: String,
+    cursor_pos: u16,
+}
+
 impl TatNumberInput {
+    /// Constructs a new widget.
     pub fn new() -> Self {
         Self {
             string: "".to_string(),
@@ -23,6 +26,7 @@ impl TatNumberInput {
         }
     }
 
+    /// Renders the current state of the widget.
     pub fn render(&mut self, frame: &mut Frame, area: Rect) {
         frame.render_widget(&self.string, area);
         frame.set_cursor_position(Position {
@@ -31,6 +35,7 @@ impl TatNumberInput {
         });
     }
 
+    /// Handles the incoming key code, rejecting any unaccepted keys
     pub fn key_press(&mut self, key: KeyCode, ctrl_down: bool) -> TatNumberInputResult {
         match key {
             KeyCode::Char('q') | KeyCode::Esc => TatNumberInputResult::Close,
@@ -93,18 +98,21 @@ impl TatNumberInput {
         }
     }
 
+    /// Handles when user wants to move the cursor to the left
     fn handle_left(&mut self) {
         if self.cursor_pos > 0 {
             self.cursor_pos -= 1;
         }
     }
 
+    /// Handles when user wants to move the cursor to the right
     fn handle_right(&mut self) {
         if self.cursor_pos < self.string.len() as u16 {
             self.cursor_pos += 1;
         }
     }
 
+    /// Handles when user wants to delete the number before the cursor
     fn handle_backspace(&mut self) {
         if self.string.is_empty() || self.cursor_pos == 0 {
             return;
@@ -114,6 +122,7 @@ impl TatNumberInput {
         self.cursor_pos -= 1;
     }
 
+    /// Handles when user wants to delete the number after the cursor
     fn handle_delete(&mut self) {
         if self.string.is_empty() || self.cursor_pos == self.string.len() as u16 {
             return;
@@ -122,6 +131,7 @@ impl TatNumberInput {
         self.string.remove(self.cursor_pos as usize);
     }
 
+    /// Handles when user has typed in a character in 0..9
     fn handle_char(&mut self, ch: char) {
         if self.cursor_pos == 0 && ch == '0' {
             return;

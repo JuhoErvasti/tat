@@ -61,7 +61,6 @@ without any collaborators.
 Here are the features which I'd like to add for the first proper version (more or less in order of importance):
 
 - Tests and CI
-- General refactoring and handling errors etc. better
 
 <details>
 <summary>More details</summary>
@@ -69,17 +68,17 @@ Here are the features which I'd like to add for the first proper version (more o
   Following are features which I've thought of but aren't top priority.
 
   Most important:
-  - Mouse support, such as:
-    - Opening layers
-    - Selecting cells
-    - Copying cell values (Right/Middle click or something?)
-  - Preserve table state for each layer instead of resetting it every time when closing layer
   - Optimize performance
     - Some drivers such as CSV and WFS are slow even with a fairly small number of features
 
   Maybe:
-  - Some support for looking at raster metadata (not displaying raster itself, similar to `gdalinfo`)?
-  - Allow copying geometry as WKB in addition to WKT
+  - More mouse support, such as:
+    - Opening layers
+    - Selecting cells
+    - Copying cell values (Right/Middle click or something?)
+  - Preserve table state for each layer instead of resetting it every time when closing layer
+  - Some support for looking at raster metadata similar to `gdalinfo` (not displaying raster itself)
+  - Allow viewing/copying geometry as WKB in addition to WKT
   - Allow setting an attribute filter to the dataset
     - (Maybe) also a spatial filter?
   - Ability to select a whole feature in the attribute table
@@ -94,13 +93,7 @@ Here are the features which I'd like to add for the first proper version (more o
   - Raster attribute tables
   - Some way of displaying geometries as other whan WKT
     - Probably best bet would be to render the geometry as a temporary image and display it using [viuer](https://github.com/atanunq/viuer)
-    - However, this would be a significant undertaking and the actual utility of it is fairly minimal
-    - But it would be pretty cool
 
   Extremely unlikely:
   - Editing of any kind, the main impetus for developing this tool is to just inspect data
-
-  Wontfix:
-  - ~~(Maybe) jumping to specific cell?~~
-    - I figure there's really no clean solution for this that would be actually convenient
 </details>

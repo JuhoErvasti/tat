@@ -4,6 +4,7 @@ use ratatui::widgets::{Paragraph, ScrollbarState};
 
 use crate::navparagraph::TatNavigableParagraph;
 
+/// Enum describing different kinds of vertical navigation
 pub enum TatNavVertical {
     First,
     Last,
@@ -18,6 +19,7 @@ pub enum TatNavVertical {
     MouseScrollDown,
 }
 
+/// Enum describing different kinds of horizontal navigation
 pub enum TatNavHorizontal {
     Home,
     End,
@@ -25,6 +27,7 @@ pub enum TatNavHorizontal {
     LeftOne,
 }
 
+/// A struct which holds information about a coordinate reference system for displaying purposes
 #[derive(Clone)]
 pub struct TatCrs {
     auth_name: String,
@@ -33,6 +36,7 @@ pub struct TatCrs {
 }
 
 impl TatCrs {
+    /// Constructs a new object
     pub fn new(a_name: String, a_code: i32, crs_name: String) -> Self {
         Self {
             auth_name: a_name,
@@ -41,6 +45,7 @@ impl TatCrs {
         }
     }
 
+    /// Constructs a new object from a GDAL SpatialRef object
     pub fn from_spatial_ref(sref: &SpatialRef) -> Option<Self> {
         let aname = match sref.auth_name() {
             Some(a_name) => a_name,
@@ -66,20 +71,23 @@ impl TatCrs {
         )
     }
 
-
+    /// Returns the CRS authority name (e.g. EPSG etc.)
     pub fn auth_name(&self) -> &str {
         &self.auth_name
     }
 
+    /// Returns the CRS numerical code (e.g. 4326)
     pub fn auth_code(&self) -> i32 {
         self.auth_code
     }
 
+    /// Return the name of the CRS
     pub fn name(&self) -> &str {
         &self.name
     }
 }
 
+/// A struct describing a field in a GDAL layer for displaying purposes
 #[derive(Clone)]
 pub struct TatField {
     name: String,
@@ -87,6 +95,7 @@ pub struct TatField {
 }
 
 impl TatField {
+    /// Constructs a new object
     pub fn new(name: String, dtype: u32) -> Self {
         Self {
             name,
@@ -94,15 +103,19 @@ impl TatField {
         }
     }
 
+    /// Returns the name of the field
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    /// Returns the data type of the field as a u32, which can be turned into a string using
+    /// gdal::field_type_to_name()
     pub fn dtype(&self) -> u32 {
         self.dtype
     }
 }
 
+/// A struct describing a geometry field in a GDAL layer for displaying purposes
 #[derive(Clone)]
 pub struct TatGeomField {
     name: String,
@@ -111,6 +124,7 @@ pub struct TatGeomField {
 }
 
 impl TatGeomField {
+    /// Constructs a new object
     pub fn new(name: String, geom_type: String, crs: Option<TatCrs>) -> Self {
         Self {
             name,
@@ -119,66 +133,19 @@ impl TatGeomField {
         }
     }
 
+    /// Returns the field's name
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    /// Returns the field's geometry type as a string slice
     pub fn geom_type(&self) -> &str {
         &self.geom_type
     }
 
+    /// Returns the field's CRS (if any)
     pub fn crs(&self) -> Option<&TatCrs> {
         self.crs.as_ref()
     }
 }
 
-pub struct TatPopup {
-    title: String,
-    paragraph: TatNavigableParagraph,
-}
-
-impl TatPopup {
-    pub fn new(title: String, paragraph: TatNavigableParagraph) -> Self {
-        Self { title, paragraph }
-    }
-
-    pub fn set_available_rows(&mut self, value: usize) {
-        self.paragraph.set_available_rows(value);
-    }
-
-    pub fn set_available_cols(&mut self, value: usize) {
-        self.paragraph.set_available_cols(value);
-    }
-
-    pub fn paragraph(&self) -> Paragraph {
-        self.paragraph.paragraph()
-    }
-
-    pub fn max_line_len(&self) -> usize {
-        self.paragraph.max_line_len()
-    }
-
-    pub fn scroll_state_v(&self) -> ScrollbarState {
-        self.paragraph.scroll_state_v()
-    }
-
-    pub fn scroll_state_h(&self) -> ScrollbarState {
-        self.paragraph.scroll_state_h()
-    }
-
-    pub fn total_lines(&self) -> usize {
-        self.paragraph.total_lines()
-    }
-
-    pub fn nav_h(&mut self, conf: TatNavHorizontal) {
-        self.paragraph.nav_h(conf)
-    }
-
-    pub fn nav_v(&mut self, conf: TatNavVertical) {
-        self.paragraph.nav_v(conf);
-    }
-
-    pub fn title(&self) -> &str {
-        &self.title
-    }
-}

@@ -9,7 +9,7 @@ use cli_clipboard::{ClipboardContext, ClipboardProvider};
 
 use cli_log::{debug, error};
 use crossterm::event::{
-    self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind
+    self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind
 };
 use gdal::
     Dataset
@@ -39,14 +39,9 @@ use ratatui::{
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::{
-    layerlist::TatLayerList, navparagraph::TatNavigableParagraph, numberinput::{TatNumberInput, TatNumberInputResult}, table::TableRects, types::{TatNavHorizontal, TatNavVertical, TatPopup}
+    layerlist::TatLayerList, navparagraph::TatNavigableParagraph, numberinput::{TatNumberInput, TatNumberInputResult}, table::TableRects, types::{TatNavHorizontal, TatNavVertical}
 };
 use crate::table::TatTable;
-
-// TODO: there's an issue with a table with multiple geometry columns, the differing crs of the
-// other column is not shown properly
-// also the values kind of show up properly, but one of the has the ... even though it doesn't need
-// it and when opening the value pop-up you get NULL
 
 const BORDER_LAYER_INFO: symbols::border::Set = symbols::border::Set {
     top_left: symbols::line::ROUNDED.horizontal_down,
@@ -62,27 +57,28 @@ const BORDER_PREVIEW_TABLE: symbols::border::Set = symbols::border::Set {
     ..symbols::border::ROUNDED
 };
 
+/// Specificies the available menus of the program
 enum TatMenu {
     MainMenu,
     TableView,
 }
 
-enum TatMainMenuFocusedBlock {
+/// Specifies which section in the main menu has the focus
+enum TatMainMenuSectionFocus {
     LayerList,
     LayerInfo,
     PreviewTable,
 }
 
-// TODO: a lot of these probably don't have to be public
-
-/// This holds the program's state.
+/// This is the main widget of the program, initiating the rendering and primarily handling
+/// key/mouse events.
 pub struct Tat {
     current_menu: TatMenu,
     quit: bool,
-    modal_popup: Option<TatPopup>,
+    modal_popup: Option<TatNavigableParagraph>,
     table: TatTable,
     layerlist: TatLayerList,
-    focused_block: TatMainMenuFocusedBlock,
+    focused_block: TatMainMenuSectionFocus,
     clip: Option<ClipboardContext>,
     table_area: Rect,
     number_input: Option<TatNumberInput>,
@@ -90,6 +86,7 @@ pub struct Tat {
 }
 
 impl Tat {
+    /// Constructs a new object
     pub fn new(ds: &'static Dataset) -> Self {
         let mut ls = ListState::default();
         ls.select_first();
@@ -106,7 +103,7 @@ impl Tat {
             modal_popup: None,
             layerlist: TatLayerList::new(&ds),
             table: TatTable::new(&ds),
-            focused_block: TatMainMenuFocusedBlock::LayerList,
+            focused_block: TatMainMenuSectionFocus::LayerList,
             clip,
             table_area: Rect::default(),
             number_input: None,
@@ -114,6 +111,8 @@ impl Tat {
         }
     }
 
+    /// Main execution loop of the program. The state of the program is rendered along with key and
+    /// mouse events being handled
     pub fn run(mut self, terminal: &mut DefaultTerminal) -> Result<()> {
         while !self.quit {
             terminal.draw(|frame| {
@@ -129,52 +128,7 @@ impl Tat {
         Ok(())
     }
 
-    fn handle_mouse(&mut self, event: MouseEvent) {
-        match event.kind {
-            MouseEventKind::ScrollUp => self.delegate_nav_v(TatNavVertical::MouseScrollUp),
-            MouseEventKind::ScrollDown => self.delegate_nav_v(TatNavVertical::MouseScrollDown),
-            _ => (),
-        }
-    }
-
-    /// Returns visible columns and rows of a bordered text area which
-    /// may or may not have horizontal and/or vertical scrollbars.
-    fn text_area_dimensions(rect: &Rect, max_cols: i64, max_rows: i64) -> (usize, bool, usize, bool) {
-        // TODO: there's gotta be a better way to do this
-        let original_cols = rect.width as i64;
-        let original_rows = rect.height as i64;
-
-        let mut visible_cols = 0;
-        let mut visible_rows = 0;
-
-        let mut has_v_scroll = false;
-        let mut has_h_scroll = false;
-
-        if original_cols >= 2 {
-            visible_cols = original_cols - 2;
-        }
-
-        if max_cols > visible_cols {
-            has_h_scroll = true;
-        }
-
-        if original_rows >= if has_h_scroll { 3 } else { 2 } {
-            visible_rows = original_rows - if has_h_scroll { 3 } else { 2 };
-        }
-
-        if max_rows > visible_rows {
-            has_v_scroll = true;
-        }
-
-        if has_v_scroll {
-            if original_cols >= 3 {
-                visible_cols = original_cols - 3;
-            }
-        }
-
-        (visible_cols as usize, has_h_scroll, visible_rows as usize, has_v_scroll)
-    }
-
+    /// Draws the current menu and any other active pop-ups or dialogs
     fn draw(&mut self, frame: &mut Frame) {
         self.table_area = frame.area();
 
@@ -188,6 +142,7 @@ impl Tat {
         self.draw_clipboard_feedback(frame);
     }
 
+    /// Draws the clipboard feedback message (if any)
     fn draw_clipboard_feedback(&mut self, frame: &mut Frame) {
         if let Some(feedback) = self.clipboard_feedback.as_mut() {
             let cleared_area = Tat::number_input_area(frame.area(), 50);
@@ -207,6 +162,7 @@ impl Tat {
         }
     }
 
+    /// Draws the number input dialog (if any)
     fn draw_number_input(&mut self, frame: &mut Frame) {
         if let Some(number_input) = self.number_input.as_mut() {
             let cleared_area = Tat::number_input_area(frame.area(), 50);
@@ -227,6 +183,7 @@ impl Tat {
         }
     }
 
+    /// Draws the current active pop-up dialog (if any)
     fn draw_popup(&mut self, frame: &mut Frame) {
         if let Some(popup) = &mut self.modal_popup {
             let cleared_area = Tat::popup_area(frame.area(), 70, 70);
@@ -245,13 +202,19 @@ impl Tat {
                 popup.total_lines() as i64,
             );
 
+            let title = if let Some(title) = popup.title() {
+                title.clone()
+            } else {
+                "UNTITLED".to_string()
+            };
+
             popup.set_available_rows(visible_rows as usize);
             popup.set_available_cols(visible_cols as usize);
 
             let block = popup.paragraph()
                 .block(
                     Block::default()
-                        .title(Line::raw(popup.title()).bold().underlined().centered())
+                        .title(Line::raw(title).bold().underlined().centered())
                         .borders(Borders::ALL)
                         .border_style(crate::shared::palette::DEFAULT.highlighted_style())
                         .border_type(BorderType::Rounded)
@@ -299,14 +262,7 @@ impl Tat {
         }
     }
 
-    fn close(&mut self) {
-        self.quit = true;
-    }
-
-    fn set_clipboard_feedback(&mut self, text: String) {
-        self.clipboard_feedback = Some(text);
-    }
-
+    /// Attempts to copy a value to the system keyboard
     fn copy_table_value_to_clipboard(&mut self) {
         if let Some(clip) = self.clip.as_mut() {
             if let Some(text_to_copy) = self.table.selected_value() {
@@ -336,17 +292,37 @@ impl Tat {
         }
     }
 
+    /// Terminates the program
+    fn close(&mut self) {
+        self.quit = true;
+    }
+
+    /// Activates the clipboard feedback, which is shown in a small pop-up
+    fn set_clipboard_feedback(&mut self, text: String) {
+        self.clipboard_feedback = Some(text);
+    }
+
+    /// Handles incoming mouse events and delegates to other widgets
+    fn handle_mouse(&mut self, event: MouseEvent) {
+        match event.kind {
+            MouseEventKind::ScrollUp => self.delegate_nav_v(TatNavVertical::MouseScrollUp),
+            MouseEventKind::ScrollDown => self.delegate_nav_v(TatNavVertical::MouseScrollDown),
+            _ => (),
+        }
+    }
+
+    /// Handles incoming key events and delegates to other widgets
     fn handle_key(&mut self, key: KeyEvent) {
         if key.kind != KeyEventKind::Press {
             return;
         }
 
         let ctrl_down: bool = key.modifiers.contains(KeyModifiers::CONTROL);
-        let in_layer_list: bool = matches!(self.current_menu, TatMenu::MainMenu) && matches!(self.focused_block, TatMainMenuFocusedBlock::LayerList);
+        let in_layer_list: bool = matches!(self.current_menu, TatMenu::MainMenu) && matches!(self.focused_block, TatMainMenuSectionFocus::LayerList);
         let in_table: bool = matches!(self.current_menu, TatMenu::TableView);
         let in_main_menu: bool = matches!(self.current_menu, TatMenu::MainMenu);
-        let in_preview_table: bool = matches!(self.focused_block, TatMainMenuFocusedBlock::PreviewTable);
-        let popup_open: bool = self.has_popup();
+        let in_preview_table: bool = matches!(self.focused_block, TatMainMenuSectionFocus::PreviewTable);
+        let popup_open: bool = self.modal_popup.is_some();
 
         if in_table {
             if let Some(number_input) = & mut self.number_input {
@@ -421,12 +397,12 @@ impl Tat {
             },
             KeyCode::Tab => {
                 if in_main_menu && !popup_open {
-                    self.cycle_block_selection(false);
+                    self.cycle_section_selection(false);
                 }
             },
             KeyCode::BackTab => {
                 if in_main_menu && !popup_open {
-                    self.cycle_block_selection(true);
+                    self.cycle_section_selection(true);
                 }
             },
             KeyCode::Char(':') =>  {
@@ -444,19 +420,13 @@ impl Tat {
         }
     }
 
+    /// Opens a pop-up which displays the full value of the selected cell in the table
     fn show_full_value_popup(&mut self) {
         let value = if let Some(_value) = self.table.selected_value() {
             _value
         } else {
             crate::shared::MISSING_VALUE.to_string()
         };
-
-        let p = TatNavigableParagraph::new(
-            format!(
-                "{}",
-                value,
-            )
-        );
 
         let title = format!(
                 " Feature {} - Value of \"{}\" ",
@@ -465,13 +435,16 @@ impl Tat {
             );
 
         self.modal_popup = Some(
-            TatPopup::new(
-                title,
-                p,
-            )
-        )
+            TatNavigableParagraph::new(
+                format!(
+                    "{}",
+                    value,
+                )
+            ).with_title(title)
+        );
     }
 
+    /// Opens the debug log in which all internal logging messages are written
     fn show_debug_log(&mut self) {
         let mut text = String::from("");
         match File::open("tat.log") {
@@ -488,15 +461,15 @@ impl Tat {
             },
         };
 
-        let p = TatNavigableParagraph::new(text);
         self.modal_popup = Some(
-            TatPopup::new(
-                crate::shared::TITLE_DEBUG_LOG.to_string(),
-                p,
+            TatNavigableParagraph::new(
+                    text,
+                ).with_title(crate::shared::TITLE_DEBUG_LOG.to_string()
             )
-        )
+        );
     }
 
+    /// Opens the GDAL log in a pop-up in which any direct GDAL output is written
     fn show_gdal_log(&mut self) {
         let file = match File::open(format!("{}/tat_gdal.log", temp_dir().display())) {
             Ok(file) => file,
@@ -513,57 +486,57 @@ impl Tat {
             text = format!("{}\n{}", text, line);
         }
 
-        let p = TatNavigableParagraph::new(text);
         self.modal_popup = Some(
-            TatPopup::new(
-                crate::shared::TITLE_GDAL_LOG.to_string(),
-                p,
+            TatNavigableParagraph::new(
+                    text,
+                ).with_title(crate::shared::TITLE_GDAL_LOG.to_string()
             )
-        )
+        );
     }
 
+    /// Shows the help pop-up dialog according to the current menu
     fn show_help(&mut self) {
         let help_text = match self.current_menu {
             TatMenu::TableView => crate::shared::HELP_TEXT_TABLE,
             TatMenu::MainMenu => crate::shared::HELP_TEXT_MAINMENU,
         }.to_string();
 
-        let p = TatNavigableParagraph::new(help_text);
         self.modal_popup = Some(
-            TatPopup::new(
-                crate::shared::TITLE_HELP.to_string(),
-                p,
+            TatNavigableParagraph::new(
+                    help_text,
+                ).with_title(crate::shared::TITLE_HELP.to_string()
             )
-        )
+        );
     }
 
-    fn cycle_block_selection(&mut self, back: bool) {
+    /// Cycles through the available sections in the main menu (non-looping)
+    fn cycle_section_selection(&mut self, back: bool) {
         self.focused_block = match self.focused_block {
-            TatMainMenuFocusedBlock::LayerList if back => return,
-            TatMainMenuFocusedBlock::LayerInfo if back => TatMainMenuFocusedBlock::LayerList,
-            TatMainMenuFocusedBlock::PreviewTable if back => TatMainMenuFocusedBlock::LayerInfo,
+            TatMainMenuSectionFocus::LayerList if back => return,
+            TatMainMenuSectionFocus::LayerInfo if back => TatMainMenuSectionFocus::LayerList,
+            TatMainMenuSectionFocus::PreviewTable if back => TatMainMenuSectionFocus::LayerInfo,
 
-            TatMainMenuFocusedBlock::LayerList => TatMainMenuFocusedBlock::LayerInfo,
-            TatMainMenuFocusedBlock::LayerInfo => TatMainMenuFocusedBlock::PreviewTable,
-            TatMainMenuFocusedBlock::PreviewTable => return,
+            TatMainMenuSectionFocus::LayerList => TatMainMenuSectionFocus::LayerInfo,
+            TatMainMenuSectionFocus::LayerInfo => TatMainMenuSectionFocus::PreviewTable,
+            TatMainMenuSectionFocus::PreviewTable => return,
         }
     }
 
+    /// Opens the table view menu
     fn open_table(&mut self) {
         self.table.set_rects(self.table_rects(false));
         self.current_menu = TatMenu::TableView;
     }
 
+    /// Closes any active pop-up dialog
     fn close_popup(&mut self) {
         self.modal_popup = None;
     }
 
-    fn has_popup(&self) -> bool {
-        self.modal_popup.is_some()
-    }
-
+    /// Goes back in menus, also closing pop-ups and ultimately terminating program if in the main
+    /// menu
     fn previous_menu(&mut self) {
-        if self.has_popup() {
+        if self.modal_popup.is_some() {
             self.close_popup();
             return;
         }
@@ -581,41 +554,7 @@ impl Tat {
         }
     }
 
-    fn table_rects(&self, preview: bool) -> TableRects {
-        let rects = if preview {
-            let [_, table_rect_temp] = Layout::vertical([
-                Constraint::Length(1),
-                Constraint::Fill(1),
-            ]).areas(self.table_area);
-
-            let [fid_col_area, mut table_rect] = Layout::horizontal([
-                Constraint::Length(11),
-                Constraint::Fill(1),
-            ])
-            .areas(table_rect_temp);
-
-            table_rect.height += 1;
-
-            (table_rect, fid_col_area, Rect::default(), Rect::default())
-        } else {
-            let [table_rect_temp, scroll_h_area] = Layout::vertical([
-                Constraint::Fill(1),
-                Constraint::Length(1),
-            ]).areas(self.table_area);
-
-            let [fid_col_area, table_rect, scroll_v_area] = Layout::horizontal([
-                Constraint::Length(11),
-                Constraint::Fill(1),
-                Constraint::Length(1),
-            ])
-            .areas(table_rect_temp);
-
-            (table_rect, fid_col_area, scroll_v_area, scroll_h_area)
-        };
-
-        rects
-    }
-
+    /// Delegegates a vertical navigation event to the active widget
     fn delegate_nav_v(&mut self, conf: TatNavVertical) {
         if let Some(pop) = &mut self.modal_popup {
             pop.nav_v(conf);
@@ -625,13 +564,13 @@ impl Tat {
         match self.current_menu {
             TatMenu::MainMenu => {
                 match self.focused_block {
-                    TatMainMenuFocusedBlock::LayerList => {
+                    TatMainMenuSectionFocus::LayerList => {
                         self.layerlist.nav(conf);
 
                         self.table.set_layer_index(self.layerlist.layer_index());
                     },
-                    TatMainMenuFocusedBlock::LayerInfo => self.layerlist.current_layer_info_paragraph().nav_v(conf),
-                    TatMainMenuFocusedBlock::PreviewTable => {
+                    TatMainMenuSectionFocus::LayerInfo => self.layerlist.current_layer_info_paragraph().nav_v(conf),
+                    TatMainMenuSectionFocus::PreviewTable => {
                         self.table.nav_v(conf);
                     }
                 }
@@ -640,6 +579,7 @@ impl Tat {
         }
     }
 
+    /// Delegegates a horizontal navigation event to the active widget
     fn delegate_nav_h(&mut self, conf: TatNavHorizontal) {
         if let Some(pop) = &mut self.modal_popup {
             pop.nav_h(conf);
@@ -649,9 +589,9 @@ impl Tat {
         match self.current_menu {
             TatMenu::MainMenu => {
                 match self.focused_block {
-                    TatMainMenuFocusedBlock::LayerList => return,
-                    TatMainMenuFocusedBlock::LayerInfo => self.layerlist.current_layer_info_paragraph().nav_h(conf),
-                    TatMainMenuFocusedBlock::PreviewTable => {
+                    TatMainMenuSectionFocus::LayerList => return,
+                    TatMainMenuSectionFocus::LayerInfo => self.layerlist.current_layer_info_paragraph().nav_h(conf),
+                    TatMainMenuSectionFocus::PreviewTable => {
                         self.table.nav_h(conf);
                     }
                 }
@@ -660,7 +600,38 @@ impl Tat {
         }
     }
 
-    fn render_header(area: Rect, frame: &mut Frame) {
+    /// Renders all the sections of the main menu
+    fn render_main_menu(&mut self, area: Rect, frame: &mut Frame) {
+        let (header_area, dataset_area, list_area, info_area, preview_table_area) = self.main_menu_areas(&area);
+
+        Tat::render_title(header_area, frame);
+        self.render_dataset_info(dataset_area, frame);
+        self.layerlist.render(list_area, frame, matches!(self.focused_block, TatMainMenuSectionFocus::LayerList) && self.modal_popup.is_none());
+        self.render_layer_info(info_area, frame,  matches!(self.focused_block, TatMainMenuSectionFocus::LayerInfo));
+
+        self.table_area = preview_table_area;
+        self.table.set_rects(self.table_rects(true));
+
+        let block = Block::new()
+            .title(
+                Line::raw(
+                    " Preview Table ",
+                ).bold().underlined().left_aligned().fg(
+                    if matches!(self.focused_block, TatMainMenuSectionFocus::PreviewTable) {crate::shared::palette::DEFAULT.highlighted_fg} else {crate::shared::palette::DEFAULT.default_fg}
+                    ),
+                )
+            .border_style(if matches!(self.focused_block, TatMainMenuSectionFocus::PreviewTable) {crate::shared::palette::DEFAULT.highlighted_style()} else {crate::shared::palette::DEFAULT.default_style()})
+            .title_bottom(Line::raw(" <Enter> to open full table ").centered())
+            .border_set(BORDER_PREVIEW_TABLE)
+            .borders(Borders::BOTTOM | Borders::RIGHT | Borders::TOP);
+
+        self.table.render_preview(frame);
+
+        frame.render_widget(block, preview_table_area);
+    }
+
+    /// Renders the title of the program
+    fn render_title(area: Rect, frame: &mut Frame) {
         frame.render_widget(
             Paragraph::new(crate::shared::TITLE_PROGRAM)
                 .bold()
@@ -670,6 +641,7 @@ impl Tat {
         );
     }
 
+    /// Renders the dataset information
     fn render_dataset_info(&mut self, area: Rect, frame: &mut Frame) {
         let block = Block::new()
             .fg(crate::shared::palette::DEFAULT.default_fg)
@@ -687,62 +659,16 @@ impl Tat {
 
     }
 
+    /// Returns the table view Menu
     fn render_table_view(&mut self, frame: &mut Frame) {
         self.table.set_rects(self.table_rects(false));
 
         self.table.render(frame);
     }
 
-    fn main_menu_areas(&self, area: &Rect) -> (Rect, Rect, Rect, Rect, Rect, Rect) {
-        let [header_area, dataset_area, layer_area] = Layout::vertical([
-            Constraint::Length(2),
-            Constraint::Length(4),
-            Constraint::Fill(1),
-        ])
-        .areas(*area);
-
-        let [list_area, info_area, preview_table_area] =
-            Layout::horizontal([
-                Constraint::Fill(1),
-                Constraint::Fill(2),
-                Constraint::Fill(4),
-        ]).areas(layer_area);
-
-        (header_area, dataset_area, layer_area, list_area, info_area, preview_table_area)
-    }
-
-    fn render_main_menu(&mut self, area: Rect, frame: &mut Frame) {
-        let (header_area, dataset_area, layer_area, list_area, info_area, preview_table_area) = self.main_menu_areas(&area);
-
-        Tat::render_header(header_area, frame);
-        self.render_dataset_info(dataset_area, frame);
-        self.layerlist.render(list_area, frame, matches!(self.focused_block, TatMainMenuFocusedBlock::LayerList) && !self.has_popup());
-        self.render_layer_info(info_area, frame,  matches!(self.focused_block, TatMainMenuFocusedBlock::LayerInfo));
-
-        self.table_area = preview_table_area;
-        self.table.set_rects(self.table_rects(true));
-
-        let block = Block::new()
-            .title(
-                Line::raw(
-                    " Preview Table ",
-                ).bold().underlined().left_aligned().fg(
-                    if matches!(self.focused_block, TatMainMenuFocusedBlock::PreviewTable) {crate::shared::palette::DEFAULT.highlighted_fg} else {crate::shared::palette::DEFAULT.default_fg}
-                    ),
-                )
-            .border_style(if matches!(self.focused_block, TatMainMenuFocusedBlock::PreviewTable) {crate::shared::palette::DEFAULT.highlighted_style()} else {crate::shared::palette::DEFAULT.default_style()})
-            .title_bottom(Line::raw(" <Enter> to open full table ").centered())
-            .border_set(BORDER_PREVIEW_TABLE)
-            .borders(Borders::BOTTOM | Borders::RIGHT | Borders::TOP);
-
-        self.table.render_preview(frame);
-
-        frame.render_widget(block, preview_table_area);
-    }
-
-
+    /// Renders the layer information section
     fn render_layer_info(&mut self, area: Rect, frame: &mut Frame, selected: bool) {
-        let border_style = if selected && !self.has_popup() {
+        let border_style = if selected && self.modal_popup.is_none() {
             crate::shared::palette::DEFAULT.highlighted_style()
         } else {
             crate::shared::palette::DEFAULT.default_style()
@@ -813,6 +739,63 @@ impl Tat {
         }
     }
 
+    /// Returns the areas for the table
+    fn table_rects(&self, preview: bool) -> TableRects {
+        let rects = if preview {
+            let [_, table_rect_temp] = Layout::vertical([
+                Constraint::Length(1),
+                Constraint::Fill(1),
+            ]).areas(self.table_area);
+
+            let [fid_col_area, mut table_rect] = Layout::horizontal([
+                Constraint::Length(11),
+                Constraint::Fill(1),
+            ])
+            .areas(table_rect_temp);
+
+            table_rect.height += 1;
+
+            (table_rect, fid_col_area, Rect::default(), Rect::default())
+        } else {
+            let [table_rect_temp, scroll_h_area] = Layout::vertical([
+                Constraint::Fill(1),
+                Constraint::Length(1),
+            ]).areas(self.table_area);
+
+            let [fid_col_area, table_rect, scroll_v_area] = Layout::horizontal([
+                Constraint::Length(11),
+                Constraint::Fill(1),
+                Constraint::Length(1),
+            ])
+            .areas(table_rect_temp);
+
+            (table_rect, fid_col_area, scroll_v_area, scroll_h_area)
+        };
+
+        rects
+    }
+
+
+    /// Returns the rects for each section in the main menu
+    fn main_menu_areas(&self, area: &Rect) -> (Rect, Rect, Rect, Rect, Rect) {
+        let [header_area, dataset_area, layer_area] = Layout::vertical([
+            Constraint::Length(2),
+            Constraint::Length(4),
+            Constraint::Fill(1),
+        ])
+        .areas(*area);
+
+        let [list_area, info_area, preview_table_area] =
+            Layout::horizontal([
+                Constraint::Fill(1),
+                Constraint::Fill(2),
+                Constraint::Fill(4),
+        ]).areas(layer_area);
+
+        (header_area, dataset_area, list_area, info_area, preview_table_area)
+    }
+
+    /// Returns a flat rect in the center of the screen
     fn number_input_area(area: Rect, percent_x: u16) -> Rect {
         let vertical = Layout::vertical([Constraint::Length(5)]).flex(Flex::Center);
         let horizontal = Layout::horizontal([Constraint::Percentage(percent_x)]).flex(Flex::Center);
@@ -822,6 +805,7 @@ impl Tat {
         area
     }
 
+    /// Returns a rect in the center of the screen
     fn popup_area(area: Rect, percent_x: u16, percent_y: u16) -> Rect {
         let vertical = Layout::vertical([Constraint::Percentage(percent_y)]).flex(Flex::Center);
         let horizontal = Layout::horizontal([Constraint::Percentage(percent_x)]).flex(Flex::Center);
@@ -830,4 +814,43 @@ impl Tat {
 
         area
     }
+
+    /// Returns visible columns and rows of a bordered text area which
+    /// may or may not have horizontal and/or vertical scrollbars.
+    fn text_area_dimensions(rect: &Rect, max_cols: i64, max_rows: i64) -> (usize, bool, usize, bool) {
+        // TODO: there's gotta be a better way to do this
+        let original_cols = rect.width as i64;
+        let original_rows = rect.height as i64;
+
+        let mut visible_cols = 0;
+        let mut visible_rows = 0;
+
+        let mut has_v_scroll = false;
+        let mut has_h_scroll = false;
+
+        if original_cols >= 2 {
+            visible_cols = original_cols - 2;
+        }
+
+        if max_cols > visible_cols {
+            has_h_scroll = true;
+        }
+
+        if original_rows >= if has_h_scroll { 3 } else { 2 } {
+            visible_rows = original_rows - if has_h_scroll { 3 } else { 2 };
+        }
+
+        if max_rows > visible_rows {
+            has_v_scroll = true;
+        }
+
+        if has_v_scroll {
+            if original_cols >= 3 {
+                visible_cols = original_cols - 3;
+            }
+        }
+
+        (visible_cols as usize, has_h_scroll, visible_rows as usize, has_v_scroll)
+    }
+
 }

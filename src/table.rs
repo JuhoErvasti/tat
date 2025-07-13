@@ -41,7 +41,6 @@ pub type TableRects = (Rect, Rect, Rect, Rect);
 /// Widget for displaying the attribute table
 pub struct TatTable {
     table_state: TableState,
-    gdal_ds: &'static Dataset,
     top_fid: u64,
     first_column: u64,
     v_scroll: ScrollbarState,
@@ -72,7 +71,6 @@ impl TatTable {
             v_scroll_area: Rect::default(),
             h_scroll_area: Rect::default(),
             layers: TatTable::layers_from_ds(ds),
-            gdal_ds: ds,
         }
     }
 
@@ -89,11 +87,12 @@ impl TatTable {
 
 
     pub fn dataset_info_text(&self) -> String {
+        let ds = self.layer().dataset();
         format!(
             "- URI: \"{}\"\n- Driver: {} ({})",
-            self.gdal_ds.description().unwrap(),
-            self.gdal_ds.driver().long_name(),
-            self.gdal_ds.driver().short_name(),
+            ds.description().unwrap_or("ERROR: COULD NOT READ DATASET DESCRIPTION!".to_string()),
+            ds.driver().long_name(),
+            ds.driver().short_name(),
         )
     }
 
@@ -282,7 +281,7 @@ impl TatTable {
 
     pub fn selected_value(&self) -> Option<String> {
         if let Some(fid) = self.layer().fid_cache().get(self.selected_fid() as usize - 1) {
-            self.layer().get_value_by_id(*fid, self.current_column() as i32)
+            self.layer().get_value_by_fid(*fid, self.current_column() as i32)
         } else { None }
     }
 
@@ -353,7 +352,7 @@ impl TatTable {
     }
 
     fn max_top_fid(&self) -> i64 {
-        self.layer().gdal_layer().feature_count() as i64 - self.visible_rows() as i64 + 1
+        self.layer().feature_count() as i64 - self.visible_rows() as i64 + 1
     }
 
     /// Returns table based on current state
@@ -408,7 +407,7 @@ impl TatTable {
             let mut row_items: Vec<String> = vec![];
 
             for i in self.first_column..self.first_column + self.visible_columns() {
-                if let Some(str) = self.layer().get_value_by_id(*fid, i as i32) {
+                if let Some(str) = self.layer().get_value_by_fid(*fid, i as i32) {
                     // this is (maybe a premature (lol)) optimization fast path
                     // since str.len() is O(1) and str.chars().count() is O(n),
                     // we check first if a theoretically full 4 byte UTF-8 would overflow

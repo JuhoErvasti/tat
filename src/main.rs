@@ -1,6 +1,7 @@
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use gdal::{errors::{CplErrType, GdalError}, Dataset, DatasetOptions, GdalOpenFlags};
 use tat::Tat;
+use unicode_segmentation::UnicodeSegmentation;
 use core::panic;
 use std::{env::{self, temp_dir}, fs::{File, OpenOptions}, process::exit};
 use cli_log::*;
@@ -17,10 +18,12 @@ mod types;
 
 fn show_usage() {
     // TODO:
-    println!("Attribute Table for spatial data in the terminal.\n");
     println!("Usage: tat [URI]");
+    println!("Attribute Table for spatial data in the terminal.\n");
 }
 
+/// Function which is set as GDAL's error handler. Being a terminal app errors of course cannot be
+/// just written to stdout, this redirects then to a log file which can be opened in the program.
 fn error_handler(class: CplErrType, number: i32, message: &str) {
     let class = match class {
         CplErrType::None => "[NONE]",
@@ -30,19 +33,25 @@ fn error_handler(class: CplErrType, number: i32, message: &str) {
         CplErrType::Fatal => "[FATAL]",
     };
 
-    // TODO: no unwrapping
-    let mut file = OpenOptions::new()
-        .append(true)
-        .open(format!("{}/tat_gdal.log", temp_dir().display()))
-        .unwrap();
-
-    if let Err(e) = writeln!(file, "{class} [{number}] {message}") {
-        // TODO: no panic
-        panic!();
+    let path = format!("{}/tat_gdal.log", temp_dir().display());
+    match OpenOptions::new().append(true).open(path.clone()) {
+        Ok(mut file) => {
+            match writeln!(file, "{class} [{number}] {message}") {
+                Ok(()) => return,
+                Err(e) => {
+                    debug!("Could not write to log at \"{path}\": {}", e.to_string());
+                }
+            }
+        },
+        Err(e) => {
+            debug!("Could not open log at \"{path}\" for writing: {}", e.to_string());
+        },
     }
 }
 
-fn open_dataset(path: String, err: &mut String) -> Option<&'static Dataset> {
+/// Attempts to open a GDAL dataset from a string. This dataset is required from the beginning to
+/// the end of the program so it is returned as a static variable.
+fn open_dataset(uri: String) -> Option<&'static Dataset> {
     // deal with vectors only at least for now
     let flags = GdalOpenFlags::GDAL_OF_VECTOR | GdalOpenFlags::GDAL_OF_READONLY;
 
@@ -53,70 +62,47 @@ fn open_dataset(path: String, err: &mut String) -> Option<&'static Dataset> {
         sibling_files: None,
     };
 
-    let ds = match Dataset::open_ex(path, options) {
-        Err(error) => match error {
-            GdalError::FfiNulError(_) => {
-                *err = "FFI NULL Error".to_string();
-                return None;
-            },
-            GdalError::FfiIntoStringError(_) => {
-                *err = "FFI Into String Error".to_string();
-                return None;
-            },
-            GdalError::StrUtf8Error(_) => {
-                *err = "String UTF-8 Error".to_string();
-                return None;
-            },
-            GdalError::CplError { class, number, msg } => {
-                *err = format!("CPL Error: {} {} {}", class, number, msg);
-                return None;
-            },
-            GdalError::NullPointer { method_name, msg } => {
-                *err = format!("{} {}", method_name, msg);
-                return None;
-            },
-            GdalError::CastToF64Error => {
-                *err = "Cast to F64 Error".to_string();
-                return None;
-            },
-            GdalError::OgrError { err, method_name } => {
-                match err {
-                    _ => {
-                        debug!("{}", method_name);
-                        todo!();
-                    }
-                }
-            },
-            GdalError::UnhandledFieldType { field_type, method_name } => {
-                *err = format!("Unhandled Field Type: {} {}", field_type, method_name);
-                return None;
-            },
-            GdalError::InvalidFieldName { field_name, method_name } => {
-                *err = format!("Invalid Field Name: {} {}", field_name, method_name);
-                return None;
-            },
-            // GdalError::InvalidFieldIndex { index, method_name } => todo!("{} {}", index, method_name),
-            // GdalError::UnlinkedGeometry { method_name } => todo!("{}", method_name),
-            // GdalError::InvalidCoordinateRange { from, to, msg } => todo!("{} {} {}", from, to, msg.unwrap()),
-            // GdalError::AxisNotFoundError { key, method_name } => todo!("{} {}", key, method_name),
-            // GdalError::UnsupportedGdalGeometryType(_) => todo!(),
-            // GdalError::UnlinkMemFile { file_name } => todo!("{}", file_name),
-            // GdalError::BadArgument(_) => todo!(),
-            // GdalError::DateError(str) => todo!("{}", str),
-            // GdalError::UnsupportedMdDataType { data_type, method_name } => todo!("{} {}", data_type, method_name),
-            // GdalError::IntConversionError(_) => todo!(),
-            // GdalError::BufferSizeMismatch(..) => todo!(),
-            _ => {
-                *err = "Unspecified GDAL error occured".to_string();
-                return None;
-            },
-        },
+    let ds = match Dataset::open_ex(uri, options) {
         Ok(ds) => ds,
-    };
+        Err(error) => {
+            match error {
+                GdalError::NullPointer { method_name: _, msg } => {
+                    if msg.is_empty() {
+                        println!("ERROR! Could not open dataset.");
+                        println!();
+                        return None;
+                    }
 
-    if err.is_empty() {
-        println!("{}", err);
-    }
+                    let mut display_string = msg.clone();
+                    let max_length = 100;
+
+                    let squish_contents: bool = if msg.len() > 100 as usize {
+                        true
+                    } else if msg.chars().count() > max_length as usize {
+                        true
+                    } else {
+                        false
+                    };
+
+                    if squish_contents {
+                        let graph = msg.graphemes(true);
+                        let squished: String = graph.into_iter().take(max_length as usize).collect();
+                        display_string = format!("{}…", squished);
+                    } 
+                    println!("ERROR! Could not open dataset. GDAL message:\n{}", display_string);
+                    println!();
+
+                    return None;
+                }
+                _ => {
+                    println!("ERROR! Could not open dataset:\n{}", error.to_string());
+                    println!();
+
+                    return None;
+                }
+            }
+        },
+    };
 
     Some(Box::leak(Box::new(ds)))
 }
@@ -134,21 +120,17 @@ fn main() {
     let _ = File::create(format!("{}/tat_gdal.log", temp_dir().display())).unwrap();
     gdal::config::set_error_handler(error_handler);
 
-    init_cli_log!();
-
-    let mut err: String = "".to_string();
-
-    if let Some(ds) = open_dataset(path.to_string(), &mut err) {
+    if let Some(ds) = open_dataset(path.to_string()) {
+        init_cli_log!();
         let mut terminal = ratatui::init();
         crossterm::execute!(std::io::stdout(), EnableMouseCapture).unwrap();
 
         let _result = Tat::new(&ds).run(&mut terminal);
 
-        // FIXME: if there's a panic this will not happen
+        // FIXME: if the program terminates this will not happen
         crossterm::execute!(std::io::stdout(), DisableMouseCapture).unwrap();
         ratatui::restore();
     } else {
-        println!("ERROR: Could not open dataset from path!\n{}\nUsage:", err);
         show_usage();
     }
 }

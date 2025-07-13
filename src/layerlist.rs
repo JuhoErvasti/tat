@@ -27,7 +27,8 @@ const BORDER_LAYER_LIST: symbols::border::Set = symbols::border::Set {
 pub type TatLayerInfo = (String, TatNavigableParagraph);
 
 
-/// Widget for displaying and managing the layers in a dataset
+/// A widget which displays the layers in the opened dataset and holds displayable information
+/// about them
 pub struct TatLayerList {
     state: ListState,
     scroll: ScrollbarState,
@@ -36,6 +37,7 @@ pub struct TatLayerList {
 }
 
 impl TatLayerList {
+    /// Constructs new widget
     pub fn new(ds: &'static Dataset) -> Self {
         let mut ls = ListState::default();
         ls.select_first();
@@ -51,11 +53,14 @@ impl TatLayerList {
         }
     }
 
+    /// Returns the displayable layer information as a navigable paragraph based on the currently
+    /// selected layer
     pub fn current_layer_info_paragraph(&mut self) -> &mut TatNavigableParagraph {
         let (_, para) = self.layer_infos.get_mut(self.state.selected().unwrap()).unwrap();
         para
     }
 
+    /// Handles navigation of the list
     pub fn nav(&mut self, conf: TatNavVertical) {
         match conf {
             TatNavVertical::First => self.state.select_first(),
@@ -74,6 +79,7 @@ impl TatLayerList {
         self.update_scrollbar();
     }
 
+    /// Returns the index of the currently selected layer
     pub fn layer_index(&self) -> usize {
         let i = self.state.selected().unwrap();
 
@@ -84,86 +90,7 @@ impl TatLayerList {
         i
     }
 
-    pub fn layer_infos(ds: &'static Dataset) -> Vec<TatLayerInfo> {
-        let mut infos: Vec<TatLayerInfo> = vec![];
-        for (i, layer) in ds.layers().enumerate() {
-            let p = TatNavigableParagraph::new(TatLayerList::layer_info_text(ds, i));
-            infos.push((layer.name().to_string(), p));
-        }
-
-        infos
-    }
-
-    fn layer_info_text(ds: &'static Dataset, layer_index: usize) -> String {
-        // TODO: not sure I like the fact that these are constructed twice
-        let layer = TatLayer::new(&ds, layer_index);
-
-        let mut text: String = format!("- Name: {}\n", layer.name());
-
-        if let Some(crs) = layer.crs() {
-            write!(
-                text,
-                "- CRS: {}:{} ({})\n",
-                crs.auth_name(),
-                crs.auth_code(),
-                crs.name(),
-            ).unwrap();
-        }
-
-        write!(
-            text,
-            "- Feature Count: {}\n",
-            layer.feature_count(),
-        ).unwrap();
-
-        if layer.geom_fields().len() > 0 {
-            write!(text, "- Geometry fields:\n").unwrap();
-
-            for field in layer.geom_fields() {
-                write!(
-                    text,
-                    "    \"{}\" - ({}",
-                    field.name(),
-                    field.geom_type(),
-                ).unwrap();
-
-                if let Some(crs) = field.crs() {
-                    write!(
-                        text,
-                        ", {}:{}",
-                        crs.auth_name(),
-                        crs.auth_code(),
-                    ).unwrap();
-                }
-
-                write!(text, ")\n").unwrap();
-            }
-        }
-
-        if layer.fields().len() > 0 {
-            write!(
-                text,
-                "- Fields ({}):\n",
-                layer.fields().len(),
-            ).unwrap();
-
-            for field in layer.fields() {
-                write!(
-                    text,
-                    "    \"{}\" - ({})\n",
-                    field.name(),
-                    field_type_to_name(field.dtype()),
-                ).unwrap();
-            }
-        }
-
-        text
-    }
-
-    fn update_scrollbar(&mut self) {
-        self.scroll = self.scroll.position(self.state.selected().unwrap());
-    }
-
+    /// Renders the current state of the widget
     pub fn render(&mut self, area: ratatui::prelude::Rect, frame: &mut Frame, highlight: bool) {
         let border_color = if highlight {
             crate::shared::palette::DEFAULT.highlighted_fg
@@ -223,5 +150,89 @@ impl TatLayerList {
                 );
             }
         }
+    }
+
+    /// Constructs all the displayable layer information objects from the dataset
+    fn layer_infos(ds: &'static Dataset) -> Vec<TatLayerInfo> {
+        let mut infos: Vec<TatLayerInfo> = vec![];
+        for (i, layer) in ds.layers().enumerate() {
+            let p = TatNavigableParagraph::new(TatLayerList::layer_info_text(ds, i));
+            infos.push((layer.name().to_string(), p));
+        }
+
+        infos
+    }
+
+    /// Constructs the layer information object for one layer
+    fn layer_info_text(ds: &'static Dataset, layer_index: usize) -> String {
+        // TODO: not sure I like the fact that these are constructed twice
+        let layer = TatLayer::new(&ds, layer_index);
+
+        let mut text: String = format!("- Name: {}\n", layer.name());
+
+        if let Some(crs) = layer.crs() {
+            write!(
+                text,
+                "- CRS: {}:{} ({})\n",
+                crs.auth_name(),
+                crs.auth_code(),
+                crs.name(),
+            ).unwrap();
+        }
+
+        write!(
+            text,
+            "- Feature Count: {}\n",
+            layer.feature_count(),
+        ).unwrap();
+
+        if layer.geom_fields().len() > 0 {
+            write!(text, "- Geometry fields:\n").unwrap();
+
+            for field in layer.geom_fields() {
+                write!(
+                    text,
+                    "    \"{}\" - ({}",
+                    field.name(),
+                    field.geom_type(),
+                ).unwrap();
+
+                if let Some(crs) = field.crs() {
+                    write!(
+                        text,
+                        ", {}:{}",
+                        crs.auth_name(),
+                        crs.auth_code(),
+                    ).unwrap();
+                }
+
+                write!(text, ")\n").unwrap();
+            }
+        }
+
+        if layer.attribute_fields().len() > 0 {
+            write!(
+                text,
+                "- Fields ({}):\n",
+                layer.attribute_fields().len(),
+            ).unwrap();
+
+            for field in layer.attribute_fields() {
+                write!(
+                    text,
+                    "    \"{}\" - ({})\n",
+                    field.name(),
+                    field_type_to_name(field.dtype()),
+                ).unwrap();
+            }
+        }
+
+        text
+    }
+
+    /// Updates the state of the scrollbar. Should be called anytime navigation of the list
+    /// happens.
+    fn update_scrollbar(&mut self) {
+        self.scroll = self.scroll.position(self.state.selected().unwrap());
     }
 }
