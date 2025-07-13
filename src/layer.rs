@@ -9,7 +9,7 @@ pub struct TatLayer {
     geom_fields: Vec<TatGeomField>,
     fields: Vec<TatField>,
     index: usize,
-    feature_index: Vec<u64>,
+    fid_cache: Vec<u64>,
     ds: &'static Dataset,
 }
 
@@ -23,7 +23,7 @@ impl TatLayer {
             fields: TatLayer::fields_from_layer(&lyr),
             geom_fields: TatLayer::geom_fields_from_layer(&lyr),
             index: i,
-            feature_index: vec![], // don't build immediately to be more flexible (maybe?)
+            fid_cache: vec![], // don't build immediately to be more flexible (maybe?)
         }
     }
 
@@ -88,14 +88,14 @@ impl TatLayer {
     pub fn build_feature_index(&mut self) {
         // TODO: there seems to be some weird bug with the indexing, see layer_styles of one of the
         // test GPKGs, might be related to this??
-        self.feature_index.clear();
+        self.fid_cache.clear();
 
         let mut i: Vec<u64> = vec![];
         for feature in self.gdal_layer().features() {
             i.push(feature.fid().unwrap());
         }
 
-        self.feature_index = i;
+        self.fid_cache = i;
     }
 
     pub fn field_count(&self) -> u64 {
@@ -189,7 +189,7 @@ impl TatLayer {
     }
 
     pub fn feature_index(&self) -> &[u64] {
-        &self.feature_index
+        &self.fid_cache
     }
 
     pub fn crs(&self) -> Option<&TatCrs> {

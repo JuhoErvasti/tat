@@ -132,23 +132,14 @@ impl TatGeomField {
     }
 }
 
-pub enum TatPopUpType {
-    // TODO: really not sure this is that necessary?
-    Help,
-    GdalLog,
-    DebugLog,
-    FullValue,
-}
-
 pub struct TatPopup {
     title: String,
     paragraph: TatNavigableParagraph,
-    ptype: TatPopUpType,
 }
 
 impl TatPopup {
-    pub fn new(title: String, paragraph: TatNavigableParagraph, ptype: TatPopUpType) -> Self {
-        Self { title, paragraph, ptype }
+    pub fn new(title: String, paragraph: TatNavigableParagraph) -> Self {
+        Self { title, paragraph }
     }
 
     pub fn set_available_rows(&mut self, value: usize) {
@@ -185,10 +176,6 @@ impl TatPopup {
 
     pub fn nav_v(&mut self, conf: TatNavVertical) {
         self.paragraph.nav_v(conf);
-    }
-
-    pub fn ptype(&self) -> &TatPopUpType {
-        &self.ptype
     }
 
     pub fn title(&self) -> &str {

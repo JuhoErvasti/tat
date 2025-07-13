@@ -398,6 +398,7 @@ impl TatTable {
             widths.push(Constraint::Fill(3));
         }
 
+        // TODO: use the iterator maybe
         for i in self.top_fid..self.bottom_fid() + 1 {
             let fid = match self.layer().feature_index().get(i as usize - 1) {
                 Some(fid) => fid,

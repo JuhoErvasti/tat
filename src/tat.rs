@@ -51,9 +51,14 @@ use ratatui::{
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::{
-    layerlist::TatLayerList, navparagraph::TatNavigableParagraph, numberinput::{TatNumberInput, TatNumberInputResult}, table::TableRects, types::{TatNavHorizontal, TatNavVertical, TatPopUpType, TatPopup}
+    layerlist::TatLayerList, navparagraph::TatNavigableParagraph, numberinput::{TatNumberInput, TatNumberInputResult}, table::TableRects, types::{TatNavHorizontal, TatNavVertical, TatPopup}
 };
 use crate::table::TatTable;
+
+// TODO: there's an issue with a table with multiple geometry columns, the differing crs of the
+// other column is not shown properly
+// also the values kind of show up properly, but one of the has the ... even though it doesn't need
+// it and when opening the value pop-up you get NULL
 
 const BORDER_LAYER_INFO: symbols::border::Set = symbols::border::Set {
     top_left: symbols::line::ROUNDED.horizontal_down,
@@ -471,7 +476,6 @@ impl Tat {
             TatPopup::new(
                 title,
                 p,
-                TatPopUpType::FullValue,
             )
         )
     }
@@ -497,7 +501,6 @@ impl Tat {
             TatPopup::new(
                 crate::shared::TITLE_DEBUG_LOG.to_string(),
                 p,
-                TatPopUpType::DebugLog,
             )
         )
     }
@@ -523,7 +526,6 @@ impl Tat {
             TatPopup::new(
                 crate::shared::TITLE_GDAL_LOG.to_string(),
                 p,
-                TatPopUpType::GdalLog,
             )
         )
     }
@@ -539,7 +541,6 @@ impl Tat {
             TatPopup::new(
                 crate::shared::TITLE_HELP.to_string(),
                 p,
-                TatPopUpType::Help,
             )
         )
     }
