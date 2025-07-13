@@ -10,7 +10,7 @@ pub const TITLE_DEBUG_LOG: &str = " Debug Log ";
 pub const TITLE_LAYER_LIST: &str = " Layers ";
 pub const TITLE_HELP: &str = " Help ";
 pub const POPUP_HINT: &str = " <press q to close> ";
-pub const HELP_TEXT_LAYERSELECT: &str = "Keybinds for Main Menu
+pub const HELP_TEXT_MAINMENU: &str = "Keybinds for Main Menu
 ----------------------
 Basic Navigation:
      or 'h': Left
@@ -18,7 +18,7 @@ Basic Navigation:
      or 'k': Up
      or 'l': Right
     Enter: Open Table
-    Tab and SHIFT+Tab or Left/Right: Switch between Layer List or Info
+    Tab and SHIFT+Tab: Move between sections
 
 General:
     'q': Previous Menu

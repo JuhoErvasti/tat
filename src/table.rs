@@ -399,7 +399,6 @@ impl TatTable {
             widths.push(Constraint::Fill(3));
         }
 
-        // TODO: use the iterator maybe
         for i in self.top_fid..self.bottom_fid() + 1 {
             let fid = match self.layer().fid_cache().get(i as usize - 1) {
                 Some(fid) => fid,
@@ -442,7 +441,6 @@ impl TatTable {
 
         let header = Row::new(header_items);
 
-        // TODO: don't just construct all the rows every time we render the table
         let table = Table::new(rows, widths)
             .header(header.underlined())
             .style(crate::shared::palette::DEFAULT.default_style())
@@ -656,7 +654,7 @@ impl TatTable {
             x: self.table_rect.x,
             y: self.table_rect.y + 2,
             width: self.table_rect.width,
-            height: self.table_rect.height - 3,
+            height: self.table_rect.height - if self.table_rect.height >= 3 { 3 } else { self.table_rect.height },
         };
 
         let table = self.get_table();

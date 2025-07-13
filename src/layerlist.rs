@@ -75,7 +75,13 @@ impl TatLayerList {
     }
 
     pub fn layer_index(&self) -> usize {
-        self.state.selected().unwrap()
+        let i = self.state.selected().unwrap();
+
+        if i >= self.layer_infos.len() {
+            return self.layer_infos.len() - 1;
+        }
+
+        i
     }
 
     pub fn layer_infos(ds: &'static Dataset) -> Vec<TatLayerInfo> {

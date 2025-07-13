@@ -431,10 +431,14 @@ impl Tat {
                     },
                 }
             },
-            KeyCode::Tab | KeyCode::BackTab => {
-                // FIXME: BackTab is not actually respected
+            KeyCode::Tab => {
                 if in_main_menu && !popup_open {
-                    self.cycle_block_selection();
+                    self.cycle_block_selection(false);
+                }
+            },
+            KeyCode::BackTab => {
+                if in_main_menu && !popup_open {
+                    self.cycle_block_selection(true);
                 }
             },
             KeyCode::Char(':') =>  {
@@ -533,7 +537,7 @@ impl Tat {
     fn show_help(&mut self) {
         let help_text = match self.current_menu {
             TatMenu::TableView => crate::shared::HELP_TEXT_TABLE,
-            TatMenu::MainMenu => crate::shared::HELP_TEXT_LAYERSELECT,
+            TatMenu::MainMenu => crate::shared::HELP_TEXT_MAINMENU,
         }.to_string();
 
         let p = TatNavigableParagraph::new(help_text);
@@ -545,11 +549,15 @@ impl Tat {
         )
     }
 
-    fn cycle_block_selection(&mut self) {
+    fn cycle_block_selection(&mut self, back: bool) {
         self.focused_block = match self.focused_block {
+            TatMainMenuFocusedBlock::LayerList if back => return,
+            TatMainMenuFocusedBlock::LayerInfo if back => TatMainMenuFocusedBlock::LayerList,
+            TatMainMenuFocusedBlock::PreviewTable if back => TatMainMenuFocusedBlock::LayerInfo,
+
             TatMainMenuFocusedBlock::LayerList => TatMainMenuFocusedBlock::LayerInfo,
             TatMainMenuFocusedBlock::LayerInfo => TatMainMenuFocusedBlock::PreviewTable,
-            TatMainMenuFocusedBlock::PreviewTable => TatMainMenuFocusedBlock::LayerList,
+            TatMainMenuFocusedBlock::PreviewTable => return,
         }
     }
 
@@ -578,8 +586,6 @@ impl Tat {
 
         match self.current_menu {
             TatMenu::TableView => {
-                // TODO: maybe don't reset?
-                // and save table_state for each layer?
                 self.table.reset();
                 self.current_menu = TatMenu::MainMenu;
             },

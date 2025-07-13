@@ -61,7 +61,6 @@ without any collaborators.
 Here are the features which I'd like to add for the first proper version (more or less in order of importance):
 
 - Tests and CI
-- Display geometry column(s) as WKT
 - General refactoring and handling errors etc. better
 - (Maybe more) Mouse support:
   - Opening layers
@@ -74,6 +73,7 @@ Here are the features which I'd like to add for the first proper version (more o
   Following are features which I've thought of but aren't top priority.
 
   Most important:
+  - Preserve table state for each layer instead of resetting it every time when closing layer
   - Optimize performance
     - Some drivers such as CSV and WFS are slow even with a fairly small number of features
 

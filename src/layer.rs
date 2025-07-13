@@ -111,14 +111,14 @@ impl TatLayer {
             if let Some(field) = self.geom_fields.get(field_idx as usize) {
                 return Some(field.name().to_string());
             } else {
-                panic!();
+                None
             }
         } else {
             let attribute_field_idx = field_idx - total_geom_fields;
             if let Some(field) = self.fields.get(attribute_field_idx as usize) {
                 return Some(field.name().to_string());
             } else {
-                panic!(); // FIXME: this happens
+                None
             }
         }
     }
