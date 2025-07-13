@@ -1,6 +1,7 @@
 use gdal::{vector::{geometry_type_to_name, Layer, LayerAccess}, Dataset};
 
 use crate::types::{TatCrs, TatField, TatGeomField};
+use cli_log::debug;
 
 #[derive(Clone)]
 pub struct TatLayer {
@@ -59,7 +60,7 @@ impl TatLayer {
             };
 
             let crs = TatCrs::from_spatial_ref(
-                &layer.spatial_ref().unwrap()
+                &field.spatial_ref().unwrap()
             );
 
             fields.push(
@@ -87,17 +88,16 @@ impl TatLayer {
         fields
     }
 
-    pub fn build_feature_index(&mut self) {
-        // TODO: there seems to be some weird bug with the indexing, see layer_styles of one of the
-        // test GPKGs, might be related to this??
+    pub fn build_fid_cache(&mut self) {
         self.fid_cache.clear();
 
-        let mut i: Vec<u64> = vec![];
+        let mut cache: Vec<u64> = vec![];
         for feature in self.gdal_layer().features() {
-            i.push(feature.fid().unwrap());
+            let fid = feature.fid().unwrap();
+            cache.push(fid);
         }
 
-        self.fid_cache = i;
+        self.fid_cache = cache;
     }
 
     pub fn field_count(&self) -> u64 {
@@ -177,7 +177,7 @@ impl TatLayer {
         self.index
     }
 
-    pub fn feature_index(&self) -> &[u64] {
+    pub fn fid_cache(&self) -> &[u64] {
         &self.fid_cache
     }
 

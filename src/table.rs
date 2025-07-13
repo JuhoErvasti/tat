@@ -80,7 +80,7 @@ impl TatTable {
         let mut layers: Vec<TatLayer> = vec![];
         for (i, _) in ds.layers().enumerate() {
             let mut lyr = TatLayer::new(&ds, i);
-            lyr.build_feature_index();
+            lyr.build_fid_cache();
             layers.push(lyr);
         }
 
@@ -114,13 +114,8 @@ impl TatTable {
         self.first_column + self.relative_highlighted_column()
     }
 
-    pub fn current_column_name(&self) -> &str {
-        let field_idx =self.current_column();
-        if let Some(field) = self.layer().fields().get(field_idx as usize) {
-            return field.name();
-        }
-
-        "UNKNOWN"
+    pub fn current_column_name(&self) -> String {
+        self.layer().field_name_by_id(self.current_column() as i32).unwrap_or(crate::shared::MISSING_VALUE.to_string())
     }
 
     fn relative_highlighted_row(&self) -> u64 {
@@ -286,7 +281,9 @@ impl TatTable {
     }
 
     pub fn selected_value(&self) -> Option<String> {
-        self.layer().get_value_by_id(self.selected_fid(), self.current_column() as i32)
+        if let Some(fid) = self.layer().fid_cache().get(self.selected_fid() as usize - 1) {
+            self.layer().get_value_by_id(*fid, self.current_column() as i32)
+        } else { None }
     }
 
     fn fid_relative_row(&self, fid: i64) -> Result<u64, &str> {
@@ -404,7 +401,7 @@ impl TatTable {
 
         // TODO: use the iterator maybe
         for i in self.top_fid..self.bottom_fid() + 1 {
-            let fid = match self.layer().feature_index().get(i as usize - 1) {
+            let fid = match self.layer().fid_cache().get(i as usize - 1) {
                 Some(fid) => fid,
                 None => break,
             };
