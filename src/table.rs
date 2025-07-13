@@ -9,7 +9,7 @@ use ratatui::{
     }},
     text::Line,
     widgets::{
-        Block, Borders, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table, TableState
+        Block, Borders, Clear, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table, TableState
     }, Frame,
 };
 use gdal::{Dataset, Metadata, vector::LayerAccess};
@@ -361,30 +361,6 @@ impl TatTable {
 
     /// Returns table based on current state
     fn get_table(&self) -> Table {
-        // TODO: render the title separately in self.render()
-        // ALSO THE BOTTOM LINE AND HINT TO OPEN HELP FROM ?
-
-        // let block = Block::new()
-        //     .title(
-        //         Line::raw(
-        //             format!(
-        //                 " {} (debug - visible_rows: {}, visible_columns: {} bottom_fid: {}, top_fid: {}, area_width: {})",
-        //                 layer.name(),
-        //                 self.visible_rows(),
-        //                 self.visible_columns(),
-        //                 self.bottom_fid(),
-        //                 self.top_fid,
-        //                 self.table_rect.width,
-        //             ),
-        //         ).centered().bold().underlined(),
-        //     )
-        //     // .title(Line::raw(format!(" {} ", layer.name())))
-        //     .borders(Borders::BOTTOM)
-        //     .border_set(symbols::border::PLAIN)
-        //     .padding(Padding::top(1))
-        //     .fg(crate::shared::palette::DEFAULT.default_fg)
-        //     .title_bottom(Line::raw(crate::shared::SHOW_HELP).centered());
-
         let mut header_items: Vec<String> = vec![];
 
         for i in self.first_column..self.first_column + self.visible_columns() {
@@ -611,15 +587,10 @@ impl TatTable {
     pub fn render(&mut self, frame: &mut Frame) {
         self.render_fid_column(frame, false);
 
-        // TODO: handle potential overflows
-
-        // TODO: If value will not fit the cell, distinguish it, for example with the … symbol
         let vert_scrollbar = Scrollbar::default()
                 .orientation(ScrollbarOrientation::VerticalRight)
                 .begin_symbol(Some(DOUBLE_VERTICAL.begin))
                 .end_symbol(Some(DOUBLE_VERTICAL.end));
-
-        // TODO: maybe: only show scrollbars when needed
 
         let horz_scrollbar = Scrollbar::default()
                 .orientation(ScrollbarOrientation::HorizontalBottom)
@@ -651,5 +622,24 @@ impl TatTable {
             table_widget_rect,
             &mut self.table_state.clone(),
         );
+
+        // HACK: this is really hacky, probably table should only have one rect to begin with and then the table_rect
+        // and fid_col_rect are calculated from that in here, not in Tat
+        let union = self.table_rect.union(self.fid_col_rect);
+        let block = Block::new()
+            .title(
+                Line::raw(
+                    format!("{}", self.layer().name())
+                ).centered().bold().underlined(),
+            )
+            .title_bottom(
+                Line::raw(
+                    crate::shared::SHOW_HELP
+                ).centered(),
+            )
+            .borders(Borders::BOTTOM)
+            .border_style(crate::shared::palette::DEFAULT.default_style());
+
+        frame.render_widget(block, union);
     }
 }
