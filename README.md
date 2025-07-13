@@ -63,7 +63,6 @@ Here are the features which I'd like to add for the first proper version (more o
 - Tests and CI
 - Display geometry column(s) as WKT
   - (Maybe) allow copying geometry as WKB in addition to WKT?
-- Optimize performance
 - General refactoring and handling errors etc. better
 - (Maybe more) Mouse support:
   - Opening layers
@@ -73,10 +72,13 @@ Here are the features which I'd like to add for the first proper version (more o
 <details>
 <summary>More details</summary>
 
-  Following are features which I've thought of but aren't very high in priority.
+  Following are features which I've thought of but aren't top priority.
 
+  Most important:
+  - Optimize performance
+    - Some drivers such as csv and WFS are extremely slow even with a fairly small number of features
 
-  Maybe (nice-to-haves):
+  Maybe:
   - Some support for looking at raster metadata (not displaying raster itself, similar to `gdalinfo`)?
   - Ability to select a whole feature in the attribute table
     - (Maybe) allow selecting multiple features?

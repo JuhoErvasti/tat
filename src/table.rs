@@ -321,6 +321,10 @@ impl TatTable {
     }
 
     fn set_top_fid(&mut self, fid: i64) {
+        if fid == self.top_fid as i64 {
+            return;
+        }
+
         if self.max_top_fid() <= 1 {
             self.top_fid = 1;
             return;

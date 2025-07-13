@@ -10,6 +10,7 @@ pub struct TatLayer {
     fields: Vec<TatField>,
     index: usize,
     fid_cache: Vec<u64>,
+    feature_count: u64,
     ds: &'static Dataset,
 }
 
@@ -19,6 +20,7 @@ impl TatLayer {
         Self {
             ds: dataset,
             name: lyr.name(),
+            feature_count: lyr.feature_count(),
             crs: TatLayer::crs_from_layer(&lyr),
             fields: TatLayer::fields_from_layer(&lyr),
             geom_fields: TatLayer::geom_fields_from_layer(&lyr),
@@ -32,7 +34,7 @@ impl TatLayer {
     }
 
     pub fn feature_count(&self) -> u64 {
-        self.gdal_layer().feature_count()
+        self.feature_count
     }
 
     pub fn gdal_layer(&self) -> Layer {
