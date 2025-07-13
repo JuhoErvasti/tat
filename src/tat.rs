@@ -1,3 +1,4 @@
+use cli_log::error;
 use std::{
     env::temp_dir, fs::File, io::{
         BufRead,
@@ -7,7 +8,6 @@ use std::{
 
 use cli_clipboard::{ClipboardContext, ClipboardProvider};
 
-use cli_log::{debug, error};
 use crossterm::event::{
     self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind
 };
@@ -87,7 +87,7 @@ pub struct Tat {
 
 impl Tat {
     /// Constructs a new object
-    pub fn new(ds: &'static Dataset) -> Self {
+    pub fn new(ds: &'static Dataset, where_clause: Option<String>, layers: Option<Vec<String>>) -> Self {
         let mut ls = ListState::default();
         ls.select_first();
 
@@ -101,8 +101,8 @@ impl Tat {
             current_menu: TatMenu::MainMenu,
             quit: false,
             modal_popup: None,
-            layerlist: TatLayerList::new(&ds),
-            table: TatTable::new(&ds),
+            table: TatTable::new(&ds, where_clause, layers.clone()),
+            layerlist: TatLayerList::new(&ds, layers),
             focused_block: TatMainMenuSectionFocus::LayerList,
             clip,
             table_area: Rect::default(),
@@ -456,7 +456,6 @@ impl Tat {
                 }
             },
             Err(e) => {
-                error!("Could not open file: {}", e.to_string());
                 text = format!("Could not open file: {}", e.to_string());
             },
         };

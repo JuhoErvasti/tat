@@ -1,8 +1,4 @@
-use cli_log::debug;
 use gdal::spatial_ref::SpatialRef;
-use ratatui::widgets::{Paragraph, ScrollbarState};
-
-use crate::navparagraph::TatNavigableParagraph;
 
 /// Enum describing different kinds of vertical navigation
 pub enum TatNavVertical {

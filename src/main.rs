@@ -2,10 +2,10 @@ use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use gdal::{errors::{CplErrType, GdalError}, Dataset, DatasetOptions, GdalOpenFlags};
 use tat::Tat;
 use unicode_segmentation::UnicodeSegmentation;
-use core::panic;
-use std::{env::{self, temp_dir}, fs::{File, OpenOptions}, process::exit};
+use std::{env::temp_dir, fs::{File, OpenOptions}};
 use cli_log::*;
 use std::io::prelude::*;
+use clap::{CommandFactory, Parser};
 
 mod layer;
 mod layerlist;
@@ -16,14 +16,8 @@ mod table;
 mod tat;
 mod types;
 
-fn show_usage() {
-    // TODO:
-    println!("Usage: tat [URI]");
-    println!("Attribute Table for spatial data in the terminal.\n");
-}
-
-/// Function which is set as GDAL's error handler. Being a terminal app errors of course cannot be
-/// just written to stdout, this redirects then to a log file which can be opened in the program.
+/// Function which is set as GDAL's error handler. Being a terminal app the errors have to be
+/// redirected to a file, which can be displayed in the program.
 fn error_handler(class: CplErrType, number: i32, message: &str) {
     let class = match class {
         CplErrType::None => "[NONE]",
@@ -107,30 +101,50 @@ fn open_dataset(uri: String) -> Option<&'static Dataset> {
     Some(Box::leak(Box::new(ds)))
 }
 
+#[derive(Parser)]
+#[command(arg_required_else_help = true)]
+#[command(version, about, long_about = None)]
+struct Cli {
+    uri: String,
+
+    #[arg(long = "where", value_name = "WHERE", help = "Filter feature based on attributes", long_help = "Filter which features are shown based on their attributes. Given in the format of a SQL WHERE clause e.g. --where=\"field_1 = 12\"")]
+    where_sql: Option<String>,
+
+    #[arg(long = "layers", value_name = "LAYERS", help = "Layer(s) to open", long_help = "Specify which layers in the dataset should be opened. Given as a comma-separated list e.g. \"--layers=layer_1,layer_2\"")]
+    layers: Option<String>,
+}
+
 fn main() {
-    let args: Vec<String> = env::args().collect();
+    let cli = Cli::parse();
+    let uri = cli.uri;
+    let where_clause = cli.where_sql;
 
-    if args.len() != 2 {
-        show_usage();
-        exit(1);
-    }
+    let layers = if let Some(lyrs) = cli.layers {
+        let layers = lyrs.split(',');
+        let mut _layers = vec![];
+        for _lyr in layers {
+            _layers.push(_lyr.to_string());
+        }
 
-    let path = &args[1];
+        Some(_layers)
+    } else {
+        None
+    };
 
     let _ = File::create(format!("{}/tat_gdal.log", temp_dir().display())).unwrap();
     gdal::config::set_error_handler(error_handler);
 
-    if let Some(ds) = open_dataset(path.to_string()) {
+    if let Some(ds) = open_dataset(uri.to_string()) {
         init_cli_log!();
         let mut terminal = ratatui::init();
         crossterm::execute!(std::io::stdout(), EnableMouseCapture).unwrap();
 
-        let _result = Tat::new(&ds).run(&mut terminal);
+        let _result = Tat::new(&ds, where_clause, layers).run(&mut terminal);
 
         // FIXME: if the program terminates this will not happen
         crossterm::execute!(std::io::stdout(), DisableMouseCapture).unwrap();
         ratatui::restore();
     } else {
-        show_usage();
+        Cli::command().print_help().unwrap();
     }
 }

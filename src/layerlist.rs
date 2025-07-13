@@ -1,4 +1,3 @@
-use cli_log::debug;
 use gdal::{
     vector::{
         field_type_to_name, LayerAccess
@@ -38,11 +37,11 @@ pub struct TatLayerList {
 
 impl TatLayerList {
     /// Constructs new widget
-    pub fn new(ds: &'static Dataset) -> Self {
+    pub fn new(ds: &'static Dataset, layers: Option<Vec<String>>) -> Self {
         let mut ls = ListState::default();
         ls.select_first();
 
-        let infos = TatLayerList::layer_infos(&ds);
+        let infos = TatLayerList::layer_infos(&ds, layers);
         let scr = ScrollbarState::new(infos.len());
 
         Self {
@@ -153,9 +152,15 @@ impl TatLayerList {
     }
 
     /// Constructs all the displayable layer information objects from the dataset
-    fn layer_infos(ds: &'static Dataset) -> Vec<TatLayerInfo> {
+    fn layer_infos(ds: &'static Dataset, layers: Option<Vec<String>>) -> Vec<TatLayerInfo> {
         let mut infos: Vec<TatLayerInfo> = vec![];
         for (i, layer) in ds.layers().enumerate() {
+            if let Some(lyrs) = layers.clone() {
+                if !lyrs.contains(&layer.name()) {
+                    continue
+                }
+            }
+
             let p = TatNavigableParagraph::new(TatLayerList::layer_info_text(ds, i));
             infos.push((layer.name().to_string(), p));
         }
@@ -166,7 +171,7 @@ impl TatLayerList {
     /// Constructs the layer information object for one layer
     fn layer_info_text(ds: &'static Dataset, layer_index: usize) -> String {
         // TODO: not sure I like the fact that these are constructed twice
-        let layer = TatLayer::new(&ds, layer_index);
+        let layer = TatLayer::new(&ds, layer_index, None);
 
         let mut text: String = format!("- Name: {}\n", layer.name());
 

@@ -1,5 +1,3 @@
-use cli_log::debug;
-
 use ratatui::{
     layout::{
         Constraint, Rect
@@ -14,7 +12,7 @@ use ratatui::{
         Block, Borders, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table, TableState
     }, Frame,
 };
-use gdal::{vector::LayerAccess, Dataset, Metadata};
+use gdal::{Dataset, Metadata, vector::LayerAccess};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::types::{
@@ -54,7 +52,7 @@ pub struct TatTable {
 }
 
 impl TatTable {
-    pub fn new(ds: &'static Dataset) -> Self {
+    pub fn new(ds: &'static Dataset, where_clause: Option<String>, layers: Option<Vec<String>>) -> Self {
         let mut ts = TableState::default();
         ts.select_first();
         ts.select_first_column();
@@ -70,19 +68,25 @@ impl TatTable {
             fid_col_rect: Rect::default(),
             v_scroll_area: Rect::default(),
             h_scroll_area: Rect::default(),
-            layers: TatTable::layers_from_ds(ds),
+            layers: TatTable::layers_from_ds(ds, where_clause, layers),
         }
     }
 
-    pub fn layers_from_ds(ds: &'static Dataset) -> Vec<TatLayer> {
-        let mut layers: Vec<TatLayer> = vec![];
-        for (i, _) in ds.layers().enumerate() {
-            let mut lyr = TatLayer::new(&ds, i);
+    pub fn layers_from_ds(ds: &'static Dataset, where_clause: Option<String>, layers: Option<Vec<String>>) -> Vec<TatLayer> {
+        let mut _layers: Vec<TatLayer> = vec![];
+        for (i, layer) in ds.layers().enumerate() {
+            if let Some(lyrs) = layers.clone() {
+                if !lyrs.contains(&layer.name()) {
+                    continue
+                }
+            }
+
+            let mut lyr = TatLayer::new(&ds, i, where_clause.clone());
             lyr.build_fid_cache();
-            layers.push(lyr);
+            _layers.push(lyr);
         }
 
-        layers
+        _layers
     }
 
 
@@ -457,9 +461,6 @@ impl TatTable {
         table
     }
 
-    pub fn table_rect(&self) -> Rect {
-        self.table_rect
-    }
 
     pub fn set_rects(&mut self, (table_rect, fid_col_rect, v_scroll_area, h_scroll_area): TableRects) {
         let old_fid = self.current_row();
@@ -510,20 +511,8 @@ impl TatTable {
         }
     }
 
-    fn all_columns_visible(&self) -> bool {
-        self.visible_columns() >= self.layer().field_count()
-    }
-
     fn all_rows_visible(&self) -> bool {
         self.visible_rows() >= self.layer().feature_count()
-    }
-
-    fn show_h_scrollbar(&self) -> bool {
-        !self.all_columns_visible()
-    }
-
-    fn show_v_scrollbar(&self) -> bool {
-        true
     }
 
     fn render_fid_column(&mut self, frame: &mut Frame, preview: bool) {

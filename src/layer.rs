@@ -1,7 +1,7 @@
-use gdal::{vector::{geometry_type_to_name, Geometry, Layer, LayerAccess}, Dataset};
+use gdal::{vector::{geometry_type_to_name, Layer, LayerAccess}, Dataset};
 
+use cli_log::error;
 use crate::types::{TatCrs, TatField, TatGeomField};
-use cli_log::debug;
 
 /// A struct which holds information about a layer in a GDAL Dataset and can also fetch infromation
 /// about features in the layer.
@@ -15,12 +15,13 @@ pub struct TatLayer {
     fid_cache: Vec<u64>,
     feature_count: u64,
     ds: &'static Dataset,
+    where_clause: Option<String>,
 }
 
 impl TatLayer {
     /// Constructs new object
-    pub fn new(dataset: &'static Dataset, i: usize) -> Self {
-        let lyr = TatLayer::get_gdal_layer(dataset, i);
+    pub fn new(dataset: &'static Dataset, i: usize, where_clause: Option<String>) -> Self {
+        let lyr = TatLayer::get_gdal_layer(dataset, i, where_clause.clone());
         Self {
             ds: dataset,
             name: lyr.name(),
@@ -30,6 +31,7 @@ impl TatLayer {
             geom_fields: TatLayer::geom_fields_from_layer(&lyr),
             index: i,
             fid_cache: vec![], // don't build immediately to be more flexible (maybe?)
+            where_clause,
         }
     }
 
@@ -45,7 +47,7 @@ impl TatLayer {
 
     /// Returns the underlying GDAL layer
     pub fn gdal_layer(&self) -> Layer {
-        TatLayer::get_gdal_layer(&self.ds, self.index)
+        TatLayer::get_gdal_layer(&self.ds, self.index, self.where_clause.clone())
     }
 
     /// Returns the coordinate reference system of the given layer as a TatCrs
@@ -62,7 +64,7 @@ impl TatLayer {
         let mut fields: Vec<TatGeomField> = vec![];
         for field in layer.defn().geom_fields() {
             let name: &str = if field.name().is_empty() {
-                "ANONYMOUS"
+                "geometry"
             } else {
                 &field.name()
             };
@@ -203,9 +205,18 @@ impl TatLayer {
     }
 
     /// Returns the GDAL layer from the given dataset based on its index
-    fn get_gdal_layer(dataset: &Dataset, layer_index: usize) -> Layer {
+    fn get_gdal_layer(dataset: &Dataset, layer_index: usize, where_clause: Option<String>) -> Layer {
         match dataset.layer(layer_index) {
-            Ok(lyr) => lyr,
+            Ok(mut lyr) => {
+                if where_clause.is_some() {
+                    match lyr.set_attribute_filter(&where_clause.unwrap()) {
+                            Ok(()) => (),
+                            Err(e) => error!("ERROR! Could not set attribute filter: {}", e.to_string()),
+                        }
+                }
+
+                lyr
+            },
             // TODO: maybe don't panic
             Err(_) => panic!(),
         }

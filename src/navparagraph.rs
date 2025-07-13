@@ -1,6 +1,5 @@
 use std::usize;
 
-use cli_log::debug;
 use ratatui::widgets::{
     Paragraph,
     ScrollbarState,
