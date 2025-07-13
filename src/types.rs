@@ -43,7 +43,7 @@ impl TatCrs {
 
     pub fn from_spatial_ref(sref: &SpatialRef) -> Option<Self> {
         let aname = match sref.auth_name() {
-            Ok(a_name) => a_name,
+            Some(a_name) => a_name,
             _ => return None,
         };
 
@@ -53,7 +53,7 @@ impl TatCrs {
         };
 
         let name = match sref.name() {
-            Ok(c_name) => c_name,
+            Some(c_name) => c_name,
             _ => return None,
         };
 

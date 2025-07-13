@@ -1,7 +1,7 @@
 use cli_log::debug;
 use gdal::{
     vector::{
-        field_type_to_name, Layer, LayerAccess
+        field_type_to_name, LayerAccess
     },
     Dataset,
 };

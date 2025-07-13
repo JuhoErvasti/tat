@@ -129,7 +129,7 @@ impl TatLayer {
             let total_geom_fields: i32 = self.geom_fields().len() as i32;
 
             if total_geom_fields == 0 {
-                if let Ok(Some(value)) = f.field_as_string(field_idx) {
+                if let Ok(Some(value)) = f.field_as_string(field_idx as usize) {
                     return Some(value);
                 } else {
                     return None;
@@ -148,24 +148,11 @@ impl TatLayer {
                 }
             } else {
                 let attribute_field_idx = field_idx - total_geom_fields;
-                if let Ok(Some(value)) = f.field_as_string(attribute_field_idx) {
+                if let Ok(Some(value)) = f.field_as_string(attribute_field_idx as usize) {
                     return Some(value);
                 } else {
                     return None;
                 }
-            }
-        } else {
-            return None
-        }
-    }
-
-    pub fn get_value(&self, fid: u64, field_name: &str) -> Option<String> {
-        // TODO: handle the potential GdalError better
-        if let Some(f) = self.gdal_layer().feature(fid) {
-            if let Ok(Some(value)) = f.field_as_string_by_name(field_name) {
-                return Some(value)
-            } else {
-                return None
             }
         } else {
             return None

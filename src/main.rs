@@ -6,8 +6,6 @@ use std::{env::{self, temp_dir}, fs::{File, OpenOptions}, process::exit};
 use cli_log::*;
 use std::io::prelude::*;
 
-use ratatui::backend::CrosstermBackend as Backend;
-
 mod layer;
 mod layerlist;
 mod navparagraph;
