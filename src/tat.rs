@@ -9,12 +9,7 @@ use cli_clipboard::{ClipboardContext, ClipboardProvider};
 
 use cli_log::{debug, error};
 use crossterm::event::{
-    self,
-    Event,
-    KeyCode,
-    KeyEvent,
-    KeyEventKind,
-    KeyModifiers, MouseEvent, MouseEventKind,
+    self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind
 };
 use gdal::
     Dataset
@@ -26,16 +21,11 @@ use ratatui::{
         Layout,
         Margin,
         Rect,
-    },
-    style::
-        Stylize
-    ,
-    symbols::{
+    }, style::
+        Stylize, symbols::{
         self,
         scrollbar::{DOUBLE_HORIZONTAL, DOUBLE_VERTICAL},
-    },
-    text::Line,
-    widgets::{
+    }, text::Line, widgets::{
         Block,
         BorderType,
         Borders,
@@ -44,9 +34,7 @@ use ratatui::{
         Paragraph,
         Scrollbar,
         ScrollbarOrientation,
-    },
-    DefaultTerminal,
-    Frame,
+    }, DefaultTerminal, Frame
 };
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -705,21 +693,26 @@ impl Tat {
         self.table.render(frame);
     }
 
-    fn render_main_menu(&mut self, area: Rect, frame: &mut Frame) {
+    fn main_menu_areas(&self, area: &Rect) -> (Rect, Rect, Rect, Rect, Rect, Rect) {
         let [header_area, dataset_area, layer_area] = Layout::vertical([
             Constraint::Length(2),
             Constraint::Length(4),
             Constraint::Fill(1),
         ])
-        .areas(area);
+        .areas(*area);
 
-        // TODO: only show preview table if there's reasonably space for it?
         let [list_area, info_area, preview_table_area] =
             Layout::horizontal([
                 Constraint::Fill(1),
                 Constraint::Fill(2),
                 Constraint::Fill(4),
         ]).areas(layer_area);
+
+        (header_area, dataset_area, layer_area, list_area, info_area, preview_table_area)
+    }
+
+    fn render_main_menu(&mut self, area: Rect, frame: &mut Frame) {
+        let (header_area, dataset_area, layer_area, list_area, info_area, preview_table_area) = self.main_menu_areas(&area);
 
         Tat::render_header(header_area, frame);
         self.render_dataset_info(dataset_area, frame);

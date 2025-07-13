@@ -62,10 +62,6 @@ Here are the features which I'd like to add for the first proper version (more o
 
 - Tests and CI
 - General refactoring and handling errors etc. better
-- (Maybe more) Mouse support:
-  - Opening layers
-  - Selecting cells
-  - Copying cell values (Right/Middle click or something?)
 
 <details>
 <summary>More details</summary>
@@ -73,6 +69,10 @@ Here are the features which I'd like to add for the first proper version (more o
   Following are features which I've thought of but aren't top priority.
 
   Most important:
+  - Mouse support, such as:
+    - Opening layers
+    - Selecting cells
+    - Copying cell values (Right/Middle click or something?)
   - Preserve table state for each layer instead of resetting it every time when closing layer
   - Optimize performance
     - Some drivers such as CSV and WFS are slow even with a fairly small number of features
