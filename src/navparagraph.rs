@@ -204,3 +204,13 @@ impl TatNavigableParagraph {
     }
 
 }
+
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_new() {
+        // panic!();
+    }
+
+}

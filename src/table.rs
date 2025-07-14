@@ -9,7 +9,7 @@ use ratatui::{
     }},
     text::Line,
     widgets::{
-        Block, Borders, Clear, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table, TableState
+        Block, Borders, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table, TableState
     }, Frame,
 };
 use gdal::{Dataset, Metadata, vector::LayerAccess};

@@ -72,6 +72,7 @@ Further features I've considered for future versions:
     - Some drivers such as CSV and WFS are slow even with a fairly small number of features
 
   Maybe:
+  - Allow setting a limit on the number of features shown
   - More mouse support, such as:
     - Opening layers
     - Selecting cells
