@@ -43,6 +43,7 @@ use crate::{
 };
 use crate::table::TatTable;
 
+
 const BORDER_LAYER_INFO: symbols::border::Set = symbols::border::Set {
     top_left: symbols::line::ROUNDED.horizontal_down,
     top_right: symbols::line::NORMAL.horizontal_down,

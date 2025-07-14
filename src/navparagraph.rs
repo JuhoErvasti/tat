@@ -202,6 +202,10 @@ impl TatNavigableParagraph {
         self.title.as_ref()
     }
 
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+
 }
 
 #[cfg(test)]
