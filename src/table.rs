@@ -298,12 +298,14 @@ impl TatTable {
         self.top_row + self.relative_highlighted_row()
     }
 
+    /// Returns the currently selected cell's value as a string (if any)
     pub fn selected_value(&self) -> Option<String> {
         if let Some(fid) = self.layer().fid_cache().get(self.selected_feature() as usize - 1) {
             self.layer().get_value_by_fid(*fid, self.current_column() as i32)
         } else { None }
     }
 
+    /// Returns the relative row of a feature in the currently visible rows
     fn feature_relative_row(&self, row: i64) -> Result<u64, &str> {
         if !self.row_visible(row) {
             return Err("Feature is not visible!");
@@ -312,6 +314,7 @@ impl TatTable {
         Ok((row - self.top_row as i64) as u64)
     }
 
+    /// Returns whether the given row is currently visible
     fn row_visible(&self, row: i64) -> bool {
         let top = self.top_row as i64;
         let bottom = self.bottom_row() as i64;
@@ -319,6 +322,7 @@ impl TatTable {
         return row >= top && row <= bottom;
     }
 
+    /// Sets the column which is displayed first
     fn set_first_column(&mut self, col: i64) {
         let max_first_column: i64 = self.layer().field_count() as i64 - self.visible_columns() as i64;
 
@@ -335,6 +339,7 @@ impl TatTable {
         self.first_column = col as u64;
     }
 
+    /// Sets the column which is displayed first
     fn set_top_row(&mut self, row: i64) {
         if row == self.top_row as i64 {
             return;
@@ -358,10 +363,12 @@ impl TatTable {
         self.top_row = row as u64;
     }
 
+    /// Returns the currently visible bottom row
     fn bottom_row(&self) -> u64 {
         self.top_row + self.visible_rows() as u64 - 1
     }
 
+    /// Resets the table's state
     pub fn reset(&mut self) {
         self.top_row = 1;
         self.first_column = 0;
@@ -370,6 +377,7 @@ impl TatTable {
         self.table_rect = Rect::default();
     }
 
+    /// Returns the row which if the top row all other rows will be visible as well
     fn max_top_row(&self) -> i64 {
         self.layer().feature_count() as i64 - self.visible_rows() as i64 + 1
     }
@@ -452,7 +460,7 @@ impl TatTable {
         table
     }
 
-
+    /// Sets the areas which the table renders itself in
     pub fn set_rects(&mut self, (table_rect, feature_col_rect, v_scroll_area, h_scroll_area): TableRects) {
         let old_row = self.current_row();
         let first_update = self.table_rect.is_empty();
@@ -480,6 +488,7 @@ impl TatTable {
         }
     }
 
+    /// Returns the number of rows currently visible
     fn visible_rows(&self) -> u64 {
         let value = if self.table_rect.height >= 4 {
             (self.table_rect.height - 4) as u64
@@ -494,6 +503,7 @@ impl TatTable {
         value
     }
 
+    /// Returns the number of columns currently visible
     fn visible_columns(&self) -> u64 {
         if self.layer().field_count() * (MIN_COLUMN_LENGTH as u64) < self.table_rect.width as u64 {
             self.layer().field_count() as u64
@@ -502,11 +512,14 @@ impl TatTable {
         }
     }
 
+    /// Returns whether all rows are currently visible
     fn all_rows_visible(&self) -> bool {
         self.visible_rows() >= self.layer().feature_count()
     }
 
-    fn render_fid_column(&mut self, frame: &mut Frame, preview: bool) {
+    /// Returns the "feature" column, i.e. the indexes of the rows in which the features are
+    /// rendered
+    fn render_feature_column(&mut self, frame: &mut Frame, preview: bool) {
         if self.feature_col_rect.height <= 2 {
             return;
         }
@@ -576,12 +589,13 @@ impl TatTable {
         }
     }
 
+    /// Renders the table in preview format
     pub fn render_preview(&mut self, frame: &mut Frame) {
         if self.feature_col_rect.is_empty() || self.table_rect.is_empty() {
             return;
         }
 
-        self.render_fid_column(frame, true);
+        self.render_feature_column(frame, true);
 
         let table = self.get_table();
 
@@ -599,8 +613,9 @@ impl TatTable {
         );
     }
 
+    /// Renders the table fully
     pub fn render(&mut self, frame: &mut Frame) {
-        self.render_fid_column(frame, false);
+        self.render_feature_column(frame, false);
 
         let vert_scrollbar = Scrollbar::default()
                 .orientation(ScrollbarOrientation::VerticalRight)
@@ -708,5 +723,8 @@ mod test {
         assert_eq!(t.dataset_info_text(), expected);
     }
 
-
+    #[rstest]
+    fn test_() {
+        todo!();
+    }
 }
