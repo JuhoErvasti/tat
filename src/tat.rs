@@ -431,7 +431,7 @@ impl Tat {
 
         let title = format!(
                 " Feature {} - Value of \"{}\" ",
-                self.table.selected_fid(),
+                self.table.selected_feature(),
                 self.table.current_column_name(),
             );
 

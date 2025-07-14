@@ -322,7 +322,7 @@ mod test {
             assert_eq!(name, "nogeom");
 
             let expected = "- Name: nogeom
-- Feature Count: 1
+- Feature Count: 60
 - Fields (9):
     \"text_field\" - (String)
     \"i32_field\" - (Integer)

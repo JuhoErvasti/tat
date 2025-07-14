@@ -241,6 +241,8 @@ mod test {
         // crs_from_layer()
         // geom_fields_from_layer()
         // fields_from_layer()
+        // also I think this sufficiently covers
+        // types::TatCrs,TatField,TatGeomField
         let l = TatLayer::new(basic_gpkg, 0, None);
 
         assert_eq!(l.name(), "point");
