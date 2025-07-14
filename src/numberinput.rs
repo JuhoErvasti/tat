@@ -161,15 +161,16 @@ impl TatNumberInput {
     }
 
     /// Resets the widget
+    #[allow(dead_code)]
     fn reset(&mut self) {
         self.string.clear();
         self.cursor_pos = 0;
     }
 }
 
+#[cfg(test)]
 mod test {
-    use std::char;
-
+    #[allow(unused)]
     use super::*;
 
     #[test]
@@ -208,14 +209,12 @@ mod test {
             ni.reset();
         }
 
-        for _char in 49..=57 as u8 { // 1..9 in utf-8
-            let char = _char as char;
+        for char in '1'..='9' {
             let res = ni.key_press(KeyCode::Char(char), false);
             assert_eq!(res, TatNumberInputResult::AcceptedKey);
             assert_eq!(ni.string, char.to_string());
             ni.reset();
         }
-
     }
 
     #[test]

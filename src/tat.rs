@@ -208,8 +208,8 @@ impl Tat {
                 "UNTITLED".to_string()
             };
 
-            popup.set_available_rows(visible_rows as usize);
-            popup.set_available_cols(visible_cols as usize);
+            popup.set_visible_rows(visible_rows as usize);
+            popup.set_visible_cols(visible_cols as usize);
 
             let block = popup.paragraph()
                 .block(
@@ -698,8 +698,8 @@ impl Tat {
             info.total_lines() as i64,
         );
 
-        info.set_available_rows(visible_rows as usize);
-        info.set_available_cols(visible_cols as usize);
+        info.set_visible_rows(visible_rows as usize);
+        info.set_visible_cols(visible_cols as usize);
 
         if has_v_scrollbar {
             let scrollbar = Scrollbar::default()
