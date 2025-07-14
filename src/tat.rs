@@ -431,7 +431,7 @@ impl Tat {
 
         let title = format!(
                 " Feature {} - Value of \"{}\" ",
-                self.table.selected_feature(),
+                self.table.current_row(),
                 self.table.current_column_name(),
             );
 
@@ -524,7 +524,7 @@ impl Tat {
 
     /// Opens the table view menu
     fn open_table(&mut self) {
-        self.table.set_rects(self.table_rects(false));
+        self.table.set_rects(self.current_table_rects(false));
         self.current_menu = TatMenu::TableView;
     }
 
@@ -610,7 +610,7 @@ impl Tat {
         self.render_layer_info(info_area, frame,  matches!(self.focused_block, TatMainMenuSectionFocus::LayerInfo));
 
         self.table_area = preview_table_area;
-        self.table.set_rects(self.table_rects(true));
+        self.table.set_rects(self.current_table_rects(true));
 
         let block = Block::new()
             .title(
@@ -661,7 +661,7 @@ impl Tat {
 
     /// Returns the table view Menu
     fn render_table_view(&mut self, frame: &mut Frame) {
-        self.table.set_rects(self.table_rects(false));
+        self.table.set_rects(self.current_table_rects(false));
 
         self.table.render(frame);
     }
@@ -739,13 +739,13 @@ impl Tat {
         }
     }
 
-    /// Returns the areas for the table
-    fn table_rects(&self, preview: bool) -> TableRects {
+    /// Returns the areas for the table either in preview or full mode
+    pub fn table_rects(rect: Rect, preview: bool) -> TableRects {
         let rects = if preview {
             let [_, table_rect_temp] = Layout::vertical([
                 Constraint::Length(1),
                 Constraint::Fill(1),
-            ]).areas(self.table_area);
+            ]).areas(rect);
 
             let [fid_col_area, mut table_rect] = Layout::horizontal([
                 Constraint::Length(11),
@@ -760,7 +760,7 @@ impl Tat {
             let [table_rect_temp, scroll_h_area] = Layout::vertical([
                 Constraint::Fill(1),
                 Constraint::Length(1),
-            ]).areas(self.table_area);
+            ]).areas(rect);
 
             let [fid_col_area, table_rect, scroll_v_area] = Layout::horizontal([
                 Constraint::Length(11),
@@ -773,6 +773,11 @@ impl Tat {
         };
 
         rects
+    }
+
+    /// Returns the areas for the table based on the current state
+    fn current_table_rects(&self, preview: bool) -> TableRects {
+        Tat::table_rects(self.table_area, preview)
     }
 
 

@@ -109,19 +109,9 @@ impl TatTable {
         self.layer_index = idx;
     }
 
-    /// Returns currently selected layer
-    fn layer(&self) -> &TatLayer {
-        self.layers.get(self.layer_index).unwrap()
-    }
-
     /// Returns currently selected row's index
-    fn current_row(&self) -> u64 {
+    pub fn current_row(&self) -> u64 {
         self.top_row + self.relative_highlighted_row()
-    }
-
-    /// Returns the currently selected column
-    fn current_column(&self) -> u64 {
-        self.first_column + self.relative_highlighted_column()
     }
 
     /// Returns the name of the currentl selected column
@@ -129,35 +119,10 @@ impl TatTable {
         self.layer().field_name_by_id(self.current_column() as i32).unwrap_or(crate::shared::MISSING_VALUE.to_string())
     }
 
-    /// Returns the index of the highlighted row from the current visible rows
-    fn relative_highlighted_row(&self) -> u64 {
-        // the idea is to avoid unwrapping/whatever everywhere
-        // TODO: not sure how idiomatic this is in Rust, maybe reconsider
-        // the approach, feels like this is just trying skirt around
-        // the whole point of using Options and such, but idk
-        if let Some(sel) = self.table_state.selected() {
-            return sel as u64;
-        } else {
-            return 0;
-        }
-    }
-
     /// Returns the index of the highlighted column from the current visible column
     pub fn relative_highlighted_column(&self) -> u64 {
         // see above (relative_highlighted_row)
         self.table_state.selected_column().unwrap() as u64
-    }
-
-    /// Updates the state of the vertical scrollbar
-    fn update_v_scrollbar(&mut self) {
-        self.v_scroll = ScrollbarState::new(self.layer().feature_count() as usize - self.visible_rows() as usize + 1);
-        self.v_scroll = self.v_scroll.position(self.top_row as usize);
-    }
-
-    /// Updates the state of the horizontal scrollbar
-    fn update_h_scrollbar(&mut self) {
-        self.h_scroll = ScrollbarState::new(self.layer().field_count() as usize - self.visible_columns() as usize + 1);
-        self.h_scroll = self.h_scroll.position(self.first_column as usize);
     }
 
     /// Handles horizontal navigation (in columns)
@@ -293,16 +258,167 @@ impl TatTable {
         self.update_v_scrollbar();
     }
 
-    /// Returns the currently selected feature's index
-    pub fn selected_feature(&self) -> u64 {
-        self.top_row + self.relative_highlighted_row()
-    }
-
     /// Returns the currently selected cell's value as a string (if any)
     pub fn selected_value(&self) -> Option<String> {
-        if let Some(fid) = self.layer().fid_cache().get(self.selected_feature() as usize - 1) {
+        if let Some(fid) = self.layer().fid_cache().get(self.current_row() as usize - 1) {
             self.layer().get_value_by_fid(*fid, self.current_column() as i32)
         } else { None }
+    }
+
+    /// Resets the table's state
+    pub fn reset(&mut self) {
+        self.top_row = 1;
+        self.first_column = 0;
+        self.table_state.select_first_column();
+        self.table_state.select_first();
+        self.table_rect = Rect::default();
+    }
+
+    /// Sets the areas which the table renders itself in
+    pub fn set_rects(&mut self, (table_rect, feature_col_rect, v_scroll_area, h_scroll_area): TableRects) {
+        let old_row = self.current_row();
+        let first_update = self.table_rect.is_empty();
+
+        let rect_changed = if self.table_rect != table_rect {
+            true
+        } else { false };
+
+        if rect_changed {
+            self.table_rect = table_rect;
+            self.feature_col_rect = feature_col_rect;
+            self.v_scroll_area = v_scroll_area;
+            self.h_scroll_area = h_scroll_area;
+
+            self.update_v_scrollbar();
+            self.update_h_scrollbar();
+
+            if self.bottom_row() + self.top_row >= self.layer().feature_count() {
+                self.set_top_row(self.max_top_row());
+            }
+
+            if !first_update {
+                self.nav_v(TatNavVertical::Specific(old_row as i64));
+            }
+        }
+    }
+
+    /// Renders the table in preview format
+    pub fn render_preview(&mut self, frame: &mut Frame) {
+        if self.feature_col_rect.is_empty() || self.table_rect.is_empty() {
+            return;
+        }
+
+        self.render_feature_column(frame, true);
+
+        let table = self.get_table();
+
+        let table_widget_rect = Rect {
+            x: self.table_rect.x,
+            y: self.table_rect.y + 1,
+            width: self.table_rect.width - 1,
+            height: self.table_rect.height,
+        };
+
+        frame.render_stateful_widget(
+            table,
+            table_widget_rect,
+            &mut self.table_state.clone(),
+        );
+    }
+
+    /// Renders the table fully
+    pub fn render(&mut self, frame: &mut Frame) {
+        self.render_feature_column(frame, false);
+
+        let vert_scrollbar = Scrollbar::default()
+                .orientation(ScrollbarOrientation::VerticalRight)
+                .begin_symbol(Some(DOUBLE_VERTICAL.begin))
+                .end_symbol(Some(DOUBLE_VERTICAL.end));
+
+        let horz_scrollbar = Scrollbar::default()
+                .orientation(ScrollbarOrientation::HorizontalBottom)
+                .begin_symbol(Some(DOUBLE_HORIZONTAL.begin))
+                .end_symbol(Some(DOUBLE_HORIZONTAL.end));
+
+        frame.render_stateful_widget(
+            vert_scrollbar,
+            self.v_scroll_area,
+            &mut self.v_scroll,
+        );
+
+        frame.render_stateful_widget(
+            horz_scrollbar,
+            self.h_scroll_area,
+            &mut self.h_scroll,
+        );
+
+        let table_widget_rect = Rect {
+            x: self.table_rect.x,
+            y: self.table_rect.y + 2,
+            width: self.table_rect.width,
+            height: self.table_rect.height - if self.table_rect.height >= 3 { 3 } else { self.table_rect.height },
+        };
+
+        let table = self.get_table();
+        frame.render_stateful_widget(
+            table,
+            table_widget_rect,
+            &mut self.table_state.clone(),
+        );
+
+        // HACK: this is really hacky, probably table should only have one rect to begin with and then the table_rect
+        // and fid_col_rect are calculated from that in here, not in Tat
+        let union = self.table_rect.union(self.feature_col_rect);
+        let block = Block::new()
+            .title(
+                Line::raw(
+                    format!("{}", self.layer().name())
+                ).centered().bold().underlined(),
+            )
+            .title_bottom(
+                Line::raw(
+                    crate::shared::SHOW_HELP
+                ).centered(),
+            )
+            .borders(Borders::BOTTOM)
+            .border_style(crate::shared::palette::DEFAULT.default_style());
+
+        frame.render_widget(block, union);
+    }
+
+    /// Returns currently selected layer
+    fn layer(&self) -> &TatLayer {
+        self.layers.get(self.layer_index).unwrap()
+    }
+
+    /// Returns the currently selected column index which can be used in TatLayer
+    fn current_column(&self) -> u64 {
+        self.first_column + self.relative_highlighted_column()
+    }
+
+    /// Returns the index of the highlighted row from the current visible rows
+    fn relative_highlighted_row(&self) -> u64 {
+        // the idea is to avoid unwrapping/whatever everywhere
+        // TODO: not sure how idiomatic this is in Rust, maybe reconsider
+        // the approach, feels like this is just trying skirt around
+        // the whole point of using Options and such, but idk
+        if let Some(sel) = self.table_state.selected() {
+            return sel as u64;
+        } else {
+            return 0;
+        }
+    }
+
+    /// Updates the state of the vertical scrollbar
+    fn update_v_scrollbar(&mut self) {
+        self.v_scroll = ScrollbarState::new(self.layer().feature_count() as usize - self.visible_rows() as usize + 1);
+        self.v_scroll = self.v_scroll.position(self.top_row as usize);
+    }
+
+    /// Updates the state of the horizontal scrollbar
+    fn update_h_scrollbar(&mut self) {
+        self.h_scroll = ScrollbarState::new(self.layer().field_count() as usize - self.visible_columns() as usize + 1);
+        self.h_scroll = self.h_scroll.position(self.first_column as usize);
     }
 
     /// Returns the relative row of a feature in the currently visible rows
@@ -366,15 +482,6 @@ impl TatTable {
     /// Returns the currently visible bottom row
     fn bottom_row(&self) -> u64 {
         self.top_row + self.visible_rows() as u64 - 1
-    }
-
-    /// Resets the table's state
-    pub fn reset(&mut self) {
-        self.top_row = 1;
-        self.first_column = 0;
-        self.table_state.select_first_column();
-        self.table_state.select_first();
-        self.table_rect = Rect::default();
     }
 
     /// Returns the row which if the top row all other rows will be visible as well
@@ -458,34 +565,6 @@ impl TatTable {
             .column_spacing(1);
 
         table
-    }
-
-    /// Sets the areas which the table renders itself in
-    pub fn set_rects(&mut self, (table_rect, feature_col_rect, v_scroll_area, h_scroll_area): TableRects) {
-        let old_row = self.current_row();
-        let first_update = self.table_rect.is_empty();
-
-        let rect_changed = if self.table_rect != table_rect {
-            true
-        } else { false };
-
-        if rect_changed {
-            self.table_rect = table_rect;
-            self.feature_col_rect = feature_col_rect;
-            self.v_scroll_area = v_scroll_area;
-            self.h_scroll_area = h_scroll_area;
-
-            self.update_v_scrollbar();
-            self.update_h_scrollbar();
-
-            if self.bottom_row() + self.top_row >= self.layer().feature_count() {
-                self.set_top_row(self.max_top_row());
-            }
-
-            if !first_update {
-                self.nav_v(TatNavVertical::Specific(old_row as i64));
-            }
-        }
     }
 
     /// Returns the number of rows currently visible
@@ -588,90 +667,6 @@ impl TatTable {
             frame.render_widget(line, rect);
         }
     }
-
-    /// Renders the table in preview format
-    pub fn render_preview(&mut self, frame: &mut Frame) {
-        if self.feature_col_rect.is_empty() || self.table_rect.is_empty() {
-            return;
-        }
-
-        self.render_feature_column(frame, true);
-
-        let table = self.get_table();
-
-        let table_widget_rect = Rect {
-            x: self.table_rect.x,
-            y: self.table_rect.y + 1,
-            width: self.table_rect.width - 1,
-            height: self.table_rect.height,
-        };
-
-        frame.render_stateful_widget(
-            table,
-            table_widget_rect,
-            &mut self.table_state.clone(),
-        );
-    }
-
-    /// Renders the table fully
-    pub fn render(&mut self, frame: &mut Frame) {
-        self.render_feature_column(frame, false);
-
-        let vert_scrollbar = Scrollbar::default()
-                .orientation(ScrollbarOrientation::VerticalRight)
-                .begin_symbol(Some(DOUBLE_VERTICAL.begin))
-                .end_symbol(Some(DOUBLE_VERTICAL.end));
-
-        let horz_scrollbar = Scrollbar::default()
-                .orientation(ScrollbarOrientation::HorizontalBottom)
-                .begin_symbol(Some(DOUBLE_HORIZONTAL.begin))
-                .end_symbol(Some(DOUBLE_HORIZONTAL.end));
-
-        frame.render_stateful_widget(
-            vert_scrollbar,
-            self.v_scroll_area,
-            &mut self.v_scroll,
-        );
-
-        frame.render_stateful_widget(
-            horz_scrollbar,
-            self.h_scroll_area,
-            &mut self.h_scroll,
-        );
-
-        let table_widget_rect = Rect {
-            x: self.table_rect.x,
-            y: self.table_rect.y + 2,
-            width: self.table_rect.width,
-            height: self.table_rect.height - if self.table_rect.height >= 3 { 3 } else { self.table_rect.height },
-        };
-
-        let table = self.get_table();
-        frame.render_stateful_widget(
-            table,
-            table_widget_rect,
-            &mut self.table_state.clone(),
-        );
-
-        // HACK: this is really hacky, probably table should only have one rect to begin with and then the table_rect
-        // and fid_col_rect are calculated from that in here, not in Tat
-        let union = self.table_rect.union(self.feature_col_rect);
-        let block = Block::new()
-            .title(
-                Line::raw(
-                    format!("{}", self.layer().name())
-                ).centered().bold().underlined(),
-            )
-            .title_bottom(
-                Line::raw(
-                    crate::shared::SHOW_HELP
-                ).centered(),
-            )
-            .borders(Borders::BOTTOM)
-            .border_style(crate::shared::palette::DEFAULT.default_style());
-
-        frame.render_widget(block, union);
-    }
 }
 
 
@@ -724,7 +719,323 @@ mod test {
     }
 
     #[rstest]
-    fn test_() {
-        todo!();
+    fn test_layer(basic_gpkg: &'static Dataset) {
+        let mut t = TatTable::new(basic_gpkg, None, None);
+        assert_eq!(t.layer_index, 0);
+
+        assert_eq!(t.layer().name(), "point");
+
+        t.set_layer_index(2);
+
+        assert_eq!(t.layer().name(), "polygon");
+    }
+
+    #[rstest]
+    fn test_nav_v(basic_table: TatTable) {
+        // covers:
+        // current_row()
+        // relative_highlighted_row()
+        // visible_rows()
+        // set_top_row()
+        // bottom_row()
+        // all_rows_visible()
+        let mut t = basic_table;
+        t.set_layer_index(4); // nogeom, has most features
+
+        assert_eq!(t.current_row(), 1);
+        assert_eq!(t.max_top_row(), 46);
+        assert_eq!(t.relative_highlighted_row(), 0);
+        assert_eq!(t.visible_rows(), 15);
+        assert_eq!(t.top_row, 1);
+        assert_eq!(t.bottom_row(), 15);
+        assert!(!t.all_rows_visible());
+
+        t.nav_v(TatNavVertical::Last);
+        assert_eq!(t.current_row(), 60);
+        assert_eq!(t.relative_highlighted_row(), 14);
+        assert_eq!(t.top_row, 46);
+        assert_eq!(t.bottom_row(), 60);
+
+        t.nav_v(TatNavVertical::UpOne);
+        assert_eq!(t.current_row(), 59);
+        assert_eq!(t.relative_highlighted_row(), 13);
+        assert_eq!(t.top_row, 46);
+        assert_eq!(t.bottom_row(), 60);
+
+        t.nav_v(TatNavVertical::Specific(46));
+        assert_eq!(t.current_row(), 46);
+        assert_eq!(t.relative_highlighted_row(), 0);
+        assert_eq!(t.top_row, 46);
+        assert_eq!(t.bottom_row(), 60);
+
+        t.nav_v(TatNavVertical::UpOne);
+        assert_eq!(t.current_row(), 45);
+        assert_eq!(t.relative_highlighted_row(), 0);
+        assert_eq!(t.top_row, 45);
+        assert_eq!(t.bottom_row(), 59);
+
+        t.nav_v(TatNavVertical::Last);
+
+        t.nav_v(TatNavVertical::UpHalfParagraph);
+        assert_eq!(t.current_row(), 53);
+        assert_eq!(t.relative_highlighted_row(), 7);
+        assert_eq!(t.top_row, 46);
+        assert_eq!(t.bottom_row(), 60);
+
+        t.nav_v(TatNavVertical::UpHalfParagraph);
+        assert_eq!(t.current_row(), 46);
+        assert_eq!(t.relative_highlighted_row(), 0);
+        assert_eq!(t.top_row, 46);
+        assert_eq!(t.bottom_row(), 60);
+
+        t.nav_v(TatNavVertical::DownOne);
+        assert_eq!(t.current_row(), 47);
+        assert_eq!(t.relative_highlighted_row(), 1);
+        assert_eq!(t.top_row, 46);
+        assert_eq!(t.bottom_row(), 60);
+
+        t.nav_v(TatNavVertical::UpHalfParagraph);
+        assert_eq!(t.current_row(), 40);
+        assert_eq!(t.relative_highlighted_row(), 1);
+        assert_eq!(t.top_row, 39);
+        assert_eq!(t.bottom_row(), 53);
+
+        t.nav_v(TatNavVertical::UpHalfParagraph);
+        t.nav_v(TatNavVertical::UpHalfParagraph);
+        t.nav_v(TatNavVertical::UpHalfParagraph);
+        t.nav_v(TatNavVertical::UpHalfParagraph);
+        t.nav_v(TatNavVertical::UpHalfParagraph);
+        t.nav_v(TatNavVertical::UpHalfParagraph);
+        assert_eq!(t.current_row(), 2);
+        assert_eq!(t.relative_highlighted_row(), 1);
+        assert_eq!(t.top_row, 1);
+        assert_eq!(t.bottom_row(), 15);
+
+        t.nav_v(TatNavVertical::First);
+        assert_eq!(t.current_row(), 1);
+        assert_eq!(t.relative_highlighted_row(), 0);
+        assert_eq!(t.top_row, 1);
+        assert_eq!(t.bottom_row(), 15);
+
+        t.nav_v(TatNavVertical::Last);
+
+        t.nav_v(TatNavVertical::UpParagraph);
+        assert_eq!(t.current_row(), 45);
+        assert_eq!(t.relative_highlighted_row(), 14);
+        assert_eq!(t.top_row, 31);
+        assert_eq!(t.bottom_row(), 45);
+
+        t.nav_v(TatNavVertical::First);
+        assert_eq!(t.current_row(), 1);
+        assert_eq!(t.relative_highlighted_row(), 0);
+        assert_eq!(t.top_row, 1);
+        assert_eq!(t.bottom_row(), 15);
+
+        t.nav_v(TatNavVertical::DownOne);
+        assert_eq!(t.current_row(), 2);
+        assert_eq!(t.relative_highlighted_row(), 1);
+        assert_eq!(t.top_row, 1);
+        assert_eq!(t.bottom_row(), 15);
+
+        t.nav_v(TatNavVertical::Specific(15));
+        assert_eq!(t.current_row(), 15);
+        assert_eq!(t.relative_highlighted_row(), 14);
+        assert_eq!(t.top_row, 1);
+        assert_eq!(t.bottom_row(), 15);
+
+        t.nav_v(TatNavVertical::DownOne);
+        assert_eq!(t.current_row(), 16);
+        assert_eq!(t.relative_highlighted_row(), 14);
+        assert_eq!(t.top_row, 2);
+        assert_eq!(t.bottom_row(), 16);
+
+        t.nav_v(TatNavVertical::DownHalfParagraph);
+        assert_eq!(t.current_row(), 23);
+        assert_eq!(t.relative_highlighted_row(), 14);
+        assert_eq!(t.top_row, 9);
+        assert_eq!(t.bottom_row(), 23);
+
+        t.nav_v(TatNavVertical::DownParagraph);
+        assert_eq!(t.current_row(), 38);
+        assert_eq!(t.relative_highlighted_row(), 14);
+        assert_eq!(t.top_row, 24);
+        assert_eq!(t.bottom_row(), 38);
+
+        t.nav_v(TatNavVertical::DownParagraph);
+        t.nav_v(TatNavVertical::DownParagraph);
+        t.nav_v(TatNavVertical::DownParagraph);
+        assert_eq!(t.current_row(), 60);
+        assert_eq!(t.relative_highlighted_row(), 14);
+        assert_eq!(t.top_row, 46);
+        assert_eq!(t.bottom_row(), 60);
+
+        t.nav_v(TatNavVertical::MouseScrollUp);
+        assert_eq!(t.current_row(), 55);
+        assert_eq!(t.relative_highlighted_row(), 9);
+        assert_eq!(t.top_row, 46);
+        assert_eq!(t.bottom_row(), 60);
+
+        t.nav_v(TatNavVertical::MouseScrollUp);
+        t.nav_v(TatNavVertical::MouseScrollUp);
+        assert_eq!(t.current_row(), 45);
+        assert_eq!(t.relative_highlighted_row(), 4);
+        assert_eq!(t.top_row, 41);
+        assert_eq!(t.bottom_row(), 55);
+
+        t.nav_v(TatNavVertical::MouseScrollDown);
+        assert_eq!(t.current_row(), 50);
+        assert_eq!(t.relative_highlighted_row(), 9);
+        assert_eq!(t.top_row, 41);
+        assert_eq!(t.bottom_row(), 55);
+
+        t.nav_v(TatNavVertical::MouseScrollDown);
+        t.nav_v(TatNavVertical::MouseScrollDown);
+        t.nav_v(TatNavVertical::MouseScrollDown);
+        assert_eq!(t.current_row(), 60);
+        assert_eq!(t.relative_highlighted_row(), 14);
+        assert_eq!(t.top_row, 46);
+        assert_eq!(t.bottom_row(), 60);
+
+        t.nav_v(TatNavVertical::Specific(5));
+        assert_eq!(t.current_row(), 5);
+        assert_eq!(t.relative_highlighted_row(), 4);
+        assert_eq!(t.top_row, 1);
+        assert_eq!(t.bottom_row(), 15);
+
+        t.nav_v(TatNavVertical::Specific(55));
+        assert_eq!(t.current_row(), 55);
+        assert_eq!(t.relative_highlighted_row(), 9);
+        assert_eq!(t.top_row, 46);
+        assert_eq!(t.bottom_row(), 60);
+
+        t.nav_v(TatNavVertical::Specific(25));
+        assert_eq!(t.current_row(), 25);
+        assert_eq!(t.relative_highlighted_row(), 9);
+        assert_eq!(t.top_row, 16);
+        assert_eq!(t.bottom_row(), 30);
+    }
+
+    #[rstest]
+    fn test_nav_h(basic_table: TatTable) {
+        let mut t = basic_table;
+        t.set_layer_index(4); // nogeom, has most features and columns
+
+        assert_eq!(t.current_column(), 0);
+        assert_eq!(t.relative_highlighted_column(), 0);
+        assert_eq!(t.visible_columns(), 7);
+        assert_eq!(t.first_column, 0);
+
+        t.nav_h(TatNavHorizontal::RightOne);
+        assert_eq!(t.current_column(), 1);
+        assert_eq!(t.relative_highlighted_column(), 1);
+        assert_eq!(t.first_column, 0);
+
+        t.nav_h(TatNavHorizontal::RightOne);
+        t.nav_h(TatNavHorizontal::RightOne);
+        t.nav_h(TatNavHorizontal::RightOne);
+        t.nav_h(TatNavHorizontal::RightOne);
+        t.nav_h(TatNavHorizontal::RightOne);
+        assert_eq!(t.current_column(), 6);
+        assert_eq!(t.relative_highlighted_column(), 6);
+        assert_eq!(t.first_column, 0);
+
+        t.nav_h(TatNavHorizontal::RightOne);
+        assert_eq!(t.current_column(), 7);
+        assert_eq!(t.relative_highlighted_column(), 6);
+        assert_eq!(t.first_column, 1);
+
+        t.nav_h(TatNavHorizontal::RightOne);
+        assert_eq!(t.current_column(), 8);
+        assert_eq!(t.relative_highlighted_column(), 6);
+        assert_eq!(t.first_column, 2);
+
+        t.nav_h(TatNavHorizontal::RightOne);
+        assert_eq!(t.current_column(), 8);
+        assert_eq!(t.relative_highlighted_column(), 6);
+        assert_eq!(t.first_column, 2);
+
+        t.nav_h(TatNavHorizontal::LeftOne);
+        assert_eq!(t.current_column(), 7);
+        assert_eq!(t.relative_highlighted_column(), 5);
+        assert_eq!(t.first_column, 2);
+
+        t.nav_h(TatNavHorizontal::LeftOne);
+        t.nav_h(TatNavHorizontal::LeftOne);
+        t.nav_h(TatNavHorizontal::LeftOne);
+        t.nav_h(TatNavHorizontal::LeftOne);
+        t.nav_h(TatNavHorizontal::LeftOne);
+        assert_eq!(t.current_column(), 2);
+        assert_eq!(t.relative_highlighted_column(), 0);
+        assert_eq!(t.first_column, 2);
+
+        t.nav_h(TatNavHorizontal::LeftOne);
+        assert_eq!(t.current_column(), 1);
+        assert_eq!(t.relative_highlighted_column(), 0);
+        assert_eq!(t.first_column, 1);
+
+        t.nav_h(TatNavHorizontal::LeftOne);
+        assert_eq!(t.current_column(), 0);
+        assert_eq!(t.relative_highlighted_column(), 0);
+        assert_eq!(t.first_column, 0);
+
+        t.nav_h(TatNavHorizontal::LeftOne);
+        assert_eq!(t.current_column(), 0);
+        assert_eq!(t.relative_highlighted_column(), 0);
+        assert_eq!(t.first_column, 0);
+
+        t.nav_h(TatNavHorizontal::End);
+        assert_eq!(t.current_column(), 8);
+        assert_eq!(t.relative_highlighted_column(), 6);
+        assert_eq!(t.first_column, 2);
+
+        t.nav_h(TatNavHorizontal::Home);
+        assert_eq!(t.current_column(), 0);
+        assert_eq!(t.relative_highlighted_column(), 0);
+        assert_eq!(t.first_column, 0);
+    }
+
+    #[rstest]
+    fn test_selected_value(basic_table: TatTable) {
+        let mut t = basic_table;
+        t.set_layer_index(4);
+
+        assert_eq!(t.selected_value(), Some("text".to_string()));
+
+        t.nav_h(TatNavHorizontal::RightOne);
+        assert_eq!(t.selected_value(), Some("10".to_string()));
+
+        t.nav_h(TatNavHorizontal::RightOne);
+        assert_eq!(t.selected_value(), Some("100".to_string()));
+
+        t.nav_h(TatNavHorizontal::RightOne);
+        assert_eq!(t.selected_value(), Some("1.541".to_string()));
+
+        t.nav_h(TatNavHorizontal::RightOne);
+        assert_eq!(t.selected_value(), Some("1970/07/10".to_string()));
+
+        t.nav_h(TatNavHorizontal::RightOne);
+        assert_eq!(t.selected_value(), Some("2025/07/19 20:45:45+00".to_string()));
+
+        t.nav_h(TatNavHorizontal::RightOne);
+        assert_eq!(t.selected_value(), Some("1".to_string()));
+
+        t.nav_h(TatNavHorizontal::RightOne);
+        assert_eq!(t.selected_value(), Some("626C6F620A".to_string()));
+
+        t.nav_h(TatNavHorizontal::RightOne);
+        assert_eq!(t.selected_value(), Some("{\"another_key\":\"another_value\",\"key\":\"value\"}".to_string()));
+
+        t.nav_h(TatNavHorizontal::Home);
+        t.nav_v(TatNavVertical::Specific(5));
+        assert_eq!(t.selected_value(), Some("participate".to_string()));
+
+        t.set_layer_index(0); // point, has null values and geom field
+
+        t.nav_h(TatNavHorizontal::Home);
+        t.nav_v(TatNavVertical::First);
+        assert_eq!(t.selected_value(), Some("POINT (0 0)".to_string()));
+
+        t.nav_h(TatNavHorizontal::End);
+        assert_eq!(t.selected_value(), None);
     }
 }
