@@ -30,3 +30,10 @@ pub fn basic_table(basic_gpkg: &'static Dataset, table_rects: TableRects) -> Tat
 
     t
 }
+
+#[fixture]
+pub fn basic_tat(basic_gpkg: &'static Dataset) -> Tat {
+    let t = Tat::new(basic_gpkg, None, None);
+
+    t
+}

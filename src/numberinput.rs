@@ -13,6 +13,7 @@ pub enum TatNumberInputResult {
 }
 
 /// A widget for getting a number value from the user. Number must be a positive integer.
+#[derive(PartialEq, Debug)]
 pub struct TatNumberInput {
     string: String,
     cursor_pos: u16,

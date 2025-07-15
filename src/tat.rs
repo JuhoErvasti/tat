@@ -59,12 +59,14 @@ const BORDER_PREVIEW_TABLE: symbols::border::Set = symbols::border::Set {
 };
 
 /// Specificies the available menus of the program
+#[derive(PartialEq, Debug)]
 enum TatMenu {
     MainMenu,
     TableView,
 }
 
 /// Specifies which section in the main menu has the focus
+#[derive(PartialEq, Debug)]
 enum TatMainMenuSectionFocus {
     LayerList,
     LayerInfo,
@@ -79,7 +81,7 @@ pub struct Tat {
     modal_popup: Option<TatNavigableParagraph>,
     table: TatTable,
     layerlist: TatLayerList,
-    focused_block: TatMainMenuSectionFocus,
+    focused_section: TatMainMenuSectionFocus,
     clip: Option<ClipboardContext>,
     table_area: Rect,
     number_input: Option<TatNumberInput>,
@@ -104,7 +106,7 @@ impl Tat {
             modal_popup: None,
             table: TatTable::new(&ds, where_clause, layers.clone()),
             layerlist: TatLayerList::new(&ds, layers),
-            focused_block: TatMainMenuSectionFocus::LayerList,
+            focused_section: TatMainMenuSectionFocus::LayerList,
             clip,
             table_area: Rect::default(),
             number_input: None,
@@ -117,7 +119,7 @@ impl Tat {
     pub fn run(mut self, terminal: &mut DefaultTerminal) -> Result<()> {
         while !self.quit {
             terminal.draw(|frame| {
-                self.draw(frame);
+                self.render(frame);
             })?;
             match event::read()? {
                 Event::Key(key) => self.handle_key(key),
@@ -129,8 +131,8 @@ impl Tat {
         Ok(())
     }
 
-    /// Draws the current menu and any other active pop-ups or dialogs
-    fn draw(&mut self, frame: &mut Frame) {
+    /// Renders the current menu and any other active pop-ups or dialogs
+    fn render(&mut self, frame: &mut Frame) {
         self.table_area = frame.area();
 
         match self.current_menu {
@@ -138,13 +140,13 @@ impl Tat {
             TatMenu::TableView => self.render_table_view(frame),
         }
 
-        self.draw_popup(frame);
-        self.draw_number_input(frame);
-        self.draw_clipboard_feedback(frame);
+        self.render_popup(frame);
+        self.render_number_input(frame);
+        self.render_clipboard_feedback(frame);
     }
 
-    /// Draws the clipboard feedback message (if any)
-    fn draw_clipboard_feedback(&mut self, frame: &mut Frame) {
+    /// Renders the clipboard feedback message (if any)
+    fn render_clipboard_feedback(&mut self, frame: &mut Frame) {
         if let Some(feedback) = self.clipboard_feedback.as_mut() {
             let cleared_area = Tat::number_input_area(frame.area(), 50);
             let block_area = cleared_area.inner(Margin { horizontal: 1, vertical: 1 });
@@ -163,8 +165,8 @@ impl Tat {
         }
     }
 
-    /// Draws the number input dialog (if any)
-    fn draw_number_input(&mut self, frame: &mut Frame) {
+    /// Renders the number input dialog (if any)
+    fn render_number_input(&mut self, frame: &mut Frame) {
         if let Some(number_input) = self.number_input.as_mut() {
             let cleared_area = Tat::number_input_area(frame.area(), 50);
             let block_area = cleared_area.inner(Margin { horizontal: 1, vertical: 1 });
@@ -184,8 +186,8 @@ impl Tat {
         }
     }
 
-    /// Draws the current active pop-up dialog (if any)
-    fn draw_popup(&mut self, frame: &mut Frame) {
+    /// Renders the current active pop-up dialog (if any)
+    fn render_popup(&mut self, frame: &mut Frame) {
         if let Some(popup) = &mut self.modal_popup {
             let cleared_area = Tat::popup_area(frame.area(), 70, 70);
             let popup_area = cleared_area.inner(
@@ -319,10 +321,10 @@ impl Tat {
         }
 
         let ctrl_down: bool = key.modifiers.contains(KeyModifiers::CONTROL);
-        let in_layer_list: bool = matches!(self.current_menu, TatMenu::MainMenu) && matches!(self.focused_block, TatMainMenuSectionFocus::LayerList);
+        let in_layer_list: bool = matches!(self.current_menu, TatMenu::MainMenu) && matches!(self.focused_section, TatMainMenuSectionFocus::LayerList);
         let in_table: bool = matches!(self.current_menu, TatMenu::TableView);
         let in_main_menu: bool = matches!(self.current_menu, TatMenu::MainMenu);
-        let in_preview_table: bool = matches!(self.focused_block, TatMainMenuSectionFocus::PreviewTable);
+        let in_preview_table: bool = matches!(self.focused_section, TatMainMenuSectionFocus::PreviewTable);
         let popup_open: bool = self.modal_popup.is_some();
 
         if in_table {
@@ -511,7 +513,7 @@ impl Tat {
 
     /// Cycles through the available sections in the main menu (non-looping)
     fn cycle_section_selection(&mut self, back: bool) {
-        self.focused_block = match self.focused_block {
+        self.focused_section = match self.focused_section {
             TatMainMenuSectionFocus::LayerList if back => return,
             TatMainMenuSectionFocus::LayerInfo if back => TatMainMenuSectionFocus::LayerList,
             TatMainMenuSectionFocus::PreviewTable if back => TatMainMenuSectionFocus::LayerInfo,
@@ -563,7 +565,7 @@ impl Tat {
 
         match self.current_menu {
             TatMenu::MainMenu => {
-                match self.focused_block {
+                match self.focused_section {
                     TatMainMenuSectionFocus::LayerList => {
                         self.layerlist.nav(conf);
 
@@ -588,7 +590,7 @@ impl Tat {
 
         match self.current_menu {
             TatMenu::MainMenu => {
-                match self.focused_block {
+                match self.focused_section {
                     TatMainMenuSectionFocus::LayerList => return,
                     TatMainMenuSectionFocus::LayerInfo => self.layerlist.current_layer_info_paragraph().nav_h(conf),
                     TatMainMenuSectionFocus::PreviewTable => {
@@ -606,8 +608,8 @@ impl Tat {
 
         Tat::render_title(header_area, frame);
         self.render_dataset_info(dataset_area, frame);
-        self.layerlist.render(list_area, frame, matches!(self.focused_block, TatMainMenuSectionFocus::LayerList) && self.modal_popup.is_none());
-        self.render_layer_info(info_area, frame,  matches!(self.focused_block, TatMainMenuSectionFocus::LayerInfo));
+        self.layerlist.render(list_area, frame, matches!(self.focused_section, TatMainMenuSectionFocus::LayerList) && self.modal_popup.is_none());
+        self.render_layer_info(info_area, frame,  matches!(self.focused_section, TatMainMenuSectionFocus::LayerInfo));
 
         self.table_area = preview_table_area;
         self.table.set_rects(self.current_table_rects(true));
@@ -617,10 +619,10 @@ impl Tat {
                 Line::raw(
                     " Preview Table ",
                 ).bold().underlined().left_aligned().fg(
-                    if matches!(self.focused_block, TatMainMenuSectionFocus::PreviewTable) {crate::shared::palette::DEFAULT.highlighted_fg} else {crate::shared::palette::DEFAULT.default_fg}
+                    if matches!(self.focused_section, TatMainMenuSectionFocus::PreviewTable) {crate::shared::palette::DEFAULT.highlighted_fg} else {crate::shared::palette::DEFAULT.default_fg}
                     ),
                 )
-            .border_style(if matches!(self.focused_block, TatMainMenuSectionFocus::PreviewTable) {crate::shared::palette::DEFAULT.highlighted_style()} else {crate::shared::palette::DEFAULT.default_style()})
+            .border_style(if matches!(self.focused_section, TatMainMenuSectionFocus::PreviewTable) {crate::shared::palette::DEFAULT.highlighted_style()} else {crate::shared::palette::DEFAULT.default_style()})
             .title_bottom(Line::raw(" <Enter> to open full table ").centered())
             .border_set(BORDER_PREVIEW_TABLE)
             .borders(Borders::BOTTOM | Borders::RIGHT | Borders::TOP);
@@ -858,4 +860,56 @@ impl Tat {
         (visible_cols as usize, has_h_scroll, visible_rows as usize, has_v_scroll)
     }
 
+}
+
+#[cfg(test)]
+mod test {
+    #[allow(unused)]
+    use super::*;
+
+    #[allow(unused)]
+    use crate::fixtures::*;
+
+    use rstest::*;
+
+    #[rstest]
+    fn test_new(basic_tat: Tat) {
+        let t = basic_tat;
+
+        assert_eq!(t.current_menu, TatMenu::MainMenu);
+        assert_eq!(t.quit, false);
+        assert_eq!(t.modal_popup, None);
+        assert_eq!(t.focused_section, TatMainMenuSectionFocus::LayerList);
+        assert!(t.table_area.is_empty());
+        assert_eq!(t.number_input, None);
+        assert_eq!(t.clipboard_feedback, None);
+    }
+
+    #[rstest]
+    fn test_copy_table_value_to_clipboard(basic_tat: Tat) {
+        let mut t = basic_tat;
+
+        if t.clip.is_none() {
+            return;
+        }
+
+        let mut old_contents = "".to_string();
+
+        {
+            let clip = t.clip.as_mut().unwrap();
+            old_contents = clip.get_contents().unwrap();
+        }
+
+        {
+            t.copy_table_value_to_clipboard();
+            let clip = t.clip.as_mut().unwrap();
+            let contents = clip.get_contents().unwrap();
+            assert_eq!(contents, "POINT (0 0)".to_string());
+        }
+
+        {
+            let clip = t.clip.as_mut().unwrap();
+            clip.set_contents(old_contents).unwrap();
+        }
+    }
 }

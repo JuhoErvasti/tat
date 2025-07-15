@@ -10,6 +10,7 @@ use crate::types::{TatNavHorizontal, TatNavVertical};
 
 
 /// Struct for displaying a text paragraph and allowing scrolling of the text
+#[derive(PartialEq, Debug)]
 pub struct TatNavigableParagraph {
     title: Option<String>,
     text: String,
