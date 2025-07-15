@@ -240,6 +240,12 @@ impl TatLayerList {
     fn update_scrollbar(&mut self) {
         self.scroll = self.scroll.position(self.state.selected().unwrap());
     }
+
+    /// Sets the available rows for displaying layers
+    #[cfg(test)]
+    pub fn set_available_rows(&mut self, available_rows: usize) {
+        self.available_rows = available_rows;
+    }
 }
 
 #[cfg(test)]

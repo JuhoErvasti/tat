@@ -37,7 +37,6 @@ use ratatui::{
     }, DefaultTerminal, Frame
 };
 use unicode_segmentation::UnicodeSegmentation;
-
 use crate::{
     layerlist::TatLayerList, navparagraph::TatNavigableParagraph, numberinput::{TatNumberInput, TatNumberInputResult}, table::TableRects, types::{TatNavHorizontal, TatNavVertical}
 };
@@ -604,7 +603,7 @@ impl Tat {
 
     /// Renders all the sections of the main menu
     fn render_main_menu(&mut self, area: Rect, frame: &mut Frame) {
-        let (header_area, dataset_area, list_area, info_area, preview_table_area) = self.main_menu_areas(&area);
+        let (header_area, dataset_area, list_area, info_area, preview_table_area) = Tat::main_menu_areas(&area);
 
         Tat::render_title(header_area, frame);
         self.render_dataset_info(dataset_area, frame);
@@ -764,14 +763,14 @@ impl Tat {
                 Constraint::Length(1),
             ]).areas(rect);
 
-            let [fid_col_area, table_rect, scroll_v_area] = Layout::horizontal([
+            let [feature_col_area, table_rect, scroll_v_area] = Layout::horizontal([
                 Constraint::Length(11),
                 Constraint::Fill(1),
                 Constraint::Length(1),
             ])
             .areas(table_rect_temp);
 
-            (table_rect, fid_col_area, scroll_v_area, scroll_h_area)
+            (table_rect, feature_col_area, scroll_v_area, scroll_h_area)
         };
 
         rects
@@ -784,7 +783,7 @@ impl Tat {
 
 
     /// Returns the rects for each section in the main menu
-    fn main_menu_areas(&self, area: &Rect) -> (Rect, Rect, Rect, Rect, Rect) {
+    fn main_menu_areas(area: &Rect) -> (Rect, Rect, Rect, Rect, Rect) {
         let [header_area, dataset_area, layer_area] = Layout::vertical([
             Constraint::Length(2),
             Constraint::Length(4),
@@ -864,6 +863,8 @@ impl Tat {
 
 #[cfg(test)]
 mod test {
+    use std::fs::OpenOptions;
+
     #[allow(unused)]
     use super::*;
 
@@ -893,7 +894,7 @@ mod test {
             return;
         }
 
-        let mut old_contents = "".to_string();
+        let old_contents: String;
 
         {
             let clip = t.clip.as_mut().unwrap();
@@ -911,5 +912,316 @@ mod test {
             let clip = t.clip.as_mut().unwrap();
             clip.set_contents(old_contents).unwrap();
         }
+    }
+
+    #[rstest]
+    fn test_handle_mouse(basic_tat: Tat, table_rects: TableRects) {
+        let mut t = basic_tat;
+        t.layerlist.set_available_rows(10);
+
+        t.handle_mouse(MouseEvent { kind: MouseEventKind::ScrollDown, column: 0, row: 0, modifiers: KeyModifiers::NONE });
+        assert_eq!(t.layerlist.layer_index(), 3);
+        t.handle_mouse(MouseEvent { kind: MouseEventKind::ScrollUp, column: 0, row: 0, modifiers: KeyModifiers::NONE });
+        assert_eq!(t.layerlist.layer_index(), 0);
+        t.handle_mouse(MouseEvent { kind: MouseEventKind::ScrollDown, column: 0, row: 0, modifiers: KeyModifiers::NONE });
+        t.handle_mouse(MouseEvent { kind: MouseEventKind::ScrollDown, column: 0, row: 0, modifiers: KeyModifiers::NONE });
+
+        t.table.set_rects(table_rects);
+        t.current_menu = TatMenu::TableView;
+
+        assert_eq!(t.table.current_row(), 1);
+        t.handle_mouse(MouseEvent { kind: MouseEventKind::ScrollDown, column: 0, row: 0, modifiers: KeyModifiers::NONE });
+        assert_eq!(t.table.current_row(), 6);
+        t.handle_mouse(MouseEvent { kind: MouseEventKind::ScrollUp, column: 0, row: 0, modifiers: KeyModifiers::NONE });
+        assert_eq!(t.table.current_row(), 1);
+    }
+
+    #[rstest]
+    fn test_show_full_value_popup(basic_tat: Tat) {
+        let mut t = basic_tat;
+        t.show_full_value_popup();
+
+        assert!(t.modal_popup.is_some());
+        assert_eq!(t.modal_popup.as_ref().unwrap().text(), "POINT (0 0)".to_string());
+        let title = t.modal_popup.unwrap().title().unwrap().clone();
+        assert_eq!(title, " Feature 1 - Value of \"geom\" ".to_string());
+    }
+
+    #[rstest]
+    fn test_show_gdal_log(basic_tat: Tat) {
+        {
+            use std::io::prelude::Write;
+
+            let mut t = basic_tat;
+
+            let expected = "output from gdal";
+
+            let path = format!("{}/tat_gdal.log", temp_dir().display());
+            match OpenOptions::new().append(true).open(path.clone()) {
+                Ok(mut file) => {
+                    match writeln!(file, "{expected}") {
+                        Ok(()) => return,
+                        Err(_) => (),
+                    }
+                },
+                Err(_) => (),
+            }
+            t.show_gdal_log();
+
+            assert!(t.modal_popup.is_some());
+            assert_eq!(t.modal_popup.as_ref().unwrap().text(), expected);
+        }
+    }
+
+    #[rstest]
+    fn test_show_help(basic_tat: Tat, basic_gpkg: &'static Dataset) {
+        {
+            let mut t = basic_tat;
+            t.show_help();
+
+            assert!(t.modal_popup.is_some());
+            assert!(t.modal_popup.as_ref().unwrap().text().starts_with("Keybinds for Main Menu"));
+            let title = t.modal_popup.unwrap().title().unwrap().clone();
+            assert_eq!(title, " Help ".to_string());
+        }
+
+        {
+            let mut t = Tat::new(basic_gpkg, None, None);
+            t.current_menu = TatMenu::TableView;
+            t.show_help();
+
+            assert!(t.modal_popup.as_ref().unwrap().text().starts_with("Keybinds for Attribute Table"));
+        }
+    }
+
+    #[rstest]
+    fn test_previous_menu(basic_tat: Tat) {
+        let mut t = basic_tat;
+
+        t.show_help();
+        assert!(t.modal_popup.is_some());
+        t.previous_menu();
+        assert!(t.modal_popup.is_none());
+
+        t.current_menu = TatMenu::TableView;
+        t.previous_menu();
+        assert_eq!(t.current_menu, TatMenu::MainMenu);
+        assert_eq!(t.quit, false);
+
+        t.previous_menu();
+        assert_eq!(t.quit, true);
+    }
+
+    #[rstest]
+    fn test_delegate_nav_v(basic_tat: Tat, table_rects: TableRects) {
+        let mut t = basic_tat;
+        t.layerlist.set_available_rows(10);
+
+        t.delegate_nav_v(TatNavVertical::DownParagraph);
+        assert_eq!(t.layerlist.layer_index(), 4);
+
+        t.table.set_rects(table_rects);
+        t.current_menu = TatMenu::TableView;
+
+        assert_eq!(t.table.current_row(), 1);
+        t.delegate_nav_v(TatNavVertical::DownParagraph);
+        assert_eq!(t.table.current_row(), 16);
+    }
+
+    #[rstest]
+    fn test_delegate_nav_h(basic_tat: Tat, table_rects: TableRects) {
+        let mut t = basic_tat;
+        t.table.set_rects(table_rects);
+        t.current_menu = TatMenu::TableView;
+
+        assert_eq!(t.table.current_column_name(), "geom");
+        t.delegate_nav_h(TatNavHorizontal::RightOne);
+        assert_eq!(t.table.current_column_name(), "field");
+    }
+
+    #[rstest]
+    fn test_table_rect(basic_tat: Tat) {
+        let mut t = basic_tat;
+        t.table_area = Rect {
+            x: 0,
+            y: 0,
+            width: 400,
+            height: 300,
+        };
+
+        {
+            let (table_rect, feature_col_area, scroll_v_area, scroll_h_area) = t.current_table_rects(false);
+
+            assert_eq!(
+                table_rect,
+                Rect {
+                    x: 11,
+                    y: 0,
+                    width: 388,
+                    height: 299,
+                },
+            );
+
+            assert_eq!(
+                feature_col_area,
+                Rect {
+                    x: 0,
+                    y: 0,
+                    width: 11,
+                    height: 299,
+                },
+            );
+
+            assert_eq!(
+                scroll_v_area,
+                Rect {
+                    x: 399,
+                    y: 0,
+                    width: 1,
+                    height: 299,
+                },
+            );
+
+            assert_eq!(
+                scroll_h_area,
+                Rect {
+                    x: 0,
+                    y: 299,
+                    width: 400,
+                    height: 1,
+                },
+            );
+        }
+
+        {
+            let (table_rect, feature_col_area, scroll_v_area, scroll_h_area) = t.current_table_rects(true);
+
+            assert_eq!(
+                table_rect,
+                Rect {
+                    x: 11,
+                    y: 1,
+                    width: 389,
+                    height: 300,
+                },
+            );
+
+            assert_eq!(
+                feature_col_area,
+                Rect {
+                    x: 0,
+                    y: 1,
+                    width: 11,
+                    height: 299,
+                },
+            );
+
+            assert!(scroll_v_area.is_empty());
+            assert!(scroll_h_area.is_empty());
+        }
+    }
+
+    #[rstest]
+    fn test_main_menu_areas() {
+        let tat_area = Rect {
+            x: 0,
+            y: 0,
+            width: 400,
+            height: 300,
+        };
+
+        let (header_area, dataset_area, list_area, info_area, preview_table_area) = Tat::main_menu_areas(&tat_area);
+
+        assert_eq!(
+            header_area,
+            Rect {
+                x: 0,
+                y: 0,
+                width: 400,
+                height: 2,
+            },
+        );
+
+        assert_eq!(
+            dataset_area,
+            Rect {
+                x: 0,
+                y: 2,
+                width: 400,
+                height: 4,
+            },
+        );
+
+        assert_eq!(
+            list_area,
+            Rect {
+                x: 0,
+                y: 6,
+                width: 57,
+                height: 294,
+            },
+        );
+
+        assert_eq!(
+            info_area,
+            Rect {
+                x: 57,
+                y: 6,
+                width: 114,
+                height: 294,
+            },
+        );
+
+        assert_eq!(
+            preview_table_area,
+            Rect {
+                x: 171,
+                y: 6,
+                width: 229,
+                height: 294,
+            },
+        );
+    }
+
+    #[rstest]
+    fn test_number_input_area() {
+        let tat_area = Rect {
+            x: 0,
+            y: 0,
+            width: 400,
+            height: 300,
+        };
+
+        let ni_area = Tat::number_input_area(tat_area, 30);
+        assert_eq!(
+            ni_area,
+            Rect {
+                x: 140,
+                y: 148,
+                width: 120,
+                height: 5,
+            },
+        );
+    }
+
+    #[rstest]
+    fn test_popup_area() {
+        let tat_area = Rect {
+            x: 0,
+            y: 0,
+            width: 400,
+            height: 300,
+        };
+
+        let popup_area = Tat::popup_area(tat_area, 70, 70);
+        assert_eq!(
+            popup_area,
+            Rect {
+                x: 60,
+                y: 45,
+                width: 280,
+                height: 210,
+            },
+        );
     }
 }
