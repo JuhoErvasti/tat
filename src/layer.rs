@@ -142,6 +142,12 @@ impl TatLayer {
         }
     }
 
+    /// Returns a value of a specific row (if any)
+    #[allow(unused)]
+    pub fn get_value_by_row(&self, row: u64, field_idx: i32) -> Option<String> {
+        self.get_value_by_fid(*self.fid_cache.get(row as usize).unwrap(), field_idx)
+    }
+
     /// Returns a value from a specific feature and field. This also includes geometry fields if
     /// any exist. The given field index matches how the fields are displayed in the table i.e.
     /// geometry columns are always displayed first, attribute fields second.

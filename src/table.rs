@@ -1038,4 +1038,28 @@ mod test {
         t.nav_h(TatNavHorizontal::End);
         assert_eq!(t.selected_value(), None);
     }
+
+    #[rstest]
+    fn test_where_clause(basic_gpkg: &'static Dataset) {
+        let mut t = TatTable::new(basic_gpkg, Some("text_field = 'participate'".to_string()), None);
+        t.set_layer_index(4);
+
+        let expected = Some("participate".to_string());
+
+        assert_eq!(t.layer().feature_count(), 4);
+        assert_eq!(t.layer().get_value_by_row(0, 0), expected);
+        assert_eq!(t.layer().get_value_by_row(1, 0), expected);
+        assert_eq!(t.layer().get_value_by_row(2, 0), expected);
+        assert_eq!(t.layer().get_value_by_row(3, 0), expected);
+    }
+
+    #[rstest]
+    fn test_where_clause_and_layer_filter(basic_gpkg: &'static Dataset) {
+        let filter = Some(vec!["nogeom".to_string()]);
+        let t = TatTable::new(basic_gpkg, Some("text_field = 'verify' AND i32_field = -28".to_string()), filter);
+
+        assert_eq!(t.layer().feature_count(), 1);
+        assert_eq!(t.layer().get_value_by_row(0, 0), Some("verify".to_string()));
+        assert_eq!(t.layer().get_value_by_row(0, 1), Some("-28".to_string()));
+    }
 }
