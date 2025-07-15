@@ -69,9 +69,10 @@ impl TatLayer {
                 &field.name()
             };
 
-            let crs = TatCrs::from_spatial_ref(
-                &field.spatial_ref().unwrap()
-            );
+            let crs = match &field.spatial_ref() {
+                Ok(sref) => TatCrs::from_spatial_ref(sref),
+                Err(_) => None,
+            };
 
             fields.push(
                 TatGeomField::new(

@@ -1,0 +1,10 @@
+{
+"type": "FeatureCollection",
+"name": "line",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "field": 3456 }, "geometry": { "type": "MultiLineString", "coordinates": [ [ [ 1.0, -0.0 ], [ 1.0, 1.0 ], [ 0.0, 1.0 ], [ 0.0, 2.0 ], [ 1.0, 2.0 ], [ 2.0, 2.0 ], [ 2.0, 1.0 ], [ 3.0, 1.0 ], [ 3.0, 2.0 ], [ 4.0, 2.0 ] ] ] } },
+{ "type": "Feature", "properties": { "field": 6478 }, "geometry": { "type": "MultiLineString", "coordinates": [ [ [ 2.0, -0.0 ], [ 2.0, -1.0 ], [ 1.0, -1.0 ], [ -0.0, -1.0 ], [ -1.0, -1.0 ], [ -1.0, 0.0 ], [ -2.0, -0.0 ], [ -2.0, -1.0 ], [ -2.0, -2.0 ], [ 3.0, -2.0 ], [ 3.0, -0.0 ], [ 4.0, 0.0 ], [ 4.0, 1.0 ] ] ] } },
+{ "type": "Feature", "properties": { "field": 123 }, "geometry": { "type": "MultiLineString", "coordinates": [ [ [ -3.0, 2.0 ], [ -3.0, 1.0 ], [ -2.0, 1.0 ], [ -2.0, 2.0 ], [ -1.0, 2.0 ], [ -1.0, 3.0 ] ] ] } }
+]
+}

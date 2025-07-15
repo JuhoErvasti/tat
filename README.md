@@ -40,7 +40,7 @@ Same command can be used to update.
 tat example.gpkg
 tat example.shp
 
-# ogr URI
+# ogr dataset
 tat PG:service=SERVICE
 ```
 
@@ -49,7 +49,50 @@ you use a correct URI.
 
 > [!NOTE]
 > The program is in an early state and has not been tested with all vector drivers thoroughly.
-> Some drivers (such as WFS) are known to work quite slowly.
+
+## Tested drivers
+
+Testing status of different GDAL vector drivers is presented in the table.
+
+Status explanation:
+* none: no programmatic tests exist for data format
+* basic: test(s) exist for data format and it can be opened and its features displayed
+* extensive: data format and any of its peculiarities are tested for extensively
+
+> [!NOTE]
+> These tests indicate only that data can be displayed and browsed correctly and don't consider
+> performance. Some drivers might work slowly.
+
+|Driver                                           |Status           |Notes             |
+|-------------------------------------------------|-----------------|------------------|
+|GPKG (GeoPackage)                                |basic            |                  |
+|ESRI FileGDB (OpenFileGDB)                       |none             |                  |
+|GPX (GPS Exchange Format)                        |none             |                  |
+|JSON FG (OGC Features and Geometries JSON)       |none             |                  |
+|KML (Keyhole Markup Language)                    |none             |                  |
+|MapML (Map Markup Language)                      |none             |                  |
+|MBTiles                                          |none             |                  |
+|netCDF (Network Common Data Form)                |none             |                  |
+|ODS (OpenDocument Spreadsheet)                   |none             |                  |
+|PCIDSK (PCI Geomatics Database File)             |none             |                  |
+|SQLite                                           |none             |                  |
+|VDV (VDV 451/VDV 452/INTREST Data Format)        |none             |                  |
+|CSV (Comma Separated Values)                     |none             |                  |
+|DGN (Microstation DGN)                           |none             |                  |
+|DXF (AutoCAD DXF)                                |none             |                  |
+|FlatGeobuf                                       |none             |                  |
+|GeoJSON                                          |none             |                  |
+|GeoJSONSeq (GeoJSON Sequence)                    |none             |                  |
+|GML (Geography Markup Language)                  |none             |                  |
+|JML (OpenJUMP JML)                               |none             |                  |
+|TAB (MapInfo File)                               |none             |                  |
+|MVT (Mapbox Vector Tiles)                        |none             |                  |
+|OGR_GMT (GMT ASCII Vectors)                      |none             |                  |
+|PDF (Geospatial PDF)                             |none             |                  |
+|OGR_VRT (Virtual Datasource)                     |none             |                  |
+|PMTiles (ProtoMap Tiles)                         |none             |                  |
+|SHP (ESRI Shapefile)                             |none             |                  |
+|XLSX (MS Office Open XML spreadsheet)            |none             |                  |
 
 ## Roadmap
 
@@ -96,4 +139,5 @@ Further features I've considered for future versions:
 
   Extremely unlikely:
   - Editing of any kind, the main impetus for developing this tool is to just inspect data
+
 </details>

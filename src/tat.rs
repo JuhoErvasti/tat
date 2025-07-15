@@ -864,7 +864,7 @@ impl Tat {
 
 #[cfg(test)]
 mod test {
-    use std::fs::OpenOptions;
+    use std::{fs::{exists, remove_file, OpenOptions}, path::Path};
 
     #[allow(unused)]
     use super::*;
@@ -956,20 +956,27 @@ mod test {
 
             let mut t = basic_tat;
 
-            let expected = "output from gdal";
 
             let path = format!("{}/tat_gdal.log", temp_dir().display());
-            match OpenOptions::new().append(true).open(path.clone()) {
+
+            if Path::new(&path).exists() {
+                remove_file(&path).unwrap();
+            }
+
+            File::create(format!("{}/tat_gdal.log", temp_dir().display())).unwrap();
+
+            match OpenOptions::new().write(true).open(path.clone()) {
                 Ok(mut file) => {
-                    match writeln!(file, "{expected}") {
-                        Ok(()) => return,
-                        Err(_) => (),
+                    match writeln!(file, "output from gdal") {
+                        Ok(()) => (),
+                        Err(e) => panic!("{}", e.to_string()),
                     }
                 },
-                Err(_) => (),
+                Err(e) => panic!("{}", e.to_string()),
             }
             t.show_gdal_log();
 
+            let expected = "\noutput from gdal";
             assert!(t.modal_popup.is_some());
             assert_eq!(t.modal_popup.as_ref().unwrap().text(), expected);
         }

@@ -1,0 +1,9 @@
+{
+"type": "FeatureCollection",
+"name": "polygon",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::3067" } },
+"features": [
+{ "type": "Feature", "properties": { "field": 456 }, "geometry": { "type": "Polygon", "coordinates": [ [ [ -9.0, 3.0 ], [ -9.0, 1.0 ], [ -7.0, 1.0 ], [ -7.0, 3.0 ], [ -9.0, 3.0 ] ] ] } },
+{ "type": "Feature", "properties": { "field": 213 }, "geometry": { "type": "Polygon", "coordinates": [ [ [ -5.0, 6.0 ], [ -5.0, 3.0 ], [ -2.0, 3.0 ], [ -2.0, 6.0 ], [ -5.0, 6.0 ] ] ] } }
+]
+}

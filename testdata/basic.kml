@@ -1,0 +1,873 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document id="root_doc">
+<Schema name="point" id="point">
+	<SimpleField name="field" type="int"></SimpleField>
+</Schema>
+<Folder><name>point</name>
+  <Placemark id="point.1">
+      <Point><coordinates>0,0</coordinates></Point>
+  </Placemark>
+  <Placemark id="point.2">
+      <Point><coordinates>0.000008983152841,0.0</coordinates></Point>
+  </Placemark>
+  <Placemark id="point.3">
+      <Point><coordinates>0.000008983152841,0.000008983152841</coordinates></Point>
+  </Placemark>
+  <Placemark id="point.4">
+      <Point><coordinates>0.0,0.000008983152841</coordinates></Point>
+  </Placemark>
+</Folder>
+<Folder><name>line</name>
+  <Placemark id="line.1">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#line">
+		<SimpleData name="field">3456</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><LineString><coordinates>1,0 1,1 0,1 0,2 1,2 2,2 2,1 3,1 3,2 4,2</coordinates></LineString></MultiGeometry>
+  </Placemark>
+  <Placemark id="line.2">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#line">
+		<SimpleData name="field">6478</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><LineString><coordinates>2,0 2,-1 1,-1 0,-1 -1,-1 -1,0 -2,0 -2,-1 -2,-2 3,-2 3,0 4,0 4,1</coordinates></LineString></MultiGeometry>
+  </Placemark>
+  <Placemark id="line.3">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#line">
+		<SimpleData name="field">123</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><LineString><coordinates>-3,2 -3,1 -2,1 -2,2 -1,2 -1,3</coordinates></LineString></MultiGeometry>
+  </Placemark>
+</Folder>
+<Folder><name>polygon</name>
+  <Placemark id="polygon.1">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#polygon">
+		<SimpleData name="field">456</SimpleData>
+	</SchemaData></ExtendedData>
+      <Polygon><outerBoundaryIs><LinearRing><coordinates>22.5111754846468,0.000027058124419 22.5111754846473,0.000009019374806 22.5111934026388,0.000009019375029 22.5111934026384,0.000027058125088 22.5111754846468,0.000027058124419</coordinates></LinearRing></outerBoundaryIs></Polygon>
+  </Placemark>
+  <Placemark id="polygon.2">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#polygon">
+		<SimpleData name="field">213</SimpleData>
+	</SchemaData></ExtendedData>
+      <Polygon><outerBoundaryIs><LinearRing><coordinates>22.5112113206289,0.000054116251514 22.5112113206304,0.000027058125757 22.5112381976193,0.00002705812676 22.5112381976178,0.00005411625352 22.5112113206289,0.000054116251514</coordinates></LinearRing></outerBoundaryIs></Polygon>
+  </Placemark>
+</Folder>
+<Folder><name>multipolygon</name>
+  <Placemark id="multipolygon.1">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>22.5112381976198,0.0 22.5112381976198,-0.000009019375587 22.5112471566163,-0.000009019375698 22.5112471566163,0.0 22.5112381976198,0.0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="multipolygon.2">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>22.5112292386234,0.0 22.5112292386234,-0.000009019375475 22.5112202796271,-0.000009019375364 22.5112202796271,0.0 22.5112292386234,0.0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="multipolygon.3">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>22.5112829926033,0.000018038752288 22.5112829926034,0.000009019376144 22.5112919516005,0.000009019376256 22.5112919516003,0.000018038752511 22.5112829926033,0.000018038752288</coordinates></LinearRing></outerBoundaryIs></Polygon><Polygon><outerBoundaryIs><LinearRing><coordinates>22.5113009105969,0.000036077505468 22.5113009105972,0.000027058129101 22.5113098695945,0.000027058129435 22.5113098695948,0.000018038752957 22.5113277875897,0.000018038753403 22.5113277875891,0.000036077506806 22.5113277875879,0.000054116260208 22.5113188285904,0.00005411625954 22.511318828591,0.00004509688295 22.5113188285915,0.00003607750636 22.5113009105969,0.000036077505468</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+</Folder>
+<Folder><name>nogeom</name>
+  <Placemark id="nogeom.1">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">text</SimpleData>
+		<SimpleData name="i32_field">10</SimpleData>
+		<SimpleData name="i64_field">100</SimpleData>
+		<SimpleData name="decimal_field">1.541</SimpleData>
+		<SimpleData name="date_field">1970/07/10</SimpleData>
+		<SimpleData name="datetime_field">2025/07/19 20:45:45+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.2">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">buzz</SimpleData>
+		<SimpleData name="i32_field">374</SimpleData>
+		<SimpleData name="i64_field">-1384</SimpleData>
+		<SimpleData name="decimal_field">-104.092138</SimpleData>
+		<SimpleData name="date_field">2010/05/25</SimpleData>
+		<SimpleData name="datetime_field">2016/05/03 01:40:15.048+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.3">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">check</SimpleData>
+		<SimpleData name="i32_field">173</SimpleData>
+		<SimpleData name="i64_field">2474</SimpleData>
+		<SimpleData name="decimal_field">-170.296267</SimpleData>
+		<SimpleData name="date_field">2009/02/22</SimpleData>
+		<SimpleData name="datetime_field">2015/12/13 04:04:17.556+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.4">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">die</SimpleData>
+		<SimpleData name="i32_field">681</SimpleData>
+		<SimpleData name="i64_field">-404</SimpleData>
+		<SimpleData name="decimal_field">7.189099</SimpleData>
+		<SimpleData name="date_field">2028/04/06</SimpleData>
+		<SimpleData name="datetime_field">2023/12/28 17:57:16.036+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.5">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">participate</SimpleData>
+		<SimpleData name="i32_field">967</SimpleData>
+		<SimpleData name="i64_field">-3170</SimpleData>
+		<SimpleData name="decimal_field">72.283053</SimpleData>
+		<SimpleData name="date_field">2022/02/13</SimpleData>
+		<SimpleData name="datetime_field">2025/12/12 02:11:45.662+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.6">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">huge</SimpleData>
+		<SimpleData name="i32_field">980</SimpleData>
+		<SimpleData name="i64_field">-403</SimpleData>
+		<SimpleData name="decimal_field">90.188894</SimpleData>
+		<SimpleData name="date_field">2013/06/29</SimpleData>
+		<SimpleData name="datetime_field">2018/01/30 07:39:08.074+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.7">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">read</SimpleData>
+		<SimpleData name="i32_field">295</SimpleData>
+		<SimpleData name="i64_field">-1531</SimpleData>
+		<SimpleData name="decimal_field">-84.884592</SimpleData>
+		<SimpleData name="date_field">2023/08/27</SimpleData>
+		<SimpleData name="datetime_field">2022/01/13 19:28:32.476+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.8">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">check</SimpleData>
+		<SimpleData name="i32_field">894</SimpleData>
+		<SimpleData name="i64_field">301</SimpleData>
+		<SimpleData name="decimal_field">165.484085</SimpleData>
+		<SimpleData name="date_field">2024/06/07</SimpleData>
+		<SimpleData name="datetime_field">2024/03/09 14:32:41.238+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.9">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">strive</SimpleData>
+		<SimpleData name="i32_field">841</SimpleData>
+		<SimpleData name="i64_field">-1536</SimpleData>
+		<SimpleData name="decimal_field">43.659255</SimpleData>
+		<SimpleData name="date_field">2020/12/29</SimpleData>
+		<SimpleData name="datetime_field">2029/01/26 07:53:25.466+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.10">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">strive</SimpleData>
+		<SimpleData name="i32_field">729</SimpleData>
+		<SimpleData name="i64_field">4101</SimpleData>
+		<SimpleData name="decimal_field">-192.625146</SimpleData>
+		<SimpleData name="date_field">2018/12/22</SimpleData>
+		<SimpleData name="datetime_field">2019/12/23 21:51:52.335+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.11">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">fall</SimpleData>
+		<SimpleData name="i32_field">456</SimpleData>
+		<SimpleData name="i64_field">3834</SimpleData>
+		<SimpleData name="decimal_field">-152.688532</SimpleData>
+		<SimpleData name="date_field">2029/04/17</SimpleData>
+		<SimpleData name="datetime_field">2016/07/04 06:13:35.176+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.12">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">participate</SimpleData>
+		<SimpleData name="i32_field">595</SimpleData>
+		<SimpleData name="i64_field">-219</SimpleData>
+		<SimpleData name="decimal_field">56.665858</SimpleData>
+		<SimpleData name="date_field">2016/06/23</SimpleData>
+		<SimpleData name="datetime_field">2009/09/10 01:26:32.349+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.13">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">study</SimpleData>
+		<SimpleData name="i32_field">518</SimpleData>
+		<SimpleData name="i64_field">4042</SimpleData>
+		<SimpleData name="decimal_field">14.859642</SimpleData>
+		<SimpleData name="date_field">2028/12/22</SimpleData>
+		<SimpleData name="datetime_field">2015/03/22 08:33:33.770+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.14">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">respect</SimpleData>
+		<SimpleData name="i32_field">577</SimpleData>
+		<SimpleData name="i64_field">3366</SimpleData>
+		<SimpleData name="decimal_field">5.526759</SimpleData>
+		<SimpleData name="date_field">2012/11/27</SimpleData>
+		<SimpleData name="datetime_field">2019/01/02 10:08:57.047+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.15">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">die</SimpleData>
+		<SimpleData name="i32_field">434</SimpleData>
+		<SimpleData name="i64_field">2946</SimpleData>
+		<SimpleData name="decimal_field">164.085165</SimpleData>
+		<SimpleData name="date_field">2025/06/11</SimpleData>
+		<SimpleData name="datetime_field">2026/06/17 07:23:28.466+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.16">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">verify</SimpleData>
+		<SimpleData name="i32_field">-28</SimpleData>
+		<SimpleData name="i64_field">1443</SimpleData>
+		<SimpleData name="decimal_field">45.941403</SimpleData>
+		<SimpleData name="date_field">2027/03/03</SimpleData>
+		<SimpleData name="datetime_field">2008/06/10 19:20:09.165+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.17">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">study</SimpleData>
+		<SimpleData name="i32_field">206</SimpleData>
+		<SimpleData name="i64_field">2529</SimpleData>
+		<SimpleData name="decimal_field">-129.470353</SimpleData>
+		<SimpleData name="date_field">2009/06/05</SimpleData>
+		<SimpleData name="datetime_field">2009/12/15 09:45:58.501+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.18">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">verify</SimpleData>
+		<SimpleData name="i32_field">540</SimpleData>
+		<SimpleData name="i64_field">-3621</SimpleData>
+		<SimpleData name="decimal_field">70.006604</SimpleData>
+		<SimpleData name="date_field">2026/02/26</SimpleData>
+		<SimpleData name="datetime_field">2022/01/21 08:04:41.328+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.19">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">verify</SimpleData>
+		<SimpleData name="i32_field">-92</SimpleData>
+		<SimpleData name="i64_field">2104</SimpleData>
+		<SimpleData name="decimal_field">85.831181</SimpleData>
+		<SimpleData name="date_field">2021/03/05</SimpleData>
+		<SimpleData name="datetime_field">2022/04/05 02:29:18.756+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.20">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">murky</SimpleData>
+		<SimpleData name="i32_field">163</SimpleData>
+		<SimpleData name="i64_field">3234</SimpleData>
+		<SimpleData name="decimal_field">59.299899</SimpleData>
+		<SimpleData name="date_field">2016/11/23</SimpleData>
+		<SimpleData name="datetime_field">2012/07/28 01:56:33.320+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.21">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">arrest</SimpleData>
+		<SimpleData name="i32_field">670</SimpleData>
+		<SimpleData name="i64_field">2865</SimpleData>
+		<SimpleData name="decimal_field">-165.115901</SimpleData>
+		<SimpleData name="date_field">2019/04/19</SimpleData>
+		<SimpleData name="datetime_field">2026/11/27 03:46:43.114+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.22">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">participate</SimpleData>
+		<SimpleData name="i32_field">261</SimpleData>
+		<SimpleData name="i64_field">204</SimpleData>
+		<SimpleData name="decimal_field">-90.869299</SimpleData>
+		<SimpleData name="date_field">2013/07/16</SimpleData>
+		<SimpleData name="datetime_field">2019/11/13 17:56:37.309+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.23">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">loving</SimpleData>
+		<SimpleData name="i32_field">615</SimpleData>
+		<SimpleData name="i64_field">4905</SimpleData>
+		<SimpleData name="decimal_field">-135.931367</SimpleData>
+		<SimpleData name="date_field">2024/06/12</SimpleData>
+		<SimpleData name="datetime_field">2015/01/11 10:11:40.443+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.24">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">breath</SimpleData>
+		<SimpleData name="i32_field">873</SimpleData>
+		<SimpleData name="i64_field">-3744</SimpleData>
+		<SimpleData name="decimal_field">23.026825</SimpleData>
+		<SimpleData name="date_field">2009/06/17</SimpleData>
+		<SimpleData name="datetime_field">2021/06/18 19:26:26.856+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.25">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">breath</SimpleData>
+		<SimpleData name="i32_field">507</SimpleData>
+		<SimpleData name="i64_field">-1789</SimpleData>
+		<SimpleData name="decimal_field">181.181897</SimpleData>
+		<SimpleData name="date_field">2026/02/08</SimpleData>
+		<SimpleData name="datetime_field">2011/04/23 12:40:14.519+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.26">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">read</SimpleData>
+		<SimpleData name="i32_field">134</SimpleData>
+		<SimpleData name="i64_field">307</SimpleData>
+		<SimpleData name="decimal_field">-115.438984</SimpleData>
+		<SimpleData name="date_field">2008/02/02</SimpleData>
+		<SimpleData name="datetime_field">2029/01/05 19:17:11.004+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.27">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">breath</SimpleData>
+		<SimpleData name="i32_field">177</SimpleData>
+		<SimpleData name="i64_field">-4535</SimpleData>
+		<SimpleData name="decimal_field">-20.305131</SimpleData>
+		<SimpleData name="date_field">2025/06/03</SimpleData>
+		<SimpleData name="datetime_field">2017/05/24 17:41:15.977+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.28">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">participate</SimpleData>
+		<SimpleData name="i32_field">400</SimpleData>
+		<SimpleData name="i64_field">2477</SimpleData>
+		<SimpleData name="decimal_field">57.760561</SimpleData>
+		<SimpleData name="date_field">2023/09/04</SimpleData>
+		<SimpleData name="datetime_field">2009/11/14 14:39:00.661+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.29">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">tremble</SimpleData>
+		<SimpleData name="i32_field">-7</SimpleData>
+		<SimpleData name="i64_field">-4141</SimpleData>
+		<SimpleData name="decimal_field">163.773982</SimpleData>
+		<SimpleData name="date_field">2013/02/20</SimpleData>
+		<SimpleData name="datetime_field">2023/05/15 05:32:31.008+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.30">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">study</SimpleData>
+		<SimpleData name="i32_field">873</SimpleData>
+		<SimpleData name="i64_field">-3609</SimpleData>
+		<SimpleData name="decimal_field">45.920409</SimpleData>
+		<SimpleData name="date_field">2011/07/05</SimpleData>
+		<SimpleData name="datetime_field">2027/03/31 08:35:38.187+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.31">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">raspy</SimpleData>
+		<SimpleData name="i32_field">842</SimpleData>
+		<SimpleData name="i64_field">4792</SimpleData>
+		<SimpleData name="decimal_field">95.786027</SimpleData>
+		<SimpleData name="date_field">2015/06/20</SimpleData>
+		<SimpleData name="datetime_field">2021/05/14 10:08:54.558+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.32">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">current</SimpleData>
+		<SimpleData name="i32_field">323</SimpleData>
+		<SimpleData name="i64_field">-1861</SimpleData>
+		<SimpleData name="decimal_field">-82.259782</SimpleData>
+		<SimpleData name="date_field">2019/09/02</SimpleData>
+		<SimpleData name="datetime_field">2020/01/20 22:50:05.982+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.33">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">bloody</SimpleData>
+		<SimpleData name="i32_field">418</SimpleData>
+		<SimpleData name="i64_field">4161</SimpleData>
+		<SimpleData name="decimal_field">125.614895</SimpleData>
+		<SimpleData name="date_field">2014/06/16</SimpleData>
+		<SimpleData name="datetime_field">2019/01/07 06:42:48.012+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.34">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">murky</SimpleData>
+		<SimpleData name="i32_field">918</SimpleData>
+		<SimpleData name="i64_field">-4092</SimpleData>
+		<SimpleData name="decimal_field">196.367059</SimpleData>
+		<SimpleData name="date_field">2021/06/24</SimpleData>
+		<SimpleData name="datetime_field">2025/01/11 09:39:58.739+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.35">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">current</SimpleData>
+		<SimpleData name="i32_field">212</SimpleData>
+		<SimpleData name="i64_field">4349</SimpleData>
+		<SimpleData name="decimal_field">106.562075</SimpleData>
+		<SimpleData name="date_field">2026/12/26</SimpleData>
+		<SimpleData name="datetime_field">2011/06/16 13:44:14.665+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.36">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">read</SimpleData>
+		<SimpleData name="i32_field">-51</SimpleData>
+		<SimpleData name="i64_field">-425</SimpleData>
+		<SimpleData name="decimal_field">154.331481</SimpleData>
+		<SimpleData name="date_field">2026/06/09</SimpleData>
+		<SimpleData name="datetime_field">2013/10/12 12:47:54.145+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.37">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">verify</SimpleData>
+		<SimpleData name="i32_field">870</SimpleData>
+		<SimpleData name="i64_field">-3350</SimpleData>
+		<SimpleData name="decimal_field">73.29785</SimpleData>
+		<SimpleData name="date_field">2013/01/29</SimpleData>
+		<SimpleData name="datetime_field">2011/04/02 17:39:28.947+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.38">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">loving</SimpleData>
+		<SimpleData name="i32_field">13</SimpleData>
+		<SimpleData name="i64_field">2095</SimpleData>
+		<SimpleData name="decimal_field">98.944013</SimpleData>
+		<SimpleData name="date_field">2017/09/20</SimpleData>
+		<SimpleData name="datetime_field">2028/12/11 02:01:38.787+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.39">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">verify</SimpleData>
+		<SimpleData name="i32_field">356</SimpleData>
+		<SimpleData name="i64_field">-4767</SimpleData>
+		<SimpleData name="decimal_field">-103.234727</SimpleData>
+		<SimpleData name="date_field">2008/08/18</SimpleData>
+		<SimpleData name="datetime_field">2016/10/09 16:58:43.109+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.40">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">die</SimpleData>
+		<SimpleData name="i32_field">3</SimpleData>
+		<SimpleData name="i64_field">-3577</SimpleData>
+		<SimpleData name="decimal_field">-61.458799</SimpleData>
+		<SimpleData name="date_field">2021/08/13</SimpleData>
+		<SimpleData name="datetime_field">2023/01/07 15:59:55.057+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.41">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">raspy</SimpleData>
+		<SimpleData name="i32_field">634</SimpleData>
+		<SimpleData name="i64_field">-113</SimpleData>
+		<SimpleData name="decimal_field">-13.152387</SimpleData>
+		<SimpleData name="date_field">2019/01/16</SimpleData>
+		<SimpleData name="datetime_field">2027/04/28 21:35:52.459+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.42">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">murky</SimpleData>
+		<SimpleData name="i32_field">306</SimpleData>
+		<SimpleData name="i64_field">3620</SimpleData>
+		<SimpleData name="decimal_field">-1.47147</SimpleData>
+		<SimpleData name="date_field">2021/11/25</SimpleData>
+		<SimpleData name="datetime_field">2016/03/15 04:34:20.185+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.43">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">bad</SimpleData>
+		<SimpleData name="i32_field">987</SimpleData>
+		<SimpleData name="i64_field">2034</SimpleData>
+		<SimpleData name="decimal_field">15.920554</SimpleData>
+		<SimpleData name="date_field">2009/09/08</SimpleData>
+		<SimpleData name="datetime_field">2022/08/28 19:16:38.777+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.44">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">courageous</SimpleData>
+		<SimpleData name="i32_field">584</SimpleData>
+		<SimpleData name="i64_field">-90</SimpleData>
+		<SimpleData name="decimal_field">163.497059</SimpleData>
+		<SimpleData name="date_field">2023/03/24</SimpleData>
+		<SimpleData name="datetime_field">2010/05/29 07:45:13.766+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.45">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">courageous</SimpleData>
+		<SimpleData name="i32_field">572</SimpleData>
+		<SimpleData name="i64_field">536</SimpleData>
+		<SimpleData name="decimal_field">-0.134892</SimpleData>
+		<SimpleData name="date_field">2025/07/27</SimpleData>
+		<SimpleData name="datetime_field">2007/12/28 04:04:33.089+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.46">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">murky</SimpleData>
+		<SimpleData name="i32_field">321</SimpleData>
+		<SimpleData name="i64_field">3836</SimpleData>
+		<SimpleData name="decimal_field">-29.019806</SimpleData>
+		<SimpleData name="date_field">2013/09/14</SimpleData>
+		<SimpleData name="datetime_field">2020/05/20 20:01:18.398+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.47">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">current</SimpleData>
+		<SimpleData name="i32_field">946</SimpleData>
+		<SimpleData name="i64_field">1786</SimpleData>
+		<SimpleData name="decimal_field">-75.821284</SimpleData>
+		<SimpleData name="date_field">2024/01/23</SimpleData>
+		<SimpleData name="datetime_field">2015/06/29 17:44:11.773+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.48">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">bad</SimpleData>
+		<SimpleData name="i32_field">906</SimpleData>
+		<SimpleData name="i64_field">-4961</SimpleData>
+		<SimpleData name="decimal_field">58.555764</SimpleData>
+		<SimpleData name="date_field">2021/09/28</SimpleData>
+		<SimpleData name="datetime_field">2017/05/19 03:07:07.501+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.49">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">fall</SimpleData>
+		<SimpleData name="i32_field">655</SimpleData>
+		<SimpleData name="i64_field">4850</SimpleData>
+		<SimpleData name="decimal_field">62.768847</SimpleData>
+		<SimpleData name="date_field">2022/01/25</SimpleData>
+		<SimpleData name="datetime_field">2025/09/28 19:17:40.143+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.50">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">fall</SimpleData>
+		<SimpleData name="i32_field">847</SimpleData>
+		<SimpleData name="i64_field">-4739</SimpleData>
+		<SimpleData name="decimal_field">-189.71033</SimpleData>
+		<SimpleData name="date_field">2013/01/20</SimpleData>
+		<SimpleData name="datetime_field">2028/10/30 08:16:35.507+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.51">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">scrawny</SimpleData>
+		<SimpleData name="i32_field">227</SimpleData>
+		<SimpleData name="i64_field">4535</SimpleData>
+		<SimpleData name="decimal_field">8.927695</SimpleData>
+		<SimpleData name="date_field">2019/06/29</SimpleData>
+		<SimpleData name="datetime_field">2025/09/12 14:08:51.147+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.52">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">huge</SimpleData>
+		<SimpleData name="i32_field">-12</SimpleData>
+		<SimpleData name="i64_field">-4563</SimpleData>
+		<SimpleData name="decimal_field">-160.145695</SimpleData>
+		<SimpleData name="date_field">2007/11/27</SimpleData>
+		<SimpleData name="datetime_field">2027/11/03 05:32:52.387+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.53">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">courageous</SimpleData>
+		<SimpleData name="i32_field">731</SimpleData>
+		<SimpleData name="i64_field">-2645</SimpleData>
+		<SimpleData name="decimal_field">-33.973891</SimpleData>
+		<SimpleData name="date_field">2009/04/14</SimpleData>
+		<SimpleData name="datetime_field">2013/02/14 11:24:52.293+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.54">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">read</SimpleData>
+		<SimpleData name="i32_field">100</SimpleData>
+		<SimpleData name="i64_field">-1557</SimpleData>
+		<SimpleData name="decimal_field">-28.323145</SimpleData>
+		<SimpleData name="date_field">2011/03/13</SimpleData>
+		<SimpleData name="datetime_field">2013/07/16 09:32:22.022+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.55">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">study</SimpleData>
+		<SimpleData name="i32_field">56</SimpleData>
+		<SimpleData name="i64_field">-674</SimpleData>
+		<SimpleData name="decimal_field">-162.842936</SimpleData>
+		<SimpleData name="date_field">2021/02/21</SimpleData>
+		<SimpleData name="datetime_field">2010/06/28 16:41:23.595+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.56">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">bad</SimpleData>
+		<SimpleData name="i32_field">702</SimpleData>
+		<SimpleData name="i64_field">-198</SimpleData>
+		<SimpleData name="decimal_field">140.328749</SimpleData>
+		<SimpleData name="date_field">2022/03/20</SimpleData>
+		<SimpleData name="datetime_field">2026/04/14 08:38:41.864+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.57">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">current</SimpleData>
+		<SimpleData name="i32_field">430</SimpleData>
+		<SimpleData name="i64_field">-3908</SimpleData>
+		<SimpleData name="decimal_field">-157.329372</SimpleData>
+		<SimpleData name="date_field">2013/09/27</SimpleData>
+		<SimpleData name="datetime_field">2024/12/29 02:45:42.003+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.58">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">huge</SimpleData>
+		<SimpleData name="i32_field">895</SimpleData>
+		<SimpleData name="i64_field">1686</SimpleData>
+		<SimpleData name="decimal_field">53.586338</SimpleData>
+		<SimpleData name="date_field">2025/10/17</SimpleData>
+		<SimpleData name="datetime_field">2018/10/12 13:54:14.202+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.59">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">read</SimpleData>
+		<SimpleData name="i32_field">-18</SimpleData>
+		<SimpleData name="i64_field">736</SimpleData>
+		<SimpleData name="decimal_field">41.903661</SimpleData>
+		<SimpleData name="date_field">2025/05/08</SimpleData>
+		<SimpleData name="datetime_field">2014/02/23 16:35:14.647+00</SimpleData>
+		<SimpleData name="bool_field">1</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+  <Placemark id="nogeom.60">
+	<ExtendedData><SchemaData schemaUrl="#nogeom">
+		<SimpleData name="text_field">legal</SimpleData>
+		<SimpleData name="i32_field">397</SimpleData>
+		<SimpleData name="i64_field">-684</SimpleData>
+		<SimpleData name="decimal_field">166.452107</SimpleData>
+		<SimpleData name="date_field">2012/08/19</SimpleData>
+		<SimpleData name="datetime_field">2020/04/12 16:57:19.989+00</SimpleData>
+		<SimpleData name="bool_field">0</SimpleData>
+		<SimpleData name="blob_field">626C6F620A</SimpleData>
+		<SimpleData name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</SimpleData>
+	</SchemaData></ExtendedData>
+  </Placemark>
+</Folder>
+<Schema name="line" id="line">
+	<SimpleField name="field" type="int"></SimpleField>
+</Schema>
+<Schema name="polygon" id="polygon">
+	<SimpleField name="field" type="int"></SimpleField>
+</Schema>
+<Schema name="nogeom" id="nogeom">
+	<SimpleField name="text_field" type="string"></SimpleField>
+	<SimpleField name="i32_field" type="int"></SimpleField>
+	<SimpleField name="i64_field" type="float"></SimpleField>
+	<SimpleField name="decimal_field" type="float"></SimpleField>
+	<SimpleField name="date_field" type="string"></SimpleField>
+	<SimpleField name="datetime_field" type="string"></SimpleField>
+	<SimpleField name="bool_field" type="int"></SimpleField>
+	<SimpleField name="blob_field" type="string"></SimpleField>
+	<SimpleField name="json_field" type="string"></SimpleField>
+</Schema>
+</Document></kml>

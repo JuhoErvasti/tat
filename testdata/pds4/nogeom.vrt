@@ -1,0 +1,16 @@
+<OGRVRTDataSource>
+  <OGRVRTLayer name="nogeom">
+    <SrcDataSource relativeToVRT="1">nogeom.csv</SrcDataSource>
+    <SrcLayer>nogeom</SrcLayer>
+    <GeometryType>wkbNone</GeometryType>
+    <Field name="text_field" type="String" src="text_field" />
+    <Field name="i32_field" type="Integer" src="i32_field" />
+    <Field name="i64_field" type="Integer64" src="i64_field" />
+    <Field name="decimal_field" type="Real" src="decimal_field" />
+    <Field name="date_field" type="Date" src="date_field" />
+    <Field name="datetime_field" type="DateTime" src="datetime_field" />
+    <Field name="bool_field" type="Integer" subtype="Boolean" src="bool_field" />
+    <Field name="blob_field" type="String" src="blob_field" />
+    <Field name="json_field" type="String" subtype="JSON" src="json_field" />
+  </OGRVRTLayer>
+</OGRVRTDataSource>
