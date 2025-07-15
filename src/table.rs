@@ -712,8 +712,8 @@ mod test {
     #[rstest]
     fn test_dataset_info_text(basic_gpkg: &'static Dataset) {
         let t = TatTable::new(basic_gpkg, None, None);
-        let expected = format!("- URI: \"{}/testdata/basic.gpkg\"
-- Driver: GeoPackage (GPKG)", env!("CARGO_MANIFEST_DIR"));
+        let expected = "- URI: \"./testdata/basic.gpkg\"
+- Driver: GeoPackage (GPKG)";
 
         assert_eq!(t.dataset_info_text(), expected);
     }
