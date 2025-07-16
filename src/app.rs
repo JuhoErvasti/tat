@@ -871,6 +871,10 @@ impl TatApp {
         (visible_cols as usize, has_h_scroll, visible_rows as usize, has_v_scroll)
     }
 
+    pub fn table(&self) -> &TatTable {
+        &self.table
+    }
+
 }
 
 #[cfg(test)]

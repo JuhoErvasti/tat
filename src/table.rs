@@ -387,7 +387,7 @@ impl TatTable {
     }
 
     /// Returns currently selected layer
-    fn layer(&self) -> &TatLayer {
+    pub fn layer(&self) -> &TatLayer {
         self.layers.get(self.layer_index).unwrap()
     }
 
