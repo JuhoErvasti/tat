@@ -1,147 +1,58 @@
-use gdal::{errors::{CplErrType, GdalError}, Dataset, DatasetOptions, GdalOpenFlags};
-use tat::Tat;
-use core::panic;
-use std::{env::{self, temp_dir}, fs::{File, OpenOptions}, process::exit};
-use cli_log::*;
-use std::io::prelude::*;
+use cli_log::init_cli_log;
+use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
+use std::{env::temp_dir, fs::File};
+use clap::{CommandFactory, Parser};
 
-mod table;
-mod types;
-mod layerlist;
-mod tat;
-mod navparagraph;
-mod shared;
+use tat::app::TatApp;
+use tat::utils::{error_handler, open_dataset};
 
-fn show_usage() {
-    // TODO:
-    println!("Attribute Table for spatial data in the terminal.\n");
-    println!("Usage: tat [URI]");
-}
+#[derive(Parser)]
+#[command(arg_required_else_help = true)]
+#[command(version, about, long_about = None)]
+struct Cli {
+    uri: String,
 
-fn error_handler(class: CplErrType, number: i32, message: &str) {
-    let class = match class {
-        CplErrType::None => "[NONE]",
-        CplErrType::Debug => "[DEBUG]",
-        CplErrType::Warning => "[WARN]",
-        CplErrType::Failure => "[ERROR]",
-        CplErrType::Fatal => "[FATAL]",
-    };
+    #[arg(long = "where", value_name = "WHERE", help = "Filter feature based on attributes", long_help = "Filter which features are shown based on their attributes. Given in the format of a SQL WHERE clause e.g. --where=\"field_1 = 12\"")]
+    where_sql: Option<String>,
 
-    // TODO: no unwrapping
-    let mut file = OpenOptions::new()
-        .append(true)
-        .open(format!("{}/tat_gdal.log", temp_dir().display()))
-        .unwrap();
+    #[arg(long = "layers", value_name = "LAYERS", help = "Layer(s) to open", long_help = "Specify which layers in the dataset should be opened. Given as a comma-separated list e.g. \"--layers=layer_1,layer_2\"")]
+    layers: Option<String>,
 
-    if let Err(e) = writeln!(file, "{class} [{number}] {message}") {
-        // TODO: no panic
-        panic!();
-    }
-}
-
-fn open_dataset(path: String, err: &mut String) -> Option<&'static Dataset> {
-    // deal with vectors only at least for now
-    let flags = GdalOpenFlags::GDAL_OF_VECTOR | GdalOpenFlags::GDAL_OF_READONLY;
-
-    let options = DatasetOptions {
-        open_flags: flags,
-        allowed_drivers: None,
-        open_options: None,
-        sibling_files: None,
-    };
-
-    let ds = match Dataset::open_ex(path, options) {
-        Err(error) => match error {
-            GdalError::FfiNulError(_) => {
-                *err = "FFI NULL Error".to_string();
-                return None;
-            },
-            GdalError::FfiIntoStringError(_) => {
-                *err = "FFI Into String Error".to_string();
-                return None;
-            },
-            GdalError::StrUtf8Error(_) => {
-                *err = "String UTF-8 Error".to_string();
-                return None;
-            },
-            GdalError::CplError { class, number, msg } => {
-                *err = format!("CPL Error: {} {} {}", class, number, msg);
-                return None;
-            },
-            GdalError::NullPointer { method_name, msg } => {
-                *err = format!("{} {}", method_name, msg);
-                return None;
-            },
-            GdalError::CastToF64Error => {
-                *err = "Cast to F64 Error".to_string();
-                return None;
-            },
-            GdalError::OgrError { err, method_name } => {
-                match err {
-                    _ => {
-                        debug!("{}", method_name);
-                        todo!();
-                    }
-                }
-            },
-            GdalError::UnhandledFieldType { field_type, method_name } => {
-                *err = format!("Unhandled Field Type: {} {}", field_type, method_name);
-                return None;
-            },
-            GdalError::InvalidFieldName { field_name, method_name } => {
-                *err = format!("Invalid Field Name: {} {}", field_name, method_name);
-                return None;
-            },
-            // GdalError::InvalidFieldIndex { index, method_name } => todo!("{} {}", index, method_name),
-            // GdalError::UnlinkedGeometry { method_name } => todo!("{}", method_name),
-            // GdalError::InvalidCoordinateRange { from, to, msg } => todo!("{} {} {}", from, to, msg.unwrap()),
-            // GdalError::AxisNotFoundError { key, method_name } => todo!("{} {}", key, method_name),
-            // GdalError::UnsupportedGdalGeometryType(_) => todo!(),
-            // GdalError::UnlinkMemFile { file_name } => todo!("{}", file_name),
-            // GdalError::BadArgument(_) => todo!(),
-            // GdalError::DateError(str) => todo!("{}", str),
-            // GdalError::UnsupportedMdDataType { data_type, method_name } => todo!("{} {}", data_type, method_name),
-            // GdalError::IntConversionError(_) => todo!(),
-            // GdalError::BufferSizeMismatch(..) => todo!(),
-            _ => {
-                *err = "Unspecified GDAL error occured".to_string();
-                return None;
-            },
-        },
-        Ok(ds) => ds,
-    };
-
-    if err.is_empty() {
-        println!("{}", err);
-    }
-
-    Some(Box::leak(Box::new(ds)))
+    #[arg(long = "allow-untested-drivers", value_name = "ALLOW_UNTESTED_DRIVERS", help = "Allow attempting to open dataset of any type which has a GDAL-supported vector driver. Use with caution.")]
+    all_drivers: bool,
 }
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
+    let cli = Cli::parse();
+    let uri = cli.uri;
+    let where_clause = cli.where_sql;
 
-    if args.len() != 2 {
-        show_usage();
-        exit(1);
-    }
+    let layers = if let Some(lyrs) = cli.layers {
+        let layers = lyrs.split(',');
+        let mut _layers = vec![];
+        for _lyr in layers {
+            _layers.push(_lyr.to_string());
+        }
 
-    let path = &args[1];
+        Some(_layers)
+    } else {
+        None
+    };
 
     let _ = File::create(format!("{}/tat_gdal.log", temp_dir().display())).unwrap();
     gdal::config::set_error_handler(error_handler);
 
-    init_cli_log!();
-
-    let mut err: String = "".to_string();
-
-    if let Some(ds) = open_dataset(path.to_string(), &mut err) {
+    if let Some(ds) = open_dataset(uri.to_string(), cli.all_drivers) {
+        init_cli_log!();
         let mut terminal = ratatui::init();
-        let _result = Tat::new(&ds).run(&mut terminal);
+        crossterm::execute!(std::io::stdout(), EnableMouseCapture).unwrap();
 
+        let _result = TatApp::new(&ds, where_clause, layers).run(&mut terminal);
+
+        // FIXME: if the program terminates this will not happen
+        crossterm::execute!(std::io::stdout(), DisableMouseCapture).unwrap();
         ratatui::restore();
     } else {
-        println!("ERROR: Could not open dataset from path!\n{}\nUsage:", err);
-        show_usage();
+        Cli::command().print_help().unwrap();
     }
 }

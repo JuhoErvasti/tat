@@ -1,0 +1,15 @@
+!table
+!version 900
+!charset Neutral
+
+Definition Table
+  Type NATIVE Charset "Neutral"
+  Fields 8
+    text_field Char (254) ;
+    i32_field Integer ;
+    i64_field LargeInt ;
+    decimal_field Float ;
+    date_field Date ;
+    datetime_field DateTime ;
+    bool_field Logical ;
+    json_field Char (254) ;

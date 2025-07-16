@@ -1,0 +1,978 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<JCSDataFile xmlns:gml="http://www.opengis.net/gml" xmlns:xsi="http://www.w3.org/2000/10/XMLSchema-instance" >
+<JCSGMLInputTemplate>
+<CollectionElement>featureCollection</CollectionElement>
+<FeatureElement>feature</FeatureElement>
+<GeometryElement>geometry</GeometryElement>
+<CRSElement>boundedBy</CRSElement>
+<ColumnDefinitions>
+     <column>
+          <name>text_field</name>
+          <type>STRING</type>
+          <valueElement elementName="property" attributeName="name" attributeValue="text_field"/>
+          <valueLocation position="body"/>
+     </column>
+     <column>
+          <name>i32_field</name>
+          <type>INTEGER</type>
+          <valueElement elementName="property" attributeName="name" attributeValue="i32_field"/>
+          <valueLocation position="body"/>
+     </column>
+     <column>
+          <name>i64_field</name>
+          <type>OBJECT</type>
+          <valueElement elementName="property" attributeName="name" attributeValue="i64_field"/>
+          <valueLocation position="body"/>
+     </column>
+     <column>
+          <name>decimal_field</name>
+          <type>DOUBLE</type>
+          <valueElement elementName="property" attributeName="name" attributeValue="decimal_field"/>
+          <valueLocation position="body"/>
+     </column>
+     <column>
+          <name>date_field</name>
+          <type>DATE</type>
+          <valueElement elementName="property" attributeName="name" attributeValue="date_field"/>
+          <valueLocation position="body"/>
+     </column>
+     <column>
+          <name>datetime_field</name>
+          <type>DATE</type>
+          <valueElement elementName="property" attributeName="name" attributeValue="datetime_field"/>
+          <valueLocation position="body"/>
+     </column>
+     <column>
+          <name>bool_field</name>
+          <type>INTEGER</type>
+          <valueElement elementName="property" attributeName="name" attributeValue="bool_field"/>
+          <valueLocation position="body"/>
+     </column>
+     <column>
+          <name>blob_field</name>
+          <type>STRING</type>
+          <valueElement elementName="property" attributeName="name" attributeValue="blob_field"/>
+          <valueLocation position="body"/>
+     </column>
+     <column>
+          <name>json_field</name>
+          <type>STRING</type>
+          <valueElement elementName="property" attributeName="name" attributeValue="json_field"/>
+          <valueLocation position="body"/>
+     </column>
+     <column>
+          <name>R_G_B</name>
+          <type>STRING</type>
+          <valueElement elementName="property" attributeName="name" attributeValue="R_G_B"/>
+          <valueLocation position="body"/>
+     </column>
+</ColumnDefinitions>
+</JCSGMLInputTemplate>
+<featureCollection>
+  <gml:boundedBy>
+    <gml:Box>
+      <gml:coordinates decimal="." cs="," ts=" ">0.00,0.00 -1.00,-1.00                                                                               </gml:coordinates>
+    </gml:Box>
+  </gml:boundedBy>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">text</property>
+          <property name="i32_field">10</property>
+          <property name="i64_field">100</property>
+          <property name="decimal_field">1.541</property>
+          <property name="date_field">1970/07/10</property>
+          <property name="datetime_field">2025-07-19T20:45:45.000+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">buzz</property>
+          <property name="i32_field">374</property>
+          <property name="i64_field">-1384</property>
+          <property name="decimal_field">-104.092138</property>
+          <property name="date_field">2010/05/25</property>
+          <property name="datetime_field">2016-05-03T01:40:15.048+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">check</property>
+          <property name="i32_field">173</property>
+          <property name="i64_field">2474</property>
+          <property name="decimal_field">-170.296267</property>
+          <property name="date_field">2009/02/22</property>
+          <property name="datetime_field">2015-12-13T04:04:17.556+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">die</property>
+          <property name="i32_field">681</property>
+          <property name="i64_field">-404</property>
+          <property name="decimal_field">7.189099</property>
+          <property name="date_field">2028/04/06</property>
+          <property name="datetime_field">2023-12-28T17:57:16.036+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">participate</property>
+          <property name="i32_field">967</property>
+          <property name="i64_field">-3170</property>
+          <property name="decimal_field">72.283053</property>
+          <property name="date_field">2022/02/13</property>
+          <property name="datetime_field">2025-12-12T02:11:45.662+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">huge</property>
+          <property name="i32_field">980</property>
+          <property name="i64_field">-403</property>
+          <property name="decimal_field">90.188894</property>
+          <property name="date_field">2013/06/29</property>
+          <property name="datetime_field">2018-01-30T07:39:08.074+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">read</property>
+          <property name="i32_field">295</property>
+          <property name="i64_field">-1531</property>
+          <property name="decimal_field">-84.884592</property>
+          <property name="date_field">2023/08/27</property>
+          <property name="datetime_field">2022-01-13T19:28:32.476+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">check</property>
+          <property name="i32_field">894</property>
+          <property name="i64_field">301</property>
+          <property name="decimal_field">165.484085</property>
+          <property name="date_field">2024/06/07</property>
+          <property name="datetime_field">2024-03-09T14:32:41.238+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">strive</property>
+          <property name="i32_field">841</property>
+          <property name="i64_field">-1536</property>
+          <property name="decimal_field">43.659255</property>
+          <property name="date_field">2020/12/29</property>
+          <property name="datetime_field">2029-01-26T07:53:25.466+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">strive</property>
+          <property name="i32_field">729</property>
+          <property name="i64_field">4101</property>
+          <property name="decimal_field">-192.625146</property>
+          <property name="date_field">2018/12/22</property>
+          <property name="datetime_field">2019-12-23T21:51:52.335+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">fall</property>
+          <property name="i32_field">456</property>
+          <property name="i64_field">3834</property>
+          <property name="decimal_field">-152.688532</property>
+          <property name="date_field">2029/04/17</property>
+          <property name="datetime_field">2016-07-04T06:13:35.176+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">participate</property>
+          <property name="i32_field">595</property>
+          <property name="i64_field">-219</property>
+          <property name="decimal_field">56.665858</property>
+          <property name="date_field">2016/06/23</property>
+          <property name="datetime_field">2009-09-10T01:26:32.349+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">study</property>
+          <property name="i32_field">518</property>
+          <property name="i64_field">4042</property>
+          <property name="decimal_field">14.859642</property>
+          <property name="date_field">2028/12/22</property>
+          <property name="datetime_field">2015-03-22T08:33:33.770+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">respect</property>
+          <property name="i32_field">577</property>
+          <property name="i64_field">3366</property>
+          <property name="decimal_field">5.526759</property>
+          <property name="date_field">2012/11/27</property>
+          <property name="datetime_field">2019-01-02T10:08:57.047+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">die</property>
+          <property name="i32_field">434</property>
+          <property name="i64_field">2946</property>
+          <property name="decimal_field">164.085165</property>
+          <property name="date_field">2025/06/11</property>
+          <property name="datetime_field">2026-06-17T07:23:28.466+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">verify</property>
+          <property name="i32_field">-28</property>
+          <property name="i64_field">1443</property>
+          <property name="decimal_field">45.941403</property>
+          <property name="date_field">2027/03/03</property>
+          <property name="datetime_field">2008-06-10T19:20:09.165+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">study</property>
+          <property name="i32_field">206</property>
+          <property name="i64_field">2529</property>
+          <property name="decimal_field">-129.470353</property>
+          <property name="date_field">2009/06/05</property>
+          <property name="datetime_field">2009-12-15T09:45:58.501+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">verify</property>
+          <property name="i32_field">540</property>
+          <property name="i64_field">-3621</property>
+          <property name="decimal_field">70.006604</property>
+          <property name="date_field">2026/02/26</property>
+          <property name="datetime_field">2022-01-21T08:04:41.328+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">verify</property>
+          <property name="i32_field">-92</property>
+          <property name="i64_field">2104</property>
+          <property name="decimal_field">85.831181</property>
+          <property name="date_field">2021/03/05</property>
+          <property name="datetime_field">2022-04-05T02:29:18.756+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">murky</property>
+          <property name="i32_field">163</property>
+          <property name="i64_field">3234</property>
+          <property name="decimal_field">59.299899</property>
+          <property name="date_field">2016/11/23</property>
+          <property name="datetime_field">2012-07-28T01:56:33.320+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">arrest</property>
+          <property name="i32_field">670</property>
+          <property name="i64_field">2865</property>
+          <property name="decimal_field">-165.115901</property>
+          <property name="date_field">2019/04/19</property>
+          <property name="datetime_field">2026-11-27T03:46:43.114+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">participate</property>
+          <property name="i32_field">261</property>
+          <property name="i64_field">204</property>
+          <property name="decimal_field">-90.869299</property>
+          <property name="date_field">2013/07/16</property>
+          <property name="datetime_field">2019-11-13T17:56:37.309+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">loving</property>
+          <property name="i32_field">615</property>
+          <property name="i64_field">4905</property>
+          <property name="decimal_field">-135.931367</property>
+          <property name="date_field">2024/06/12</property>
+          <property name="datetime_field">2015-01-11T10:11:40.443+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">breath</property>
+          <property name="i32_field">873</property>
+          <property name="i64_field">-3744</property>
+          <property name="decimal_field">23.026825</property>
+          <property name="date_field">2009/06/17</property>
+          <property name="datetime_field">2021-06-18T19:26:26.856+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">breath</property>
+          <property name="i32_field">507</property>
+          <property name="i64_field">-1789</property>
+          <property name="decimal_field">181.181897</property>
+          <property name="date_field">2026/02/08</property>
+          <property name="datetime_field">2011-04-23T12:40:14.519+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">read</property>
+          <property name="i32_field">134</property>
+          <property name="i64_field">307</property>
+          <property name="decimal_field">-115.438984</property>
+          <property name="date_field">2008/02/02</property>
+          <property name="datetime_field">2029-01-05T19:17:11.004+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">breath</property>
+          <property name="i32_field">177</property>
+          <property name="i64_field">-4535</property>
+          <property name="decimal_field">-20.305131</property>
+          <property name="date_field">2025/06/03</property>
+          <property name="datetime_field">2017-05-24T17:41:15.977+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">participate</property>
+          <property name="i32_field">400</property>
+          <property name="i64_field">2477</property>
+          <property name="decimal_field">57.760561</property>
+          <property name="date_field">2023/09/04</property>
+          <property name="datetime_field">2009-11-14T14:39:00.661+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">tremble</property>
+          <property name="i32_field">-7</property>
+          <property name="i64_field">-4141</property>
+          <property name="decimal_field">163.773982</property>
+          <property name="date_field">2013/02/20</property>
+          <property name="datetime_field">2023-05-15T05:32:31.008+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">study</property>
+          <property name="i32_field">873</property>
+          <property name="i64_field">-3609</property>
+          <property name="decimal_field">45.920409</property>
+          <property name="date_field">2011/07/05</property>
+          <property name="datetime_field">2027-03-31T08:35:38.187+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">raspy</property>
+          <property name="i32_field">842</property>
+          <property name="i64_field">4792</property>
+          <property name="decimal_field">95.786027</property>
+          <property name="date_field">2015/06/20</property>
+          <property name="datetime_field">2021-05-14T10:08:54.558+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">current</property>
+          <property name="i32_field">323</property>
+          <property name="i64_field">-1861</property>
+          <property name="decimal_field">-82.259782</property>
+          <property name="date_field">2019/09/02</property>
+          <property name="datetime_field">2020-01-20T22:50:05.982+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">bloody</property>
+          <property name="i32_field">418</property>
+          <property name="i64_field">4161</property>
+          <property name="decimal_field">125.614895</property>
+          <property name="date_field">2014/06/16</property>
+          <property name="datetime_field">2019-01-07T06:42:48.012+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">murky</property>
+          <property name="i32_field">918</property>
+          <property name="i64_field">-4092</property>
+          <property name="decimal_field">196.367059</property>
+          <property name="date_field">2021/06/24</property>
+          <property name="datetime_field">2025-01-11T09:39:58.739+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">current</property>
+          <property name="i32_field">212</property>
+          <property name="i64_field">4349</property>
+          <property name="decimal_field">106.562075</property>
+          <property name="date_field">2026/12/26</property>
+          <property name="datetime_field">2011-06-16T13:44:14.665+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">read</property>
+          <property name="i32_field">-51</property>
+          <property name="i64_field">-425</property>
+          <property name="decimal_field">154.331481</property>
+          <property name="date_field">2026/06/09</property>
+          <property name="datetime_field">2013-10-12T12:47:54.145+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">verify</property>
+          <property name="i32_field">870</property>
+          <property name="i64_field">-3350</property>
+          <property name="decimal_field">73.29785</property>
+          <property name="date_field">2013/01/29</property>
+          <property name="datetime_field">2011-04-02T17:39:28.947+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">loving</property>
+          <property name="i32_field">13</property>
+          <property name="i64_field">2095</property>
+          <property name="decimal_field">98.944013</property>
+          <property name="date_field">2017/09/20</property>
+          <property name="datetime_field">2028-12-11T02:01:38.787+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">verify</property>
+          <property name="i32_field">356</property>
+          <property name="i64_field">-4767</property>
+          <property name="decimal_field">-103.234727</property>
+          <property name="date_field">2008/08/18</property>
+          <property name="datetime_field">2016-10-09T16:58:43.109+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">die</property>
+          <property name="i32_field">3</property>
+          <property name="i64_field">-3577</property>
+          <property name="decimal_field">-61.458799</property>
+          <property name="date_field">2021/08/13</property>
+          <property name="datetime_field">2023-01-07T15:59:55.057+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">raspy</property>
+          <property name="i32_field">634</property>
+          <property name="i64_field">-113</property>
+          <property name="decimal_field">-13.152387</property>
+          <property name="date_field">2019/01/16</property>
+          <property name="datetime_field">2027-04-28T21:35:52.459+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">murky</property>
+          <property name="i32_field">306</property>
+          <property name="i64_field">3620</property>
+          <property name="decimal_field">-1.47147</property>
+          <property name="date_field">2021/11/25</property>
+          <property name="datetime_field">2016-03-15T04:34:20.185+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">bad</property>
+          <property name="i32_field">987</property>
+          <property name="i64_field">2034</property>
+          <property name="decimal_field">15.920554</property>
+          <property name="date_field">2009/09/08</property>
+          <property name="datetime_field">2022-08-28T19:16:38.777+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">courageous</property>
+          <property name="i32_field">584</property>
+          <property name="i64_field">-90</property>
+          <property name="decimal_field">163.497059</property>
+          <property name="date_field">2023/03/24</property>
+          <property name="datetime_field">2010-05-29T07:45:13.766+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">courageous</property>
+          <property name="i32_field">572</property>
+          <property name="i64_field">536</property>
+          <property name="decimal_field">-0.134892</property>
+          <property name="date_field">2025/07/27</property>
+          <property name="datetime_field">2007-12-28T04:04:33.089+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">murky</property>
+          <property name="i32_field">321</property>
+          <property name="i64_field">3836</property>
+          <property name="decimal_field">-29.019806</property>
+          <property name="date_field">2013/09/14</property>
+          <property name="datetime_field">2020-05-20T20:01:18.398+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">current</property>
+          <property name="i32_field">946</property>
+          <property name="i64_field">1786</property>
+          <property name="decimal_field">-75.821284</property>
+          <property name="date_field">2024/01/23</property>
+          <property name="datetime_field">2015-06-29T17:44:11.773+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">bad</property>
+          <property name="i32_field">906</property>
+          <property name="i64_field">-4961</property>
+          <property name="decimal_field">58.555764</property>
+          <property name="date_field">2021/09/28</property>
+          <property name="datetime_field">2017-05-19T03:07:07.501+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">fall</property>
+          <property name="i32_field">655</property>
+          <property name="i64_field">4850</property>
+          <property name="decimal_field">62.768847</property>
+          <property name="date_field">2022/01/25</property>
+          <property name="datetime_field">2025-09-28T19:17:40.143+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">fall</property>
+          <property name="i32_field">847</property>
+          <property name="i64_field">-4739</property>
+          <property name="decimal_field">-189.71033</property>
+          <property name="date_field">2013/01/20</property>
+          <property name="datetime_field">2028-10-30T08:16:35.507+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">scrawny</property>
+          <property name="i32_field">227</property>
+          <property name="i64_field">4535</property>
+          <property name="decimal_field">8.927695</property>
+          <property name="date_field">2019/06/29</property>
+          <property name="datetime_field">2025-09-12T14:08:51.147+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">huge</property>
+          <property name="i32_field">-12</property>
+          <property name="i64_field">-4563</property>
+          <property name="decimal_field">-160.145695</property>
+          <property name="date_field">2007/11/27</property>
+          <property name="datetime_field">2027-11-03T05:32:52.387+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">courageous</property>
+          <property name="i32_field">731</property>
+          <property name="i64_field">-2645</property>
+          <property name="decimal_field">-33.973891</property>
+          <property name="date_field">2009/04/14</property>
+          <property name="datetime_field">2013-02-14T11:24:52.293+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">read</property>
+          <property name="i32_field">100</property>
+          <property name="i64_field">-1557</property>
+          <property name="decimal_field">-28.323145</property>
+          <property name="date_field">2011/03/13</property>
+          <property name="datetime_field">2013-07-16T09:32:22.022+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">study</property>
+          <property name="i32_field">56</property>
+          <property name="i64_field">-674</property>
+          <property name="decimal_field">-162.842936</property>
+          <property name="date_field">2021/02/21</property>
+          <property name="datetime_field">2010-06-28T16:41:23.595+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">bad</property>
+          <property name="i32_field">702</property>
+          <property name="i64_field">-198</property>
+          <property name="decimal_field">140.328749</property>
+          <property name="date_field">2022/03/20</property>
+          <property name="datetime_field">2026-04-14T08:38:41.864+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">current</property>
+          <property name="i32_field">430</property>
+          <property name="i64_field">-3908</property>
+          <property name="decimal_field">-157.329372</property>
+          <property name="date_field">2013/09/27</property>
+          <property name="datetime_field">2024-12-29T02:45:42.003+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">huge</property>
+          <property name="i32_field">895</property>
+          <property name="i64_field">1686</property>
+          <property name="decimal_field">53.586338</property>
+          <property name="date_field">2025/10/17</property>
+          <property name="datetime_field">2018-10-12T13:54:14.202+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">read</property>
+          <property name="i32_field">-18</property>
+          <property name="i64_field">736</property>
+          <property name="decimal_field">41.903661</property>
+          <property name="date_field">2025/05/08</property>
+          <property name="datetime_field">2014-02-23T16:35:14.647+0000</property>
+          <property name="bool_field">1</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+     <feature>
+          <geometry>
+                <gml:MultiGeometry></gml:MultiGeometry>
+          </geometry>
+          <property name="text_field">legal</property>
+          <property name="i32_field">397</property>
+          <property name="i64_field">-684</property>
+          <property name="decimal_field">166.452107</property>
+          <property name="date_field">2012/08/19</property>
+          <property name="datetime_field">2020-04-12T16:57:19.989+0000</property>
+          <property name="bool_field">0</property>
+          <property name="blob_field">626C6F620A</property>
+          <property name="json_field">{&quot;another_key&quot;:&quot;another_value&quot;,&quot;key&quot;:&quot;value&quot;}</property>
+          <property name="R_G_B"></property>
+     </feature>
+</featureCollection>
+</JCSDataFile>

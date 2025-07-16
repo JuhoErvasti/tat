@@ -7,3 +7,5 @@ Cargo.lock
 
 *.pdb
 *.log
+*.gpkg-shm
+*.gpkg-wal

@@ -1,40 +1,40 @@
-use ratatui::style::{palette::tailwind, Color, Style};
+use ratatui::style::{Color, Style};
 
+pub const MISSING_VALUE: &str = "NULL";
 pub const SHOW_HELP: &str = " <type ? to show help> ";
 pub const TITLE_PROGRAM: &str = " Terminal Attribute Table ";
 pub const TITLE_DATASET_INFO: &str = " Dataset ";
 pub const TITLE_LAYER_INFO: &str = " Layer Information ";
 pub const TITLE_GDAL_LOG: &str = " GDAL Log ";
 pub const TITLE_DEBUG_LOG: &str = " Debug Log ";
-pub const TITLE_FULL_VALUE: &str = " Debug Log ";
 pub const TITLE_LAYER_LIST: &str = " Layers ";
 pub const TITLE_HELP: &str = " Help ";
 pub const POPUP_HINT: &str = " <press q to close> ";
-pub const HELP_TEXT_LAYERSELECT: &str = "Keybinds for Main Menu
+pub const HELP_TEXT_MAINMENU: &str = "Keybinds for Main Menu
 ----------------------
 Basic Navigation:
-     or h: Left
-     or j: Down
-     or k: Up
-     or l: Right
+     or 'h': Left
+     or 'j': Down
+     or 'k': Up
+     or 'l': Right
     Enter: Open Table
-    Tab and SHIFT+Tab or Left/Right: Switch between Layer List or Info
+    Tab and SHIFT+Tab: Move between sections
 
 General:
-    q: Previous Menu
-    CTRL + Q or q when in Main Menu: Quit
-    ?: Show Help
+    'q': Previous Menu
+    CTRL + Q or 'q' when in Main Menu: Quit
+    '?': Show Help
 
 Advanced Navigation:
-    g: Scroll to Top
-    G: Scroll to Bottom
+    'g': Scroll to Top
+    'G': Scroll to Bottom
     CTRL + D: Scroll Down (half page)
     CTRL + U: Scroll Up (half page)
     CTRL + F or PageDown: Scroll Down (full page)
     CTRL + B or PageUp: Scroll Up (full page)
 
 Miscellaneous:
-    L: Open GDAL Log
+    'L': Open GDAL Log
 
 Remarks
 -------
@@ -45,32 +45,33 @@ table.
 pub const HELP_TEXT_TABLE: &str = "Keybinds for Attribute Table
 ----------------------------
 Basic Navigation:
-     or h: Left
-     or j: Down
-     or k: Up
-     or l: Right
+     or 'h': Left
+     or 'j': Down
+     or 'k': Up
+     or 'l': Right
 
 Table:
+    ':' : Open Dialog to Jump to Specific Feature
     Enter: Display Selected Value in Pop-Up 
-    CTRL + C: Copy Selected Value to Clipboard
+    y or CTRL + C: Copy Selected Value to Clipboard
 
 General:
-    q: Previous Menu
+    'q': Previous Menu
     CTRL + Q: Quit
-    ?: Show Help
+    '?': Show Help
 
 Advanced Navigation:
-    Home or 0: Jump to First Column
-    End or $: Jump to Last Column
-    g: Scroll to Top
-    G: Scroll to Bottom
+    Home or '0': nav to First Column
+    End or '$': nav to Last Column
+    'g': Scroll to Top
+    'G': Scroll to Bottom
     CTRL + D: Scroll Down (half page)
     CTRL + U: Scroll Up (half page)
     CTRL + F or PageDown: Scroll Down (full page)
     CTRL + B or PageUp: Scroll Up (full page)
 
 Miscellaneous:
-    L: Open GDAL Log
+    'L': Open GDAL Log
 
 Remarks
 -------
@@ -116,7 +117,7 @@ pub mod palette {
     use super::TatPalette;
 
     pub const DEFAULT: TatPalette = TatPalette {
-        default_fg: tailwind::SLATE.c100,
+        default_fg: tailwind::SLATE.c200,
         highlighted_fg: tailwind::SLATE.c400,
         highlighted_darker_fg: tailwind::SLATE.c500,
         selected_bg: tailwind::SLATE.c400,

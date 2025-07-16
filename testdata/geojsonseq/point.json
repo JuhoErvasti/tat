@@ -1,0 +1,4 @@
+{ "type": "Feature", "properties": { "field": null }, "geometry": { "type": "Point", "coordinates": [ 0.0, 0.0 ] } }
+{ "type": "Feature", "properties": { "field": null }, "geometry": { "type": "Point", "coordinates": [ 0.000009, 0.0 ] } }
+{ "type": "Feature", "properties": { "field": null }, "geometry": { "type": "Point", "coordinates": [ 0.000009, 0.000009 ] } }
+{ "type": "Feature", "properties": { "field": null }, "geometry": { "type": "Point", "coordinates": [ 0.0, 0.000009 ] } }

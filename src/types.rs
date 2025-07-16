@@ -1,9 +1,7 @@
-use gdal::{spatial_ref::SpatialRef, vector::{geometry_type_to_name, Layer, LayerAccess}, Dataset};
-use ratatui::widgets::{Paragraph, ScrollbarState};
+use gdal::spatial_ref::SpatialRef;
 
-use crate::navparagraph::TatNavigableParagraph;
-
-pub enum TatNavJump {
+/// Enum describing different kinds of vertical navigation
+pub enum TatNavVertical {
     First,
     Last,
     DownOne,
@@ -12,9 +10,20 @@ pub enum TatNavJump {
     UpHalfParagraph,
     DownParagraph,
     UpParagraph,
-    Specific(u64),
+    Specific(i64),
+    MouseScrollUp,
+    MouseScrollDown,
 }
 
+/// Enum describing different kinds of horizontal navigation
+pub enum TatNavHorizontal {
+    Home,
+    End,
+    RightOne,
+    LeftOne,
+}
+
+/// A struct which holds information about a coordinate reference system for displaying purposes
 #[derive(Clone)]
 pub struct TatCrs {
     auth_name: String,
@@ -23,6 +32,7 @@ pub struct TatCrs {
 }
 
 impl TatCrs {
+    /// Constructs a new object
     pub fn new(a_name: String, a_code: i32, crs_name: String) -> Self {
         Self {
             auth_name: a_name,
@@ -31,9 +41,10 @@ impl TatCrs {
         }
     }
 
+    /// Constructs a new object from a GDAL SpatialRef object
     pub fn from_spatial_ref(sref: &SpatialRef) -> Option<Self> {
         let aname = match sref.auth_name() {
-            Ok(a_name) => a_name,
+            Some(a_name) => a_name,
             _ => return None,
         };
 
@@ -43,7 +54,7 @@ impl TatCrs {
         };
 
         let name = match sref.name() {
-            Ok(c_name) => c_name,
+            Some(c_name) => c_name,
             _ => return None,
         };
 
@@ -56,20 +67,23 @@ impl TatCrs {
         )
     }
 
-
+    /// Returns the CRS authority name (e.g. EPSG etc.)
     pub fn auth_name(&self) -> &str {
         &self.auth_name
     }
 
+    /// Returns the CRS numerical code (e.g. 4326)
     pub fn auth_code(&self) -> i32 {
         self.auth_code
     }
 
+    /// Return the name of the CRS
     pub fn name(&self) -> &str {
         &self.name
     }
 }
 
+/// A struct describing a field in a GDAL layer for displaying purposes
 #[derive(Clone)]
 pub struct TatField {
     name: String,
@@ -77,6 +91,7 @@ pub struct TatField {
 }
 
 impl TatField {
+    /// Constructs a new object
     pub fn new(name: String, dtype: u32) -> Self {
         Self {
             name,
@@ -84,15 +99,19 @@ impl TatField {
         }
     }
 
+    /// Returns the name of the field
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    /// Returns the data type of the field as a u32, which can be turned into a string using
+    /// gdal::field_type_to_name()
     pub fn dtype(&self) -> u32 {
         self.dtype
     }
 }
 
+/// A struct describing a geometry field in a GDAL layer for displaying purposes
 #[derive(Clone)]
 pub struct TatGeomField {
     name: String,
@@ -101,6 +120,7 @@ pub struct TatGeomField {
 }
 
 impl TatGeomField {
+    /// Constructs a new object
     pub fn new(name: String, geom_type: String, crs: Option<TatCrs>) -> Self {
         Self {
             name,
@@ -109,202 +129,19 @@ impl TatGeomField {
         }
     }
 
+    /// Returns the field's name
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    /// Returns the field's geometry type as a string slice
     pub fn geom_type(&self) -> &str {
         &self.geom_type
     }
 
+    /// Returns the field's CRS (if any)
     pub fn crs(&self) -> Option<&TatCrs> {
         self.crs.as_ref()
     }
 }
 
-#[derive(Clone)]
-pub struct TatLayer {
-    name: String,
-    crs: Option<TatCrs>,
-    geom_fields: Vec<TatGeomField>,
-    fields: Vec<TatField>,
-    index: usize,
-    feature_index: Vec<u64>,
-    ds: &'static Dataset,
-}
-
-impl TatLayer {
-    pub fn new(dataset: &'static Dataset, i: usize) -> Self {
-        let lyr = TatLayer::get_gdal_layer(dataset, i);
-        Self {
-            ds: dataset,
-            name: lyr.name(),
-            crs: TatLayer::crs_from_layer(&lyr),
-            fields: TatLayer::fields_from_layer(&lyr),
-            geom_fields: TatLayer::geom_fields_from_layer(&lyr),
-            index: i,
-            feature_index: vec![], // don't build immediately to be more flexible (maybe?)
-        }
-    }
-
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn feature_count(&self) -> u64 {
-        self.gdal_layer().feature_count()
-    }
-
-    pub fn gdal_layer(&self) -> Layer {
-        TatLayer::get_gdal_layer(&self.ds, self.index)
-    }
-
-    pub fn crs_from_layer(layer: &Layer) -> Option<TatCrs> {
-        if let Some(sref) = layer.spatial_ref() {
-            return TatCrs::from_spatial_ref(&sref);
-        }
-
-        None
-    }
-
-    pub fn geom_fields_from_layer(layer: &Layer) -> Vec<TatGeomField> {
-        let mut fields: Vec<TatGeomField> = vec![];
-        for field in layer.defn().geom_fields() {
-            let name: &str = if field.name().is_empty() {
-                "ANONYMOUS"
-            } else {
-                &field.name()
-            };
-
-            let crs = TatCrs::from_spatial_ref(
-                &layer.spatial_ref().unwrap()
-            );
-
-            fields.push(
-                TatGeomField {
-                    name: name.to_string(),
-                    geom_type: geometry_type_to_name(field.field_type()),
-                    crs,
-                }
-            );
-        }
-        fields
-    }
-
-    pub fn fields_from_layer(layer: &Layer) -> Vec<TatField> {
-        let mut fields: Vec<TatField> = vec![];
-        for field in layer.defn().fields() {
-            fields.push(
-                TatField {
-                    name: field.name(),
-                    dtype: field.field_type(),
-                }
-            );
-        }
-
-        fields
-    }
-
-    pub fn build_feature_index(&mut self) {
-        self.feature_index.clear();
-
-        let mut i: Vec<u64> = vec![];
-        for feature in self.gdal_layer().features() {
-            i.push(feature.fid().unwrap());
-        }
-
-        self.feature_index = i;
-    }
-
-    pub fn field_count(&self) -> u64 {
-        self.fields.len() as u64
-    }
-
-    pub fn get_value(&self, fid: u64, field_name: &str) -> Option<String> {
-        if let Some(f) = self.gdal_layer().feature(fid) {
-            if let Ok(Some(value)) = f.field_as_string_by_name(field_name) {
-                return Some(value)
-            } else {
-                return None
-            }
-        } else {
-            return None
-        }
-    }
-
-    fn get_gdal_layer(dataset: &Dataset, layer_index: usize) -> Layer {
-        match dataset.layer(layer_index) {
-            Ok(lyr) => lyr,
-            // TODO: maybe don't panic
-            Err(_) => panic!(),
-        }
-    }
-
-    pub fn fields(&self) -> &[TatField] {
-        &self.fields
-    }
-
-    pub fn index(&self) -> usize {
-        self.index
-    }
-
-    pub fn feature_index(&self) -> &[u64] {
-        &self.feature_index
-    }
-
-    pub fn crs(&self) -> Option<&TatCrs> {
-        self.crs.as_ref()
-    }
-
-    pub fn geom_fields(&self) -> &[TatGeomField] {
-        &self.geom_fields
-    }
-}
-
-pub enum TatPopUpType {
-    // TODO: really not sure this is that necessary?
-    Help,
-    GdalLog,
-    DebugLog,
-    FullValue,
-}
-
-pub struct TatPopup {
-    title: String,
-    paragraph: TatNavigableParagraph,
-    ptype: TatPopUpType,
-}
-
-impl TatPopup {
-    pub fn new(title: String, paragraph: TatNavigableParagraph, ptype: TatPopUpType) -> Self {
-        Self { title, paragraph, ptype }
-    }
-
-    pub fn set_available_rows(&mut self, value: usize) {
-        self.paragraph.set_available_rows(value);
-    }
-
-    pub fn paragraph(&self) -> Paragraph {
-        self.paragraph.paragraph()
-    }
-
-    pub fn scroll_state(&self) -> ScrollbarState {
-        self.paragraph.scroll_state()
-    }
-
-    pub fn lines(&self) -> usize {
-        self.paragraph.lines()
-    }
-
-    pub fn jump(&mut self, conf: TatNavJump) {
-        self.paragraph.jump(conf);
-    }
-
-    pub fn ptype(&self) -> &TatPopUpType {
-        &self.ptype
-    }
-
-    pub fn title(&self) -> &str {
-        &self.title
-    }
-}
