@@ -17,6 +17,13 @@ pub mod datasets {
     }
 
     #[fixture]
+    pub fn basic_gdb() -> &'static Dataset {
+        let uri = "./testdata/basic.gdb".to_string();
+
+        open_dataset(uri, false).unwrap()
+    }
+
+    #[fixture]
     pub fn basic_shp_point() -> &'static Dataset {
         let uri = "./testdata/shp/point.shp".to_string();
 

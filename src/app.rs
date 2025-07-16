@@ -144,6 +144,23 @@ impl TatApp {
         self.render_clipboard_feedback(frame);
     }
 
+    /// Opens the table view menu
+    pub fn open_table(&mut self) {
+        self.table.set_rects(self.current_table_rects(false));
+        self.current_menu = TatMenu::TableView;
+    }
+
+    /// Closes the table view menu
+    pub fn close_table(&mut self) {
+        self.table.reset();
+        self.current_menu = TatMenu::MainMenu;
+    }
+
+    /// Sets currently selected layer's index
+    pub fn set_layer_index(&mut self, idx: usize) {
+        self.table.set_layer_index(idx);
+    }
+
     /// Renders the clipboard feedback message (if any)
     fn render_clipboard_feedback(&mut self, frame: &mut Frame) {
         if let Some(feedback) = self.clipboard_feedback.as_mut() {
@@ -521,12 +538,6 @@ impl TatApp {
             TatMainMenuSectionFocus::LayerInfo => TatMainMenuSectionFocus::PreviewTable,
             TatMainMenuSectionFocus::PreviewTable => return,
         }
-    }
-
-    /// Opens the table view menu
-    pub fn open_table(&mut self) {
-        self.table.set_rects(self.current_table_rects(false));
-        self.current_menu = TatMenu::TableView;
     }
 
     /// Closes any active pop-up dialog

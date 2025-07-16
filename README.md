@@ -55,6 +55,7 @@ you use a correct URI.
 Testing status of different GDAL vector drivers is presented in the table.
 
 Status explanation:
+
 * none: no tests exist for data format
 * basic: test(s) exist for data format and it can be opened and its features displayed
 * extensive: data format and any of its peculiarities are tested for extensively
@@ -80,7 +81,10 @@ Status explanation:
 |TAB (MapInfo File)                               |planned          |                  |
 |XLSX (MS Office Open XML spreadsheet)            |planned          |                  |
 
-Unplanned ones for first release:
+Currently untested drivers:
+
+<details>
+<summary>Details</summary>
 
 |Driver                                           |Status                   |
 |-------------------------------------------------|-------------------------|
@@ -144,6 +148,8 @@ Unplanned ones for first release:
 |XLS (MS Excel format)                            |unplanned for v0.1.0     |
 |XODR (OpenDRIVE Road Description Format)         |unplanned for v0.1.0     |
 
+</details>
+
 ## Roadmap
 
 This is purely a hobby project so development is intermittent and absolutely not guaranteed.
@@ -161,10 +167,12 @@ Further features I've considered for future versions:
 <summary>More details</summary>
 
   Most important:
+
   - Optimize performance
     - Some drivers such as CSV and WFS are slow even with a fairly small number of features
 
   Maybe:
+
   - Allow setting a limit on the number of features shown
   - More mouse support, such as:
     - Opening layers
@@ -183,11 +191,13 @@ Further features I've considered for future versions:
   - Allow setting a spatial filter on a dataset
 
   Unlikely:
+
   - Raster attribute tables
   - Some way of displaying geometries as other whan WKT
     - Probably best bet would be to render the geometry as a temporary image and display it using [viuer](https://github.com/atanunq/viuer)
 
   Extremely unlikely:
+
   - Editing of any kind, the main impetus for developing this tool is to just inspect data
 
 </details>
