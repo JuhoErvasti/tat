@@ -1,21 +1,10 @@
 use cli_log::init_cli_log;
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
-use tat::Tat;
 use std::{env::temp_dir, fs::File};
 use clap::{CommandFactory, Parser};
 
-mod layer;
-mod layerlist;
-mod navparagraph;
-mod numberinput;
-mod shared;
-mod table;
-mod tat;
-mod types;
-mod fixtures;
-mod utils;
-
-use crate::utils::{error_handler, open_dataset};
+use tat::app::TatApp;
+use tat::utils::{error_handler, open_dataset};
 
 #[derive(Parser)]
 #[command(arg_required_else_help = true)]
@@ -55,7 +44,7 @@ fn main() {
         let mut terminal = ratatui::init();
         crossterm::execute!(std::io::stdout(), EnableMouseCapture).unwrap();
 
-        let _result = Tat::new(&ds, where_clause, layers).run(&mut terminal);
+        let _result = TatApp::new(&ds, where_clause, layers).run(&mut terminal);
 
         // FIXME: if the program terminates this will not happen
         crossterm::execute!(std::io::stdout(), DisableMouseCapture).unwrap();

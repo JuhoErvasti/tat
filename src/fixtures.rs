@@ -2,7 +2,7 @@ use gdal::Dataset;
 use ratatui::layout::Rect;
 use rstest::fixture;
 
-use crate::{table::{TableRects, TatTable}, tat::Tat, utils::open_dataset};
+use crate::{table::{TableRects, TatTable}, app::TatApp, utils::open_dataset};
 
 #[fixture]
 pub fn basic_gpkg() -> &'static Dataset {
@@ -20,7 +20,7 @@ pub fn table_rects() -> TableRects {
         height: 20,
     };
 
-    Tat::table_rects(rect, false)
+    TatApp::table_rects(rect, false)
 }
 
 #[fixture]
@@ -32,8 +32,8 @@ pub fn basic_table(basic_gpkg: &'static Dataset, table_rects: TableRects) -> Tat
 }
 
 #[fixture]
-pub fn basic_tat(basic_gpkg: &'static Dataset) -> Tat {
-    let t = Tat::new(basic_gpkg, None, None);
+pub fn basic_tat(basic_gpkg: &'static Dataset) -> TatApp {
+    let t = TatApp::new(basic_gpkg, None, None);
 
     t
 }
