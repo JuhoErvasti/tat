@@ -34,13 +34,19 @@ pub fn error_handler(class: CplErrType, number: i32, message: &str) {
 
 /// Attempts to open a GDAL dataset from a string. This dataset is required from the beginning to
 /// the end of the program so it is returned as a static variable.
-pub fn open_dataset(uri: String) -> Option<&'static Dataset> {
+pub fn open_dataset(uri: String, all_drivers: bool) -> Option<&'static Dataset> {
     // deal with vectors only at least for now
     let flags = GdalOpenFlags::GDAL_OF_VECTOR | GdalOpenFlags::GDAL_OF_READONLY;
 
+    let allowed_drivers = vec![
+        "GPKG".to_string(),
+        "ESRI Shapefile".to_string(),
+    ];
+    let v: Vec<&str> = allowed_drivers.iter().map(|x| x.as_ref()).collect();
+
     let options = DatasetOptions {
         open_flags: flags,
-        allowed_drivers: None,
+        allowed_drivers: if all_drivers { None } else {Some(&v)},
         open_options: None,
         sibling_files: None,
     };

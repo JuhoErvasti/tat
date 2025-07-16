@@ -17,6 +17,9 @@ struct Cli {
 
     #[arg(long = "layers", value_name = "LAYERS", help = "Layer(s) to open", long_help = "Specify which layers in the dataset should be opened. Given as a comma-separated list e.g. \"--layers=layer_1,layer_2\"")]
     layers: Option<String>,
+
+    #[arg(long = "allow-untested-drivers", value_name = "ALLOW_UNTESTED_DRIVERS", help = "Allow attempting to open dataset of any type which has a GDAL-supported vector driver. Use with caution.")]
+    all_drivers: bool,
 }
 
 fn main() {
@@ -39,7 +42,7 @@ fn main() {
     let _ = File::create(format!("{}/tat_gdal.log", temp_dir().display())).unwrap();
     gdal::config::set_error_handler(error_handler);
 
-    if let Some(ds) = open_dataset(uri.to_string()) {
+    if let Some(ds) = open_dataset(uri.to_string(), cli.all_drivers) {
         init_cli_log!();
         let mut terminal = ratatui::init();
         crossterm::execute!(std::io::stdout(), EnableMouseCapture).unwrap();

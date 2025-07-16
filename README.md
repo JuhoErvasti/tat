@@ -66,84 +66,83 @@ Status explanation:
 |Driver                                           |Status           |Notes             |
 |-------------------------------------------------|-----------------|------------------|
 |CSV (Comma Separated Values)                     |planned          |                  |
-|DGN (Microstation DGN)                           |planned          |                  |
-|DXF (AutoCAD DXF)                                |planned          |                  |
 |ESRI FileGDB (OpenFileGDB)                       |planned          |                  |
-|FlatGeobuf                                       |planned          |                  |
 |GeoJSON                                          |planned          |                  |
 |GeoJSONSeq (GeoJSON Sequence)                    |planned          |                  |
 |GML (Geography Markup Language)                  |planned          |                  |
 |GPKG (GeoPackage)                                |basic            |                  |
-|GPX (GPS Exchange Format)                        |planned          |                  |
 |JML (OpenJUMP JML)                               |planned          |                  |
 |JSON FG (OGC Features and Geometries JSON)       |planned          |                  |
-|KML (Keyhole Markup Language)                    |planned          |                  |
 |MapML (Map Markup Language)                      |planned          |                  |
-|MBTiles                                          |planned          |                  |
-|MVT (Mapbox Vector Tiles)                        |planned          |                  |
-|netCDF (Network Common Data Form)                |planned          |                  |
 |ODS (OpenDocument Spreadsheet)                   |planned          |                  |
-|OGR_GMT (GMT ASCII Vectors)                      |planned          |                  |
-|OGR_VRT (Virtual Datasource)                     |planned          |                  |
-|PCIDSK (PCI Geomatics Database File)             |planned          |                  |
-|PDF (Geospatial PDF)                             |planned          |                  |
-|PMTiles (ProtoMap Tiles)                         |planned          |                  |
 |SHP (ESRI Shapefile)                             |planned          |                  |
 |SQLite                                           |planned          |                  |
 |TAB (MapInfo File)                               |planned          |                  |
-|VDV (VDV 451/VDV 452/INTREST Data Format)        |planned          |                  |
 |XLSX (MS Office Open XML spreadsheet)            |planned          |                  |
 
 Unplanned ones for first release:
 
-|Driver                                           |Status              |
-|-------------------------------------------------|--------------------|
-|AIVector                                         |unplanned for v0.1.0|
-|AmigoCloud                                       |unplanned for v0.1.0|
-|Arrow                                            |unplanned for v0.1.0|
-|AVCBIN (Arc/Info Binary Coverage)                |unplanned for v0.1.0|
-|AVCE00 (Arc/Info E00 (ASCII) Coverage)           |unplanned for v0.1.0|
-|Carto                                            |unplanned for v0.1.0|
-|CSW (Catalog Service for the Web)                |unplanned for v0.1.0|
-|DGNv8 (Microstation DGN v8)                      |unplanned for v0.1.0|
-|EDIGEO                                           |unplanned for v0.1.0|
-|EEDA (Google Earth Engine Data API)              |unplanned for v0.1.0|
-|Elasticsearch                                    |unplanned for v0.1.0|
-|ESRIJSON                                         |unplanned for v0.1.0|
-|GeoRSS                                           |unplanned for v0.1.0|
-|GMLAS                                            |unplanned for v0.1.0|
-|GMT                                              |unplanned for v0.1.0|
-|GPSBabel                                         |unplanned for v0.1.0|
-|GTFS                                             |unplanned for v0.1.0|
-|HANA (SAP HANA)                                  |unplanned for v0.1.0|
-|IDB                                              |unplanned for v0.1.0|
-|IDRISI                                           |unplanned for v0.1.0|
-|INTERLIS 1                                       |unplanned for v0.1.0|
-|LIBKML                                           |unplanned for v0.1.0|
-|LVBAG (Dutch Kadaster LV BAG 2.0 Extract)        |unplanned for v0.1.0|
-|MEM (Memory)                                     |unplanned for v0.1.0|
-|MiraMonVector                                    |unplanned for v0.1.0|
-|MongoDBv3                                        |unplanned for v0.1.0|
-|MSSQLSpatial                                     |unplanned for v0.1.0|
-|MySQL                                            |unplanned for v0.1.0|
-|NAS (ALKIS)                                      |unplanned for v0.1.0|
-|OAPIF (OGC API - Features)                       |unplanned for v0.1.0|
-|OCI (Oracle Spatial)                             |unplanned for v0.1.0|
-|ODBC (ODBC RDBMS)                                |unplanned for v0.1.0|
-|OSM (OpenStreetMap XML and PBF)                  |unplanned for v0.1.0|
-|Parquet ((Geo)Parquet)                           |unplanned for v0.1.0|
-|PGeo (ESRI Personal GeoDatabase)                 |unplanned for v0.1.0|
-|PLScenes (Planet Labs Scenes/Catalog API)        |unplanned for v0.1.0|
-|PMTiles                                          |unplanned for v0.1.0|
-|PostgreSQL (PostgreSQL / PostGIS)                |unplanned for v0.1.0|
-|S57 (IHO S-57 (ENC))                             |unplanned for v0.1.0|
-|Selafin (Selafin)                                |unplanned for v0.1.0|
-|SOSI (Norwegian SOSI Standard)                   |unplanned for v0.1.0|
-|SXF                                              |unplanned for v0.1.0|
-|TopoJSON                                         |unplanned for v0.1.0|
-|WAsP (WAsP .map format)                          |unplanned for v0.1.0|
-|XLS (MS Excel format)                            |unplanned for v0.1.0|
-|XODR (OpenDRIVE Road Description Format)         |unplanned for v0.1.0|
+|Driver                                           |Status                   |
+|-------------------------------------------------|-------------------------|
+|AIVector                                         |unplanned for v0.1.0     |
+|AmigoCloud                                       |unplanned for v0.1.0     |
+|Arrow                                            |unplanned for v0.1.0     |
+|AVCBIN (Arc/Info Binary Coverage)                |unplanned for v0.1.0     |
+|AVCE00 (Arc/Info E00 (ASCII) Coverage)           |unplanned for v0.1.0     |
+|Carto                                            |unplanned for v0.1.0     |
+|CSW (Catalog Service for the Web)                |unplanned for v0.1.0     |
+|DGN (Microstation DGN)                           |unplanned for v0.1.0     |
+|DGNv8 (Microstation DGN v8)                      |unplanned for v0.1.0     |
+|DXF (AutoCAD DXF)                                |unplanned for v0.1.0     |
+|EDIGEO                                           |unplanned for v0.1.0     |
+|EEDA (Google Earth Engine Data API)              |unplanned for v0.1.0     |
+|Elasticsearch                                    |unplanned for v0.1.0     |
+|ESRIJSON                                         |unplanned for v0.1.0     |
+|FlatGeobuf                                       |unplanned for v0.1.0     |
+|GeoRSS                                           |unplanned for v0.1.0     |
+|GMLAS                                            |unplanned for v0.1.0     |
+|GMT                                              |unplanned for v0.1.0     |
+|GPSBabel                                         |unplanned for v0.1.0     |
+|GPX (GPS Exchange Format)                        |unplanned for v0.1.0     |
+|GTFS                                             |unplanned for v0.1.0     |
+|HANA (SAP HANA)                                  |unplanned for v0.1.0     |
+|IDB                                              |unplanned for v0.1.0     |
+|IDRISI                                           |unplanned for v0.1.0     |
+|INTERLIS 1                                       |unplanned for v0.1.0     |
+|KML (Keyhole Markup Language)                    |unplanned for v0.1.0     |
+|LIBKML                                           |unplanned for v0.1.0     |
+|LVBAG (Dutch Kadaster LV BAG 2.0 Extract)        |unplanned for v0.1.0     |
+|MBTiles                                          |unplanned for v0.1.0     |
+|MEM (Memory)                                     |unplanned for v0.1.0     |
+|MiraMonVector                                    |unplanned for v0.1.0     |
+|MongoDBv3                                        |unplanned for v0.1.0     |
+|MSSQLSpatial                                     |unplanned for v0.1.0     |
+|MVT (Mapbox Vector Tiles)                        |unplanned for v0.1.0     |
+|MySQL                                            |unplanned for v0.1.0     |
+|NAS (ALKIS)                                      |unplanned for v0.1.0     |
+|netCDF (Network Common Data Form)                |unplanned for v0.1.0     |
+|OAPIF (OGC API - Features)                       |unplanned for v0.1.0     |
+|OCI (Oracle Spatial)                             |unplanned for v0.1.0     |
+|ODBC (ODBC RDBMS)                                |unplanned for v0.1.0     |
+|OGR_GMT (GMT ASCII Vectors)                      |unplanned for v0.1.0     |
+|OSM (OpenStreetMap XML and PBF)                  |unplanned for v0.1.0     |
+|Parquet ((Geo)Parquet)                           |unplanned for v0.1.0     |
+|PCIDSK (PCI Geomatics Database File)             |unplanned for v0.1.0     |
+|PDF (Geospatial PDF)                             |unplanned for v0.1.0     |
+|PGeo (ESRI Personal GeoDatabase)                 |unplanned for v0.1.0     |
+|PLScenes (Planet Labs Scenes/Catalog API)        |unplanned for v0.1.0     |
+|PMTiles (ProtoMap Tiles)                         |unplanned for v0.1.0     |
+|PMTiles                                          |unplanned for v0.1.0     |
+|PostgreSQL (PostgreSQL / PostGIS)                |unplanned for v0.1.0     |
+|S57 (IHO S-57 (ENC))                             |unplanned for v0.1.0     |
+|Selafin (Selafin)                                |unplanned for v0.1.0     |
+|SOSI (Norwegian SOSI Standard)                   |unplanned for v0.1.0     |
+|SXF                                              |unplanned for v0.1.0     |
+|TopoJSON                                         |unplanned for v0.1.0     |
+|VDV (VDV 451/VDV 452/INTREST Data Format)        |unplanned for v0.1.0     |
+|WAsP (WAsP .map format)                          |unplanned for v0.1.0     |
+|XLS (MS Excel format)                            |unplanned for v0.1.0     |
+|XODR (OpenDRIVE Road Description Format)         |unplanned for v0.1.0     |
 
 ## Roadmap
 

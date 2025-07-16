@@ -8,7 +8,7 @@ use crate::{table::{TableRects, TatTable}, app::TatApp, utils::open_dataset};
 pub fn basic_gpkg() -> &'static Dataset {
     let uri = "./testdata/basic.gpkg".to_string();
 
-    open_dataset(uri).unwrap()
+    open_dataset(uri, false).unwrap()
 }
 
 #[fixture]
@@ -36,4 +36,11 @@ pub fn basic_tat(basic_gpkg: &'static Dataset) -> TatApp {
     let t = TatApp::new(basic_gpkg, None, None);
 
     t
+}
+
+#[fixture]
+pub fn basic_shp_point() -> &'static Dataset {
+    let uri = "./testdata/shp/point.shp".to_string();
+
+    open_dataset(uri, false).unwrap()
 }
