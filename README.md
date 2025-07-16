@@ -77,7 +77,6 @@ Status explanation:
 |MapML (Map Markup Language)                      |planned          |                  |
 |ODS (OpenDocument Spreadsheet)                   |planned          |                  |
 |SHP (ESRI Shapefile)                             |planned          |                  |
-|SQLite                                           |planned          |                  |
 |TAB (MapInfo File)                               |planned          |                  |
 |XLSX (MS Office Open XML spreadsheet)            |planned          |                  |
 

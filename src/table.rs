@@ -667,6 +667,10 @@ impl TatTable {
             frame.render_widget(line, rect);
         }
     }
+
+    pub fn layers(&self) -> &[TatLayer] {
+        &self.layers
+    }
 }
 
 

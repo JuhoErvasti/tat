@@ -3,7 +3,8 @@ use std::fmt::Display;
 use tat::fixtures::datasets::*;
 use tat::{app::TatApp, layer::TatLayer};
 use gdal::Dataset;
-use rstest::{fixture, rstest};
+use rstest::rstest;
+use insta::assert_snapshot;
 
 pub type LayerRes = Vec<Vec<Option<String>>>;
 
@@ -13,65 +14,20 @@ pub struct LayerResults {
 
 impl Display for LayerResults {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        
+        for row in self.res.iter() {
+            for _field in 0..row.len() {
+                let field = row.get(_field).unwrap();
+                write!(f, "{}", if field.is_some() { field.clone().unwrap() } else { "NULL".to_string() })?;
+
+                if _field < row.len() - 1 {
+                    write!(f, ",")?;
+                }
+            }
+            writeln!(f)?;
+        }
+
+        Ok(())
     }
-}
-
-#[fixture]
-fn gpkg_result_point(basic_gpkg: &'static Dataset) -> LayerResults {
-    let mut t = TatApp::new(basic_gpkg, None, None);
-    t.set_layer_index(0);
-
-    build_test_results_from_layer(&t.table().layer())
-}
-
-#[fixture]
-fn gpkg_result_line(basic_gpkg: &'static Dataset) -> LayerResults {
-    let mut t = TatApp::new(basic_gpkg, None, None);
-    t.set_layer_index(1);
-
-    build_test_results_from_layer(&t.table().layer())
-}
-
-#[fixture]
-fn gpkg_result_polygon(basic_gpkg: &'static Dataset) -> LayerResults {
-    let mut t = TatApp::new(basic_gpkg, None, None);
-    t.set_layer_index(2);
-
-    build_test_results_from_layer(&t.table().layer())
-}
-
-#[fixture]
-fn gpkg_result_multipolygon(basic_gpkg: &'static Dataset) -> LayerResults {
-    let mut t = TatApp::new(basic_gpkg, None, None);
-    t.set_layer_index(3);
-
-    build_test_results_from_layer(&t.table().layer())
-}
-
-#[fixture]
-fn gpkg_result_nogeom(basic_gpkg: &'static Dataset) -> LayerResults {
-    let mut t = TatApp::new(basic_gpkg, None, None);
-    t.set_layer_index(4);
-
-    build_test_results_from_layer(&t.table().layer())
-}
-
-#[fixture]
-fn gpkg_results(
-    gpkg_result_point: LayerResults,
-    gpkg_result_line: LayerResults,
-    gpkg_result_polygon: LayerResults,
-    gpkg_result_multipolygon: LayerResults,
-    gpkg_result_nogeom: LayerResults,
-) -> Vec<LayerResults> {
-    vec![
-        gpkg_result_point,
-        gpkg_result_line,
-        gpkg_result_polygon,
-        gpkg_result_multipolygon,
-        gpkg_result_nogeom,
-    ]
 }
 
 fn build_test_results_from_layer(layer: &TatLayer) -> LayerResults {
@@ -94,206 +50,224 @@ fn build_test_results_from_layer(layer: &TatLayer) -> LayerResults {
     LayerResults { res: features }
 }
 
-fn compare(results: &LayerResults, expected: &LayerResults) {
-    assert_eq!(results.len(), expected.len());
-
-    for row in 0..results.len() {
-        let result_row = results.get(row).unwrap();
-        let expected_row = expected.get(row).unwrap();
-
-        assert_eq!(result_row.len(), expected_row.len());
-
-        for field in 0..result_row.len() {
-            let result = result_row.get(field).unwrap();
-            let expected = expected_row.get(field).unwrap();
-
-            assert_eq!(result, expected);
-        }
-    }
-}
-
-fn test_single_layer_dataset(ds: &'static Dataset, expected: &LayerResults) {
+fn test_single_layer_dataset(ds: &'static Dataset) {
     let t = TatApp::new(ds, None, None);
     let result = build_test_results_from_layer(&t.table().layer());
-    compare(&result, &expected);
+
+    let ds_name = ds.driver().short_name().to_lowercase().replace(" ", "_");
+    let snapshot_name = format!("{}_{}", ds_name, t.table().layer().name());
+    assert_snapshot!(snapshot_name, result);
 }
 
-fn test_all_layers(ds: &'static Dataset, expected: &Vec<LayerResults>) {
+fn test_all_layers(ds: &'static Dataset) {
     let mut t = TatApp::new(ds, None, None);
-    for index in 0..5 as usize {
+    for index in 0..t.table().layers().len() as usize {
         t.set_layer_index(index);
-        println!("Testing layer: {}", t.table().layer().name());
         let result = build_test_results_from_layer(&t.table().layer());
-        compare(&result, &expected.get(index).unwrap());
+        let ds_name = ds.driver().short_name().to_lowercase().replace(" ", "_");
+        let snapshot_name = format!("{}_{}", ds_name, t.table().layer().name());
+        assert_snapshot!(snapshot_name, result);
     }
 }
 
 #[rstest]
-fn test_basic_gdb(basic_gdb: &'static Dataset, gpkg_results: Vec<LayerResults>) {
-    test_all_layers(basic_gdb, &gpkg_results);
+fn test_basic_gdb(basic_gdb: &'static Dataset) {
+    test_all_layers(basic_gdb);
 }
 
 #[rstest]
-fn test_basic_gml(basic_gml: &'static Dataset, gpkg_results: Vec<LayerResults>) {
-    test_all_layers(basic_gml, &gpkg_results);
+fn test_basic_gml(basic_gml: &'static Dataset) {
+    test_all_layers(basic_gml);
 }
 
 #[rstest]
-fn test_basic_jsonfg(basic_jsonfg: &'static Dataset, gpkg_results: Vec<LayerResults>) {
-    test_all_layers(basic_jsonfg, &gpkg_results);
+fn test_basic_jsonfg(basic_jsonfg: &'static Dataset) {
+    test_all_layers(basic_jsonfg);
 }
 
 #[rstest]
-fn test_basic_mapml(basic_mapml: &'static Dataset, gpkg_results: Vec<LayerResults>) {
-    test_all_layers(basic_mapml, &gpkg_results);
+fn test_basic_mapml(basic_mapml: &'static Dataset) {
+    test_all_layers(basic_mapml);
 }
 
 #[rstest]
-fn test_basic_ods(basic_ods: &'static Dataset, gpkg_results: Vec<LayerResults>) {
-    test_all_layers(basic_ods, &gpkg_results);
+fn test_basic_ods(basic_ods: &'static Dataset) {
+    test_all_layers(basic_ods);
+}
+
+// the reason these are individual functions like this is because it works
+// better with the insta snapshots
+#[rstest]
+fn test_basic_shp_point(basic_shp_point: &'static Dataset) {
+    test_single_layer_dataset(basic_shp_point);
 }
 
 #[rstest]
-fn test_basic_sqlite(basic_sqlite: &'static Dataset, gpkg_results: Vec<LayerResults>) {
-    test_all_layers(basic_sqlite, &gpkg_results);
+fn test_basic_shp_line(basic_shp_line: &'static Dataset) {
+    test_single_layer_dataset(basic_shp_line);
 }
 
 #[rstest]
-fn test_basic_shp(
-    basic_shp_point: &'static Dataset,
-    basic_shp_line: &'static Dataset,
-    basic_shp_polygon: &'static Dataset,
-    basic_shp_multipolygon: &'static Dataset,
-    basic_shp_nogeom: &'static Dataset,
-    gpkg_result_point: LayerResults,
-    gpkg_result_line: LayerResults,
-    gpkg_result_polygon: LayerResults,
-    gpkg_result_multipolygon: LayerResults,
-    gpkg_result_nogeom: LayerResults,
-) {
-    test_single_layer_dataset(basic_shp_point, &gpkg_result_point);
-    test_single_layer_dataset(basic_shp_line, &gpkg_result_line);
-    test_single_layer_dataset(basic_shp_polygon, &gpkg_result_polygon);
-    test_single_layer_dataset(basic_shp_multipolygon, &gpkg_result_multipolygon);
-    test_single_layer_dataset(basic_shp_nogeom, &gpkg_result_nogeom);
+fn test_basic_shp_polygon(basic_shp_polygon: &'static Dataset) {
+    test_single_layer_dataset(basic_shp_polygon);
 }
 
 #[rstest]
-fn test_basic_csv(
-    basic_csv_point: &'static Dataset,
-    basic_csv_line: &'static Dataset,
-    basic_csv_polygon: &'static Dataset,
-    basic_csv_multipolygon: &'static Dataset,
-    basic_csv_nogeom: &'static Dataset,
-    gpkg_result_point: LayerResults,
-    gpkg_result_line: LayerResults,
-    gpkg_result_polygon: LayerResults,
-    gpkg_result_multipolygon: LayerResults,
-    gpkg_result_nogeom: LayerResults,
-) {
-    test_single_layer_dataset(basic_csv_point, &gpkg_result_point);
-    test_single_layer_dataset(basic_csv_line, &gpkg_result_line);
-    test_single_layer_dataset(basic_csv_polygon, &gpkg_result_polygon);
-    test_single_layer_dataset(basic_csv_multipolygon, &gpkg_result_multipolygon);
-    test_single_layer_dataset(basic_csv_nogeom, &gpkg_result_nogeom);
+fn test_basic_shp_multipolygon(basic_shp_multipolygon: &'static Dataset) {
+    test_single_layer_dataset(basic_shp_multipolygon);
 }
 
 #[rstest]
-fn test_basic_geojson(
-    basic_geojson_point: &'static Dataset,
-    basic_geojson_line: &'static Dataset,
-    basic_geojson_polygon: &'static Dataset,
-    basic_geojson_multipolygon: &'static Dataset,
-    basic_geojson_nogeom: &'static Dataset,
-    gpkg_result_point: LayerResults,
-    gpkg_result_line: LayerResults,
-    gpkg_result_polygon: LayerResults,
-    gpkg_result_multipolygon: LayerResults,
-    gpkg_result_nogeom: LayerResults,
-) {
-    test_single_layer_dataset(basic_geojson_point, &gpkg_result_point);
-    test_single_layer_dataset(basic_geojson_line, &gpkg_result_line);
-    test_single_layer_dataset(basic_geojson_polygon, &gpkg_result_polygon);
-    test_single_layer_dataset(basic_geojson_multipolygon, &gpkg_result_multipolygon);
-    test_single_layer_dataset(basic_geojson_nogeom, &gpkg_result_nogeom);
+fn test_basic_shp_nogeom(basic_shp_nogeom: &'static Dataset) {
+    test_single_layer_dataset(basic_shp_nogeom);
 }
 
 #[rstest]
-fn test_basic_geojsonseq(
-    basic_geojsonseq_point: &'static Dataset,
-    basic_geojsonseq_line: &'static Dataset,
-    basic_geojsonseq_polygon: &'static Dataset,
-    basic_geojsonseq_multipolygon: &'static Dataset,
-    basic_geojsonseq_nogeom: &'static Dataset,
-    gpkg_result_point: LayerResults,
-    gpkg_result_line: LayerResults,
-    gpkg_result_polygon: LayerResults,
-    gpkg_result_multipolygon: LayerResults,
-    gpkg_result_nogeom: LayerResults,
-) {
-    test_single_layer_dataset(basic_geojsonseq_point, &gpkg_result_point);
-    test_single_layer_dataset(basic_geojsonseq_line, &gpkg_result_line);
-    test_single_layer_dataset(basic_geojsonseq_polygon, &gpkg_result_polygon);
-    test_single_layer_dataset(basic_geojsonseq_multipolygon, &gpkg_result_multipolygon);
-    test_single_layer_dataset(basic_geojsonseq_nogeom, &gpkg_result_nogeom);
+fn test_basic_csv_point(basic_csv_point: &'static Dataset) {
+    test_single_layer_dataset(basic_csv_point);
 }
 
 #[rstest]
-fn test_basic_jml(
-    basic_jml_point: &'static Dataset,
-    basic_jml_line: &'static Dataset,
-    basic_jml_polygon: &'static Dataset,
-    basic_jml_multipolygon: &'static Dataset,
-    basic_jml_nogeom: &'static Dataset,
-    gpkg_result_point: LayerResults,
-    gpkg_result_line: LayerResults,
-    gpkg_result_polygon: LayerResults,
-    gpkg_result_multipolygon: LayerResults,
-    gpkg_result_nogeom: LayerResults,
-) {
-    test_single_layer_dataset(basic_jml_point, &gpkg_result_point);
-    test_single_layer_dataset(basic_jml_line, &gpkg_result_line);
-    test_single_layer_dataset(basic_jml_polygon, &gpkg_result_polygon);
-    test_single_layer_dataset(basic_jml_multipolygon, &gpkg_result_multipolygon);
-    test_single_layer_dataset(basic_jml_nogeom, &gpkg_result_nogeom);
+fn test_basic_csv_line(basic_csv_line: &'static Dataset) {
+    test_single_layer_dataset(basic_csv_line);
 }
 
 #[rstest]
-fn test_basic_mapinfofile(
-    basic_mapinfofile_point: &'static Dataset,
-    basic_mapinfofile_line: &'static Dataset,
-    basic_mapinfofile_polygon: &'static Dataset,
-    basic_mapinfofile_multipolygon: &'static Dataset,
-    basic_mapinfofile_nogeom: &'static Dataset,
-    gpkg_result_point: LayerResults,
-    gpkg_result_line: LayerResults,
-    gpkg_result_polygon: LayerResults,
-    gpkg_result_multipolygon: LayerResults,
-    gpkg_result_nogeom: LayerResults,
-) {
-    test_single_layer_dataset(basic_mapinfofile_point, &gpkg_result_point);
-    test_single_layer_dataset(basic_mapinfofile_line, &gpkg_result_line);
-    test_single_layer_dataset(basic_mapinfofile_polygon, &gpkg_result_polygon);
-    test_single_layer_dataset(basic_mapinfofile_multipolygon, &gpkg_result_multipolygon);
-    test_single_layer_dataset(basic_mapinfofile_nogeom, &gpkg_result_nogeom);
+fn test_basic_csv_polygon(basic_csv_polygon: &'static Dataset) {
+    test_single_layer_dataset(basic_csv_polygon);
 }
 
 #[rstest]
-fn test_basic_xlsx(
-    basic_xlsx_point: &'static Dataset,
-    basic_xlsx_line: &'static Dataset,
-    basic_xlsx_polygon: &'static Dataset,
-    basic_xlsx_multipolygon: &'static Dataset,
-    basic_xlsx_nogeom: &'static Dataset,
-    gpkg_result_point: LayerResults,
-    gpkg_result_line: LayerResults,
-    gpkg_result_polygon: LayerResults,
-    gpkg_result_multipolygon: LayerResults,
-    gpkg_result_nogeom: LayerResults,
-) {
-    test_single_layer_dataset(basic_xlsx_point, &gpkg_result_point);
-    test_single_layer_dataset(basic_xlsx_line, &gpkg_result_line);
-    test_single_layer_dataset(basic_xlsx_polygon, &gpkg_result_polygon);
-    test_single_layer_dataset(basic_xlsx_multipolygon, &gpkg_result_multipolygon);
-    test_single_layer_dataset(basic_xlsx_nogeom, &gpkg_result_nogeom);
+fn test_basic_csv_multipolygon(basic_csv_multipolygon: &'static Dataset) {
+    test_single_layer_dataset(basic_csv_multipolygon);
+}
+
+#[rstest]
+fn test_basic_csv_nogeom(basic_csv_nogeom: &'static Dataset) {
+    test_single_layer_dataset(basic_csv_nogeom);
+}
+
+#[rstest]
+fn test_basic_geojson_point(basic_geojson_point: &'static Dataset) {
+    test_single_layer_dataset(basic_geojson_point);
+}
+
+#[rstest]
+fn test_basic_geojson_line(basic_geojson_line: &'static Dataset) {
+    test_single_layer_dataset(basic_geojson_line);
+}
+
+#[rstest]
+fn test_basic_geojson_polygon(basic_geojson_polygon: &'static Dataset) {
+    test_single_layer_dataset(basic_geojson_polygon);
+}
+
+#[rstest]
+fn test_basic_geojson_multipolygon(basic_geojson_multipolygon: &'static Dataset) {
+    test_single_layer_dataset(basic_geojson_multipolygon);
+}
+
+#[rstest]
+fn test_basic_geojson_nogeom(basic_geojson_nogeom: &'static Dataset) {
+    test_single_layer_dataset(basic_geojson_nogeom);
+}
+
+#[rstest]
+fn test_basic_geojsonseq_point(basic_geojsonseq_point: &'static Dataset) {
+    test_single_layer_dataset(basic_geojsonseq_point);
+}
+
+#[rstest]
+fn test_basic_geojsonseq_line(basic_geojsonseq_line: &'static Dataset) {
+    test_single_layer_dataset(basic_geojsonseq_line);
+}
+
+#[rstest]
+fn test_basic_geojsonseq_polygon(basic_geojsonseq_polygon: &'static Dataset) {
+    test_single_layer_dataset(basic_geojsonseq_polygon);
+}
+
+#[rstest]
+fn test_basic_geojsonseq_multipolygon(basic_geojsonseq_multipolygon: &'static Dataset) {
+    test_single_layer_dataset(basic_geojsonseq_multipolygon);
+}
+
+#[rstest]
+fn test_basic_geojsonseq_nogeom(basic_geojsonseq_nogeom: &'static Dataset) {
+    test_single_layer_dataset(basic_geojsonseq_nogeom);
+}
+
+#[rstest]
+fn test_basic_jml_point(basic_jml_point: &'static Dataset) {
+    test_single_layer_dataset(basic_jml_point);
+}
+
+#[rstest]
+fn test_basic_jml_line(basic_jml_line: &'static Dataset) {
+    test_single_layer_dataset(basic_jml_line);
+}
+
+#[rstest]
+fn test_basic_jml_polygon(basic_jml_polygon: &'static Dataset) {
+    test_single_layer_dataset(basic_jml_polygon);
+}
+
+#[rstest]
+fn test_basic_jml_multipolygon(basic_jml_multipolygon: &'static Dataset) {
+    test_single_layer_dataset(basic_jml_multipolygon);
+}
+
+#[rstest]
+fn test_basic_jml_nogeom(basic_jml_nogeom: &'static Dataset) {
+    test_single_layer_dataset(basic_jml_nogeom);
+}
+
+#[rstest]
+fn test_basic_mapinfofile_point(basic_mapinfofile_point: &'static Dataset) {
+    test_single_layer_dataset(basic_mapinfofile_point);
+}
+
+#[rstest]
+fn test_basic_mapinfofile_line(basic_mapinfofile_line: &'static Dataset) {
+    test_single_layer_dataset(basic_mapinfofile_line);
+}
+
+#[rstest]
+fn test_basic_mapinfofile_polygon(basic_mapinfofile_polygon: &'static Dataset) {
+    test_single_layer_dataset(basic_mapinfofile_polygon);
+}
+
+#[rstest]
+fn test_basic_mapinfofile_multipolygon(basic_mapinfofile_multipolygon: &'static Dataset) {
+    test_single_layer_dataset(basic_mapinfofile_multipolygon);
+}
+
+#[rstest]
+fn test_basic_mapinfofile_nogeom(basic_mapinfofile_nogeom: &'static Dataset) {
+    test_single_layer_dataset(basic_mapinfofile_nogeom);
+}
+
+#[rstest]
+fn test_basic_xlsx_point(basic_xlsx_point: &'static Dataset) {
+    test_single_layer_dataset(basic_xlsx_point);
+}
+
+#[rstest]
+fn test_basic_xlsx_line(basic_xlsx_line: &'static Dataset) {
+    test_single_layer_dataset(basic_xlsx_line);
+}
+
+#[rstest]
+fn test_basic_xlsx_polygon(basic_xlsx_polygon: &'static Dataset) {
+    test_single_layer_dataset(basic_xlsx_polygon);
+}
+
+#[rstest]
+fn test_basic_xlsx_multipolygon(basic_xlsx_multipolygon: &'static Dataset) {
+    test_single_layer_dataset(basic_xlsx_multipolygon);
+}
+
+#[rstest]
+fn test_basic_xlsx_nogeom(basic_xlsx_nogeom: &'static Dataset) {
+    test_single_layer_dataset(basic_xlsx_nogeom);
 }

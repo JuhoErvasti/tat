@@ -1,0 +1,9 @@
+---
+source: tests/drivers.rs
+expression: result
+---
+geometry,field
+POINT (0 0),NULL
+POINT (1 0),NULL
+POINT (1 1),NULL
+POINT (0 1),NULL

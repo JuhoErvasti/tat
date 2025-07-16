@@ -80,13 +80,6 @@ pub mod datasets {
     }
 
     #[fixture]
-    pub fn basic_sqlite() -> &'static Dataset {
-        let uri = "./testdata/basic.sqlite".to_string();
-
-        open_dataset(uri, false).unwrap()
-    }
-
-    #[fixture]
     pub fn basic_csv_point() -> &'static Dataset {
         let uri = "./testdata/csv/point.csv".to_string();
 

@@ -50,7 +50,6 @@ pub fn open_dataset(uri: String, all_drivers: bool) -> Option<&'static Dataset> 
         "MapML".to_string(),
         "ODS".to_string(),
         "ESRI Shapefile".to_string(),
-        "SQLite".to_string(),
         "MapInfo File".to_string(),
         "XLSX".to_string(),
     ];

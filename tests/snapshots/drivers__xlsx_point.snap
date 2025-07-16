@@ -1,0 +1,6 @@
+---
+source: tests/drivers.rs
+expression: result
+---
+Field1
+field

@@ -1,0 +1,7 @@
+---
+source: tests/drivers.rs
+expression: result
+---
+geom,field
+POLYGON ((-9 3,-9 1,-7 1,-7 3,-9 3)),456
+POLYGON ((-5 6,-5 3,-2 3,-2 6,-5 6)),213
