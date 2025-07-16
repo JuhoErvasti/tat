@@ -131,7 +131,7 @@ impl TatApp {
     }
 
     /// Renders the current menu and any other active pop-ups or dialogs
-    fn render(&mut self, frame: &mut Frame) {
+    pub fn render(&mut self, frame: &mut Frame) {
         self.table_area = frame.area();
 
         match self.current_menu {
@@ -524,7 +524,7 @@ impl TatApp {
     }
 
     /// Opens the table view menu
-    fn open_table(&mut self) {
+    pub fn open_table(&mut self) {
         self.table.set_rects(self.current_table_rects(false));
         self.current_menu = TatMenu::TableView;
     }
@@ -869,8 +869,7 @@ mod test {
     #[allow(unused)]
     use super::*;
 
-    #[allow(unused)]
-    use crate::fixtures::*;
+    use crate::fixtures::{basic_tat, table_rects, datasets::basic_gpkg};
 
     use crossterm::event::KeyEventState;
     use rstest::*;

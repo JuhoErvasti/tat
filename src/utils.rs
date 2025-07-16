@@ -39,8 +39,20 @@ pub fn open_dataset(uri: String, all_drivers: bool) -> Option<&'static Dataset> 
     let flags = GdalOpenFlags::GDAL_OF_VECTOR | GdalOpenFlags::GDAL_OF_READONLY;
 
     let allowed_drivers = vec![
+        "CSV".to_string(),
+        "OpenFileGDB".to_string(),
+        "GeoJSON".to_string(),
+        "GeoJSONSeq".to_string(),
+        "GML".to_string(),
         "GPKG".to_string(),
+        "JML".to_string(),
+        "JSONFG".to_string(),
+        "MapML".to_string(),
+        "ODS".to_string(),
         "ESRI Shapefile".to_string(),
+        "SQLite".to_string(),
+        "MapInfo File".to_string(),
+        "XLSX".to_string(),
     ];
     let v: Vec<&str> = allowed_drivers.iter().map(|x| x.as_ref()).collect();
 

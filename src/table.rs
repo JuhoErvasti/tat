@@ -675,8 +675,8 @@ mod test {
     #[allow(unused)]
     use super::*;
 
-    #[allow(unused)]
-    use crate::fixtures::*;
+    use crate::fixtures::basic_table;
+    use crate::fixtures::datasets::basic_gpkg;
 
     use rstest::*;
 

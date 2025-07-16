@@ -236,7 +236,7 @@ mod test {
     use super::*;
 
     #[allow(unused)]
-    use crate::fixtures::*;
+    use crate::fixtures::datasets::basic_gpkg;
 
     use rstest::*;
 
