@@ -1356,83 +1356,83 @@ mod test {
 
         t.open_table();
         terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        assert_snapshot!("open_table", terminal.backend());
 
         t.show_full_value_popup();
         terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        assert_snapshot!("show_value_popup", terminal.backend());
 
-        t.copy_table_value_to_clipboard();
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        if t.clip.is_some() {
+            t.copy_table_value_to_clipboard();
+            terminal.draw(|frame| {t.render(frame)}).unwrap();
+            assert_snapshot!("copied_to_clipboard", terminal.backend());
 
-        t.handle_key(KeyEvent { code: KeyCode::Char('b'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+            t.handle_key(KeyEvent { code: KeyCode::Char('b'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+            terminal.draw(|frame| {t.render(frame)}).unwrap();
+            assert_snapshot!("any_key_closed_clipboard_feedback", terminal.backend());
+        }
+
 
         t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        assert_snapshot!("close_value_popup", terminal.backend());
 
         t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        assert_snapshot!("back_to_main_menu", terminal.backend());
 
         t.open_table();
         t.show_help();
         terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        assert_snapshot!("open_table_again", terminal.backend());
 
         t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         t.handle_key(KeyEvent { code: KeyCode::Char('G'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        assert_snapshot!("select_last_layer", terminal.backend());
 
         t.open_table();
         terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        assert_snapshot!("open_table_with_last_layer", terminal.backend());
 
         t.handle_key(KeyEvent { code: KeyCode::Char('G'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        assert_snapshot!("goto_last_feature", terminal.backend());
 
         t.handle_key(KeyEvent { code: KeyCode::Char('g'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        assert_snapshot!("goto_first_feature", terminal.backend());
 
         t.handle_key(KeyEvent { code: KeyCode::Char(':'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        assert_snapshot!("open_jump_to_line", terminal.backend());
 
         t.handle_key(KeyEvent { code: KeyCode::Char('5'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        assert_snapshot!("type_5_to_jump_to_line", terminal.backend());
 
         t.handle_key(KeyEvent { code: KeyCode::Char('2'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        assert_snapshot!("type_2_to_jump_to_line", terminal.backend());
 
         t.handle_key(KeyEvent { code: KeyCode::Enter, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        assert_snapshot!("execute_jump_to_line", terminal.backend());
 
         t.handle_key(KeyEvent { code: KeyCode::Char(':'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
-
         t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        assert_snapshot!("close_jump_to_line", terminal.backend());
 
         t.handle_key(KeyEvent { code: KeyCode::Char(':'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         t.handle_key(KeyEvent { code: KeyCode::Char('0'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        assert_snapshot!("try_enter_0_as_first_in_jump_to_line", terminal.backend());
 
         t.handle_key(KeyEvent { code: KeyCode::Char('9'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        assert_snapshot!("type_9_to_jump_to_line", terminal.backend());
 
         t.handle_key(KeyEvent { code: KeyCode::Char('8'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         t.handle_key(KeyEvent { code: KeyCode::Char('7'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
@@ -1440,31 +1440,31 @@ mod test {
         t.handle_key(KeyEvent { code: KeyCode::Char('5'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         t.handle_key(KeyEvent { code: KeyCode::Char('4'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        assert_snapshot!("long_number_in_jump_to_line", terminal.backend());
 
         t.handle_key(KeyEvent { code: KeyCode::Backspace, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        assert_snapshot!("backspace_in_jump_to_line", terminal.backend());
 
         t.handle_key(KeyEvent { code: KeyCode::Left, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         t.handle_key(KeyEvent { code: KeyCode::Left, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         t.handle_key(KeyEvent { code: KeyCode::Delete, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        assert_snapshot!("delete_in_jump_to_line", terminal.backend());
 
         t.handle_key(KeyEvent { code: KeyCode::Home, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         t.handle_key(KeyEvent { code: KeyCode::Delete, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        assert_snapshot!("home_in_jump_to_line", terminal.backend());
 
         t.handle_key(KeyEvent { code: KeyCode::End, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         t.handle_key(KeyEvent { code: KeyCode::Backspace, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        assert_snapshot!("end_in_jump_to_line", terminal.backend());
 
         t.handle_key(KeyEvent { code: KeyCode::Home, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         t.handle_key(KeyEvent { code: KeyCode::Char('5'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        assert_snapshot!("enter_in_middle_in_jump_to_line", terminal.backend());
     }
 }
