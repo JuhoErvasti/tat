@@ -16,13 +16,15 @@ I also wanted to try out Rust, so creating this type of terminal attribute table
 way to learn while also producing a tool that I could see myself actually using and not just leaving
 it as an abandoned learning project.
 
-## Install
+## Installation
 
-> [!NOTE]
-> The program is in an early state and has not been thoroughly tested.
+Currently has been confirmed to work on Linux.
 
-Currently has been confirmed to work on Linux. Windows (non-WSL) is not (currently) supported.
-I do not have the ability to test on macOS.
+### Dependencies
+
+GDAL has to be [installed](https://gdal.org/en/stable/download.html).
+
+### Cargo
 
 Currently the only option is to use Cargo to install directly from GitHub.
 Cargo needs to be [installed first (alongside Rust)](https://doc.rust-lang.org/cargo/getting-started/installation.html).
@@ -31,26 +33,60 @@ Cargo needs to be [installed first (alongside Rust)](https://doc.rust-lang.org/c
 cargo install --git https://github.com/JuhoErvasti/tat
 ```
 
-Same command can be used to update.
+> [!NOTE]
+> Same command can be used to update.
 
 ## Usage
 
-```shell
-# files
-tat example.gpkg
-tat example.shp
+```
+Terminal UI for inspecting geospatial data
 
-# ogr dataset
-tat PG:service=SERVICE
+Usage: tat [OPTIONS] <URI>
+
+Arguments:
+  <URI>
+
+
+Options:
+      --where <WHERE>
+          Filter which features are shown based on their attributes. Given in the format of a SQL WHERE clause e.g. --where="field_1 = 12"
+
+      --layers <LAYERS>
+          Specify which layers in the dataset should be opened. Given as a comma-separated list e.g. "--layers=layer_1,layer_2"
+
+      --allow-untested-drivers
+          Allow attempting to open dataset of any type which has a GDAL-supported vector driver. Use with caution.
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version
 ```
 
-GDAL is used under the hood, so any GDAL-supported vector driver should theoretically work if
-you use a correct URI.
+### Examples
 
-> [!NOTE]
-> The program is in an early state and has not been tested with all vector drivers thoroughly.
+```shell
+# open file
+tat example.gpkg
+```
 
-## Tested drivers
+```shell
+# open only some layers
+tat example.gpkg --layers=layer_1,layer_2
+```
+
+```shell
+# open specific layer
+tat example.gpkg --layers=layer_1
+```
+
+```shell
+# open with an attribute query
+tat example.gpkg --where="field = 'value'"
+```
+
+## Supported data formats
 
 Testing status of different GDAL vector drivers is presented in the table.
 
@@ -66,19 +102,19 @@ Status explanation:
 
 |Driver                                           |Status           |Notes             |
 |-------------------------------------------------|-----------------|------------------|
-|CSV (Comma Separated Values)                     |planned          |                  |
-|ESRI FileGDB (OpenFileGDB)                       |planned          |                  |
-|GeoJSON                                          |planned          |                  |
-|GeoJSONSeq (GeoJSON Sequence)                    |planned          |                  |
-|GML (Geography Markup Language)                  |planned          |                  |
+|CSV (Comma Separated Values)                     |basic            |                  |
+|ESRI FileGDB (OpenFileGDB)                       |basic            |                  |
+|GeoJSON                                          |basic            |                  |
+|GeoJSONSeq (GeoJSON Sequence)                    |basic            |                  |
+|GML (Geography Markup Language)                  |basic            |                  |
 |GPKG (GeoPackage)                                |basic            |                  |
-|JML (OpenJUMP JML)                               |planned          |                  |
-|JSON FG (OGC Features and Geometries JSON)       |planned          |                  |
-|MapML (Map Markup Language)                      |planned          |                  |
-|ODS (OpenDocument Spreadsheet)                   |planned          |                  |
-|SHP (ESRI Shapefile)                             |planned          |                  |
-|TAB (MapInfo File)                               |planned          |                  |
-|XLSX (MS Office Open XML spreadsheet)            |planned          |                  |
+|JML (OpenJUMP JML)                               |basic            |                  |
+|JSON FG (OGC Features and Geometries JSON)       |basic            |                  |
+|MapML (Map Markup Language)                      |basic            |                  |
+|ODS (OpenDocument Spreadsheet)                   |basic            |                  |
+|SHP (ESRI Shapefile)                             |basic            |                  |
+|TAB (MapInfo File)                               |basic            |                  |
+|XLSX (MS Office Open XML spreadsheet)            |basic            |                  |
 
 Currently untested drivers:
 
@@ -158,7 +194,7 @@ without any collaborators.
 
 For the first proper version the following are still under development:
 
-- Tests and CI
+- CI
 
 Further features I've considered for future versions:
 
