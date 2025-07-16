@@ -192,17 +192,14 @@ Since this is and likely will remain a single-author repository I'm also using t
 basically as project management because creating and managing issues feels clunky and unnecessary
 without any collaborators.
 
-For the first proper version the following are still under development:
-
-- CI
-
-Further features I've considered for future versions:
+Features I've considered for future versions:
 
 <details>
 <summary>More details</summary>
 
   Most important:
 
+  - Support and tests for more vector drivers
   - Optimize performance
     - Some drivers such as CSV and WFS are slow even with a fairly small number of features
 
