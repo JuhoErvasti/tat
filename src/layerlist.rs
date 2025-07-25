@@ -155,7 +155,7 @@ impl TatLayerList {
     fn layer_infos(ds: &'static Dataset, layers: Option<Vec<String>>) -> Vec<TatLayerInfo> {
         let mut infos: Vec<TatLayerInfo> = vec![];
         for (i, layer) in ds.layers().enumerate() {
-            if let Some(lyrs) = layers.clone() {
+            if let Some(lyrs) = layers.as_ref() {
                 if !lyrs.contains(&layer.name()) {
                     continue
                 }

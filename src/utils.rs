@@ -17,7 +17,7 @@ pub fn error_handler(class: CplErrType, number: i32, message: &str) {
     };
 
     let path = format!("{}/tat_gdal.log", temp_dir().display());
-    match OpenOptions::new().append(true).open(path.clone()) {
+    match OpenOptions::new().append(true).open(path.as_str()) {
         Ok(mut file) => {
             match writeln!(file, "{class} [{number}] {message}") {
                 Ok(()) => return,

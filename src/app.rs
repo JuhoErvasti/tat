@@ -177,7 +177,7 @@ impl TatApp {
 
             frame.render_widget(Clear, cleared_area);
             frame.render_widget(block, block_area);
-            frame.render_widget(feedback.clone(), text_area);
+            frame.render_widget(feedback.as_str(), text_area);
         }
     }
 
@@ -221,14 +221,15 @@ impl TatApp {
                 popup.total_lines() as i64,
             );
 
-            let title = if let Some(title) = popup.title() {
-                title.clone()
-            } else {
-                "UNTITLED".to_string()
-            };
-
             popup.set_visible_rows(visible_rows as usize);
             popup.set_visible_cols(visible_cols as usize);
+
+            let title: &str = if let Some(title) = popup.title() {
+                title.as_str()
+            } else {
+                "UNTITLED"
+            };
+
 
             let block = popup.paragraph()
                 .block(
@@ -1004,8 +1005,10 @@ mod test {
 
             assert!(t.modal_popup.is_some());
             assert!(t.modal_popup.as_ref().unwrap().text().starts_with("Keybinds for Main Menu"));
-            let title = t.modal_popup.unwrap().title().unwrap().clone();
-            assert_eq!(title, " Help ".to_string());
+
+            let popup = t.modal_popup.as_ref().unwrap();
+            let title = popup.title().unwrap();
+            assert_eq!(title.as_str(), " Help ");
         }
 
         {

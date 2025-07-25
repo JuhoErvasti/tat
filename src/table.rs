@@ -79,7 +79,7 @@ impl TatTable {
     pub fn layers_from_ds(ds: &'static Dataset, where_clause: Option<String>, layers: Option<Vec<String>>) -> Vec<TatLayer> {
         let mut _layers: Vec<TatLayer> = vec![];
         for (i, layer) in ds.layers().enumerate() {
-            if let Some(lyrs) = layers.clone() {
+            if let Some(lyrs) = layers.as_ref() {
                 if !lyrs.contains(&layer.name()) {
                     continue
                 }
