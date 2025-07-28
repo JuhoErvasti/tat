@@ -3,16 +3,16 @@ use std::{
     env::temp_dir, fs::File, io::{
         BufRead,
         Result,
-    }
+    }, sync::mpsc
 };
 
 use cli_clipboard::{ClipboardContext, ClipboardProvider};
 
 use crossterm::event::{
-    self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind
+    self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind
 };
-use gdal::
-    Dataset
+use gdal::{vector::Feature, 
+    Dataset}
 ;
 use ratatui::{
     layout::{
@@ -38,7 +38,7 @@ use ratatui::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 use crate::{
-    layerlist::TatLayerList, navparagraph::TatNavigableParagraph, numberinput::{TatNumberInput, TatNumberInputResult}, table::TableRects, types::{TatNavHorizontal, TatNavVertical}
+    layerlist::{TatLayerInfo, TatLayerList}, navparagraph::TatNavigableParagraph, numberinput::{TatNumberInput, TatNumberInputResult}, table::TableRects, types::{TatNavHorizontal, TatNavVertical}
 };
 use crate::table::TatTable;
 
@@ -72,6 +72,15 @@ enum TatMainMenuSectionFocus {
     PreviewTable,
 }
 
+/// Custom event enum which also wraps Crossterm events
+#[derive(Debug)]
+pub enum TatEvent {
+    Keyboard(KeyEvent),
+    Mouse(MouseEvent),
+    // LayerInfoLoaded(TatLayerInfo),
+    // FeatureLoaded(Feature<'a>),
+}
+
 /// This is the main widget of the program, initiating the rendering and primarily handling
 /// key/mouse events.
 pub struct TatApp {
@@ -99,6 +108,8 @@ impl TatApp {
             Err(_) => None
         };
 
+        crossterm::execute!(std::io::stdout(), EnableMouseCapture).unwrap();
+
         Self {
             current_menu: TatMenu::MainMenu,
             quit: false,
@@ -115,18 +126,19 @@ impl TatApp {
 
     /// Main execution loop of the program. The state of the program is rendered along with key and
     /// mouse events being handled
-    pub fn run(mut self, terminal: &mut DefaultTerminal) -> Result<()> {
+    pub fn run(&mut self, terminal: &mut DefaultTerminal, rx: mpsc::Receiver<TatEvent>) -> Result<()> {
         while !self.quit {
             terminal.draw(|frame| {
                 self.render(frame);
             })?;
-            match event::read()? {
-                Event::Key(key) => self.handle_key(key),
-                Event::Mouse(mouse) => self.handle_mouse(mouse),
+
+            // TODO: don't unwrap yada yada
+            match rx.recv().unwrap() {
+                TatEvent::Keyboard(key) => self.handle_key(key),
+                TatEvent::Mouse(mouse) => self.handle_mouse(mouse),
                 _ => (),
             }
         }
-
         Ok(())
     }
 

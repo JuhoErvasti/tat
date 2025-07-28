@@ -1,9 +1,11 @@
 use cli_log::init_cli_log;
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
+use std::sync::mpsc;
+use std::thread;
 use std::{env::temp_dir, fs::File};
 use clap::{CommandFactory, Parser};
 
-use tat::app::TatApp;
+use tat::app::{TatApp, TatEvent};
 use tat::utils::{error_handler, open_dataset};
 
 #[derive(Parser)]
@@ -20,6 +22,21 @@ struct Cli {
 
     #[arg(long = "allow-untested-drivers", value_name = "ALLOW_UNTESTED_DRIVERS", help = "Allow attempting to open dataset of any type which has a GDAL-supported vector driver. Use with caution.")]
     all_drivers: bool,
+}
+
+fn handle_crossterm_events(tx: mpsc::Sender<TatEvent>) {
+    loop {
+        // TODO: don't unwrap
+        match crossterm::event::read().unwrap() {
+            crossterm::event::Event::Key(key_event) => {
+                tx.send(TatEvent::Keyboard(key_event)).unwrap()
+            },
+            crossterm::event::Event::Mouse(mouse_event) => {
+                tx.send(TatEvent::Mouse(mouse_event)).unwrap()
+            },
+            _ => {},
+        }
+    }
 }
 
 fn main() {
@@ -45,11 +62,17 @@ fn main() {
     if let Some(ds) = open_dataset(uri.to_string(), cli.all_drivers) {
         init_cli_log!();
         let mut terminal = ratatui::init();
-        crossterm::execute!(std::io::stdout(), EnableMouseCapture).unwrap();
 
-        let _result = TatApp::new(&ds, where_clause, layers).run(&mut terminal);
+        let (event_tx, event_rx) = mpsc::channel::<TatEvent>();
 
-        // FIXME: if the program terminates this will not happen
+        thread::spawn(move || {
+            handle_crossterm_events(event_tx.clone());
+        });
+
+        let _result = TatApp::new(&ds, where_clause, layers)
+            .run(&mut terminal, event_rx);
+
+        // FIXME: if the program panics or is killed this will not happen
         crossterm::execute!(std::io::stdout(), DisableMouseCapture).unwrap();
         ratatui::restore();
     } else {
