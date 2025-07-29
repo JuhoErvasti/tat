@@ -1,9 +1,10 @@
-use std::fmt::Write;
+use std::fmt::{Display, Write};
 use std::sync::mpsc::{Receiver, Sender};
-use std::thread;
+use std::sync::{Arc, Mutex};
 
 use cli_log::{error, info};
 use gdal::vector::field_type_to_name;
+use gdal::Dataset;
 use gdal::{vector::{geometry_type_to_name, Layer, LayerAccess}, Metadata};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -11,12 +12,25 @@ use crate::app::TatEvent;
 use crate::navparagraph::TatNavigableParagraph;
 use crate::{layer::TatLayer, layerlist::TatLayerInfo, types::{TatCrs, TatField, TatGeomField}};
 
+#[derive(Debug)]
 pub enum GdalRequest {
     AllLayers,
     AllLayerInfos,
     Feature(usize, u64),
     FidCache(usize),
     DatasetInfo,
+}
+
+impl Display for GdalRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GdalRequest::AllLayers => write!(f, "GdalRequest::AllLayers"),
+            GdalRequest::AllLayerInfos => write!(f, "GdalRequest::AllLayerInfos"),
+            GdalRequest::Feature(i, j) => write!(f, "GdalRequest::Feature({i}, {j})"),
+            GdalRequest::FidCache(i) => write!(f, "GdalRequest::FidCache({i})"),
+            GdalRequest::DatasetInfo => write!(f, "GdalRequest::DatasetInfo"),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -28,9 +42,21 @@ pub enum GdalResponse {
     DatasetInfo(String),
 }
 
+impl Display for GdalResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GdalResponse::Layer(tat_layer) => write!(f, "GdalResponse::Layer({})", tat_layer.name()),
+            GdalResponse::LayerInfo(info) => write!(f, "GdalResponse::LayerInfo({})", info.0),
+            GdalResponse::Feature(_) => write!(f, "GdalResponse::Feature"),
+            GdalResponse::FidCache(cache) => write!(f, "GdalResponse::FidCache({}, {})", cache.0, cache.1.len()),
+            GdalResponse::DatasetInfo(info) => write!(f, "GdalResponse::DatasetInfo({})", info),
+        }
+    }
+}
+
 /// Struct for handling interfacing with GDAL in a separate thread
 pub struct TatDataset {
-    gdal_ds: &'static gdal::Dataset,
+    gdal_ds: Arc<Mutex<Dataset>>,
     response_tx: Sender<TatEvent>,
     request_rx: Receiver<GdalRequest>,
     layer_filter: Option<Vec<String>>,
@@ -118,7 +144,7 @@ impl TatDataset {
 
         Some(
             Self {
-                gdal_ds: Box::leak(Box::new(ds)),
+                gdal_ds: Arc::new(Mutex::new(ds)),
                 response_tx,
                 request_rx,
                 where_clause,
@@ -127,9 +153,9 @@ impl TatDataset {
         )
     }
 
-    fn layer_fid_cache(&self, layer_index: usize) -> Vec<u64> {
+    fn layer_fid_cache(&self, lyr: &mut Layer) -> Vec<u64> {
         let mut cache: Vec<u64> = vec![];
-        for feature in self.gdal_ds.layer(layer_index).unwrap().features() {
+        for feature in lyr.features() {
             let fid = feature.fid().unwrap();
             cache.push(fid);
         }
@@ -149,11 +175,12 @@ impl TatDataset {
         loop {
             match self.request_rx.recv() {
                 Ok(request) => {
+                    info!("HANDLING {request}");
+                    let gdal_ds = self.gdal_ds.lock().unwrap();
                     match request {
                         GdalRequest::AllLayers => {
-                            let this = &self;
-                            for (i, ref mut layer) in this.gdal_ds.layers().enumerate() {
-                                if let Some(lyr_filter) = this.layer_filter.as_ref() {
+                            for (i, ref mut layer) in gdal_ds.layers().enumerate() {
+                                if let Some(lyr_filter) = self.layer_filter.as_ref() {
                                     if lyr_filter.contains(&layer.name()) {
                                         continue;
                                     }
@@ -161,13 +188,13 @@ impl TatDataset {
 
                                 self.send_response(
                                     GdalResponse::Layer(
-                                        this.layer_from_gdal_layer(i, layer)
+                                        self.layer_from_gdal_layer(i, layer)
                                     )
                                 );
                             }
                         },
                         GdalRequest::AllLayerInfos => {
-                            for (i, layer) in self.gdal_ds.layers().enumerate() {
+                            for mut layer in gdal_ds.layers() {
                                 if let Some(lyr_filter) = self.layer_filter.as_ref() {
                                     if lyr_filter.contains(&layer.name()) {
                                         continue;
@@ -179,7 +206,7 @@ impl TatDataset {
                                         (
                                             layer.name(),
                                             TatNavigableParagraph::new(
-                                                self.layer_info_text(i),
+                                                self.layer_info_text(&mut layer),
                                             ),
                                         ),
                                     )
@@ -190,16 +217,22 @@ impl TatDataset {
                             info!("FEATURE REQUESTED!");
                         },
                         GdalRequest::FidCache(index) => {
+                            let mut lyr = gdal_ds.layer(index).unwrap();
                             self.send_response(
                                 GdalResponse::FidCache(
-                                    (index, self.layer_fid_cache(index)),
+                                    (index, self.layer_fid_cache(&mut lyr)),
                                 )
                             )
                         },
                         GdalRequest::DatasetInfo => {
                             self.send_response(
                                 GdalResponse::DatasetInfo(
-                                    self.dataset_info_text()
+                                    format!(
+                                        "- URI: \"{}\"\n- Driver: {} ({})",
+                                        gdal_ds.description().unwrap_or("ERROR: COULD NOT READ DATASET DESCRIPTION!".to_string()),
+                                        gdal_ds.driver().long_name(),
+                                        gdal_ds.driver().short_name(),
+                                    )
                                 )
                             );
                         },
@@ -210,15 +243,6 @@ impl TatDataset {
                 },
             }
         }
-    }
-
-    fn dataset_info_text(&self) -> String {
-        format!(
-            "- URI: \"{}\"\n- Driver: {} ({})",
-            self.gdal_ds.description().unwrap_or("ERROR: COULD NOT READ DATASET DESCRIPTION!".to_string()),
-            self.gdal_ds.driver().long_name(),
-            self.gdal_ds.driver().short_name(),
-        )
     }
 
     pub fn layer_from_gdal_layer(&self, layer_index: usize, layer: &mut Layer) -> TatLayer {
@@ -287,10 +311,9 @@ impl TatDataset {
     }
 
     /// Constructs the layer information object for one layer
-    fn layer_info_text(&self, layer_index: usize) -> String {
-        let mut gdal_layer = self.gdal_ds.layer(layer_index).unwrap();
+    fn layer_info_text(&self, lyr: &mut Layer) -> String {
         // TODO: not sure I like the fact that these are constructed twice
-        let layer = self.layer_from_gdal_layer(layer_index, &mut gdal_layer);
+        let layer = self.layer_from_gdal_layer(0, lyr);
 
         let mut text: String = format!("- Name: {}\n", layer.name());
         if let Some(crs) = layer.crs() {

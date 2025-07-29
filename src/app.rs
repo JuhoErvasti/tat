@@ -144,6 +144,7 @@ impl TatApp {
     }
 
     fn handle_gdal(&mut self, response: GdalResponse) {
+        info!("HANDLING {response}");
         match response {
             GdalResponse::Layer(tat_layer) => {
                 self.table.add_layer(tat_layer);
