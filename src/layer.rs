@@ -14,7 +14,6 @@ pub struct TatLayer {
     index: usize,
     fid_cache: Vec<u64>,
     feature_count: u64,
-    ds: &'static Dataset,
     where_clause: Option<String>,
 }
 
@@ -23,7 +22,6 @@ impl TatLayer {
     pub fn new(dataset: &'static Dataset, i: usize, where_clause: Option<String>) -> Self {
         let lyr = TatLayer::get_gdal_layer(dataset, i, where_clause.clone());
         Self {
-            ds: dataset,
             name: lyr.name(),
             feature_count: lyr.feature_count(),
             crs: TatLayer::crs_from_layer(&lyr),
@@ -43,11 +41,6 @@ impl TatLayer {
     /// Returns the total number of features in the layer
     pub fn feature_count(&self) -> u64 {
         self.feature_count
-    }
-
-    /// Returns the underlying GDAL layer
-    pub fn gdal_layer(&self) -> Layer {
-        TatLayer::get_gdal_layer(&self.ds, self.index, self.where_clause.clone())
     }
 
     /// Returns the coordinate reference system of the given layer as a TatCrs

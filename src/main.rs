@@ -1,5 +1,6 @@
 use cli_log::init_cli_log;
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
+use tat::dataset::{GdalRequest, TatDataset};
 use std::sync::mpsc;
 use std::thread;
 use std::{env::temp_dir, fs::File};
@@ -24,7 +25,7 @@ struct Cli {
     all_drivers: bool,
 }
 
-fn handle_crossterm_events(tx: mpsc::Sender<TatEvent>) {
+fn handle_events(tx: mpsc::Sender<TatEvent>) {
     loop {
         // TODO: don't unwrap
         match crossterm::event::read().unwrap() {
@@ -59,23 +60,37 @@ fn main() {
     let _ = File::create(format!("{}/tat_gdal.log", temp_dir().display())).unwrap();
     gdal::config::set_error_handler(error_handler);
 
-    if let Some(ds) = open_dataset(uri.to_string(), cli.all_drivers) {
-        init_cli_log!();
-        let mut terminal = ratatui::init();
+    let (gdal_request_tx, gdal_request_rx) = mpsc::channel<GdalRequest>();
+    let (gdal_response_tx, gdal_response_rx) = mpsc::channel<GdalResponse>();
 
-        let (event_tx, event_rx) = mpsc::channel::<TatEvent>();
+    let ds_handle = thread::spawn(move || {
+        if let Some(ds) = TatDataset::new(gdal_response_tx, gdal_request_rx, where_clause.to_string(), cli.all_drivers) {
+            ds.handle_requests();
+        } else {
+            return;
+        }
+    });
 
-        thread::spawn(move || {
-            handle_crossterm_events(event_tx.clone());
-        });
-
-        let _result = TatApp::new(&ds, where_clause, layers)
-            .run(&mut terminal, event_rx);
-
-        // FIXME: if the program panics or is killed this will not happen
-        crossterm::execute!(std::io::stdout(), DisableMouseCapture).unwrap();
-        ratatui::restore();
-    } else {
+    // TODO: really not sure this works at all
+    // maybe we need to send a GdalResponse to confirm the dataset could be opened or something
+    if ds_handle.is_finished() {
         Cli::command().print_help().unwrap();
+        return;
     }
+
+    init_cli_log!();
+    let mut terminal = ratatui::init();
+
+    let (tatevent_tx, tatevent_rx) = mpsc::channel::<TatEvent>();
+
+    thread::spawn(move || {
+        handle_events(tatevent_tx);
+    });
+
+    let _result = TatApp::new(gdal_request_tx, gdal_response_rx, &ds, where_clause, layers)
+        .run(&mut terminal, tatevent_rx);
+
+    // FIXME: if the program panics or is killed this will not happen
+    crossterm::execute!(std::io::stdout(), DisableMouseCapture).unwrap();
+    ratatui::restore();
 }

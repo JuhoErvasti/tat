@@ -8,3 +8,4 @@ pub mod shared;
 pub mod table;
 pub mod types;
 pub mod utils;
+pub mod dataset;

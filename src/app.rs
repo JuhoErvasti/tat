@@ -3,16 +3,15 @@ use std::{
     env::temp_dir, fs::File, io::{
         BufRead,
         Result,
-    }, sync::mpsc
+    }, sync::mpsc::{self, Sender}
 };
 
 use cli_clipboard::{ClipboardContext, ClipboardProvider};
 
 use crossterm::event::{
-    self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind
+    EnableMouseCapture, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind
 };
-use gdal::{vector::Feature, 
-    Dataset}
+use gdal::Dataset
 ;
 use ratatui::{
     layout::{
@@ -38,7 +37,7 @@ use ratatui::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 use crate::{
-    layerlist::{TatLayerInfo, TatLayerList}, navparagraph::TatNavigableParagraph, numberinput::{TatNumberInput, TatNumberInputResult}, table::TableRects, types::{TatNavHorizontal, TatNavVertical}
+    dataset::{GdalRequest, GdalResponse}, layerlist::{TatLayerInfo, TatLayerList}, navparagraph::TatNavigableParagraph, numberinput::{TatNumberInput, TatNumberInputResult}, table::TableRects, types::{TatNavHorizontal, TatNavVertical}
 };
 use crate::table::TatTable;
 
@@ -94,11 +93,13 @@ pub struct TatApp {
     table_area: Rect,
     number_input: Option<TatNumberInput>,
     clipboard_feedback: Option<String>,
+    gdal_request_tx: Sender<GdalRequest>,
+    gdal_response_rx: Sender<GdalResponse>,
 }
 
 impl TatApp {
     /// Constructs a new object
-    pub fn new(ds: &'static Dataset, where_clause: Option<String>, layers: Option<Vec<String>>) -> Self {
+    pub fn new(gdal_request_tx: Sender<GdalRequest>, gdal_response_rx: Sender<GdalResponse>, where_clause: Option<String>, layers: Option<Vec<String>>) -> Self {
         let mut ls = ListState::default();
         ls.select_first();
 
@@ -121,6 +122,8 @@ impl TatApp {
             table_area: Rect::default(),
             number_input: None,
             clipboard_feedback: None,
+            gdal_request_tx,
+            gdal_response_rx,
         }
     }
 
@@ -136,7 +139,6 @@ impl TatApp {
             match rx.recv().unwrap() {
                 TatEvent::Keyboard(key) => self.handle_key(key),
                 TatEvent::Mouse(mouse) => self.handle_mouse(mouse),
-                _ => (),
             }
         }
         Ok(())
