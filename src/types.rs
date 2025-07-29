@@ -24,7 +24,7 @@ pub enum TatNavHorizontal {
 }
 
 /// A struct which holds information about a coordinate reference system for displaying purposes
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TatCrs {
     auth_name: String,
     auth_code: i32,
@@ -84,7 +84,7 @@ impl TatCrs {
 }
 
 /// A struct describing a field in a GDAL layer for displaying purposes
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TatField {
     name: String,
     dtype: u32,
@@ -112,7 +112,7 @@ impl TatField {
 }
 
 /// A struct describing a geometry field in a GDAL layer for displaying purposes
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TatGeomField {
     name: String,
     geom_type: String,

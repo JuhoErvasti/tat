@@ -61,11 +61,12 @@ fn main() {
     gdal::config::set_error_handler(error_handler);
 
     let (gdal_request_tx, gdal_request_rx) = mpsc::channel::<GdalRequest>();
-    let (gdal_response_tx, gdal_response_rx) = mpsc::channel::<GdalResponse>();
+    let (tatevent_tx, tatevent_rx) = mpsc::channel::<TatEvent>();
+    let ds_event_sender = tatevent_tx.clone();
 
     let ds_handle = thread::spawn(move || {
         if let Some(ds) = TatDataset::new(
-            gdal_response_tx,
+            ds_event_sender,
             gdal_request_rx,
             uri.to_string(),
             cli.all_drivers,
@@ -88,13 +89,11 @@ fn main() {
     init_cli_log!();
     let mut terminal = ratatui::init();
 
-    let (tatevent_tx, tatevent_rx) = mpsc::channel::<TatEvent>();
-
     let event_handle = thread::spawn(move || {
         handle_events(tatevent_tx).unwrap();
     });
 
-    let _result = TatApp::new(gdal_request_tx, gdal_response_rx)
+    let _result = TatApp::new(gdal_request_tx)
         .run(&mut terminal, tatevent_rx);
 
     // ds_handle.join().unwrap();

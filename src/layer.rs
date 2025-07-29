@@ -5,7 +5,7 @@ use crate::types::{TatCrs, TatField, TatGeomField};
 
 /// A struct which holds information about a layer in a GDAL Dataset and can also fetch infromation
 /// about features in the layer.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TatLayer {
     name: String,
     crs: Option<TatCrs>,
@@ -50,56 +50,6 @@ impl TatLayer {
     /// Returns the total number of features in the layer
     pub fn feature_count(&self) -> u64 {
         self.feature_count
-    }
-
-    /// Returns the coordinate reference system of the given layer as a TatCrs
-    pub fn crs_from_layer(layer: &Layer) -> Option<TatCrs> {
-        if let Some(sref) = layer.spatial_ref() {
-            return TatCrs::from_spatial_ref(&sref);
-        }
-
-        None
-    }
-
-    /// Returns all geometry field found in the given layer
-    pub fn geom_fields_from_layer(layer: &Layer) -> Vec<TatGeomField> {
-        let mut fields: Vec<TatGeomField> = vec![];
-        for field in layer.defn().geom_fields() {
-            let name: &str = if field.name().is_empty() {
-                "geometry"
-            } else {
-                &field.name()
-            };
-
-            let crs = match &field.spatial_ref() {
-                Ok(sref) => TatCrs::from_spatial_ref(sref),
-                Err(_) => None,
-            };
-
-            fields.push(
-                TatGeomField::new(
-                    name.to_string(),
-                    geometry_type_to_name(field.field_type()),
-                    crs,
-                )
-            );
-        }
-        fields
-    }
-
-    /// Return all the attribute fields in the given layer
-    pub fn fields_from_layer(layer: &Layer) -> Vec<TatField> {
-        let mut fields: Vec<TatField> = vec![];
-        for field in layer.defn().fields() {
-            fields.push(
-                TatField::new(
-                    field.name(),
-                    field.field_type(),
-                )
-            );
-        }
-
-        fields
     }
 
     /// Returns the total number of attribute AND geometry fields in the layer. The reason this

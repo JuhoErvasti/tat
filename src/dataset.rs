@@ -1,10 +1,14 @@
-use std::sync::mpsc::{Receiver, RecvError, Sender};
+use std::fmt::Write;
+use std::sync::mpsc::{Receiver, Sender};
 
-use cli_log::{error, info, log};
-use gdal::Metadata;
+use cli_log::{error, info};
+use gdal::vector::field_type_to_name;
+use gdal::{vector::{geometry_type_to_name, Layer, LayerAccess}, Metadata};
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::{layer::TatLayer, layerlist::TatLayerInfo};
+use crate::app::TatEvent;
+use crate::navparagraph::TatNavigableParagraph;
+use crate::{layer::TatLayer, layerlist::TatLayerInfo, types::{TatCrs, TatField, TatGeomField}};
 
 pub enum GdalRequest {
     AllLayers,
@@ -14,6 +18,7 @@ pub enum GdalRequest {
     DatasetInfo,
 }
 
+#[derive(Debug)]
 pub enum GdalResponse {
     Layer(TatLayer),
     LayerInfo(TatLayerInfo),
@@ -25,7 +30,7 @@ pub enum GdalResponse {
 /// Struct for handling interfacing with GDAL in a separate thread
 pub struct TatDataset {
     gdal_ds: &'static gdal::Dataset,
-    response_tx: Sender<GdalResponse>,
+    response_tx: Sender<TatEvent>,
     request_rx: Receiver<GdalRequest>,
     layer_filter: Option<Vec<String>>,
     where_clause: Option<String>,
@@ -34,7 +39,7 @@ pub struct TatDataset {
 impl TatDataset {
     /// Attempts to open a dataset from a string.
     pub fn new(
-        response_tx: Sender<GdalResponse>,
+        response_tx: Sender<TatEvent>,
         request_rx: Receiver<GdalRequest>,
         uri: String,
         all_drivers: bool,
@@ -123,7 +128,6 @@ impl TatDataset {
 
     pub fn handle_requests(&self) {
         loop {
-            // TODO: no unwrap blah blah
             match self.request_rx.recv() {
                 Ok(request) => {
                     match request {
@@ -131,7 +135,28 @@ impl TatDataset {
                             info!("ALL LAYERS REQUESTED!");
                         },
                         GdalRequest::AllLayerInfos => {
-                            info!("ALL LAYER INFOS REQUESTED!");
+                            for (i, layer) in self.gdal_ds.layers().enumerate() {
+                                if let Some(lyr_filter) = self.layer_filter.as_ref() {
+                                    if lyr_filter.contains(&layer.name()) {
+                                        continue;
+                                    }
+                                }
+
+                                info!("SENDING INFO FOR {}", layer.name());
+
+                                self.response_tx.send(
+                                    TatEvent::Gdal(
+                                        GdalResponse::LayerInfo(
+                                            (
+                                                layer.name(),
+                                                TatNavigableParagraph::new(
+                                                    self.layer_info_text(i),
+                                                ),
+                                            ),
+                                        )
+                                    )
+                                ).unwrap();
+                            }
                         },
                         GdalRequest::Feature(_, _) => {
                             info!("FEATURE REQUESTED!");
@@ -148,7 +173,9 @@ impl TatDataset {
                             );
 
                             self.response_tx.send(
-                                GdalResponse::DatasetInfo(info)
+                                TatEvent::Gdal(
+                                    GdalResponse::DatasetInfo(info)
+                                )
                             ).unwrap();
                         },
                     }
@@ -158,5 +185,134 @@ impl TatDataset {
                 },
             }
         }
+    }
+
+    /// Returns the coordinate reference system of the given layer as a TatCrs
+    pub fn crs_from_layer(layer: &Layer) -> Option<TatCrs> {
+        if let Some(sref) = layer.spatial_ref() {
+            return TatCrs::from_spatial_ref(&sref);
+        }
+
+        None
+    }
+
+    /// Returns all geometry field found in the given layer
+    pub fn geom_fields_from_layer(layer: &Layer) -> Vec<TatGeomField> {
+        let mut fields: Vec<TatGeomField> = vec![];
+        for field in layer.defn().geom_fields() {
+            let name: &str = if field.name().is_empty() {
+                "geometry"
+            } else {
+                &field.name()
+            };
+
+            let crs = match &field.spatial_ref() {
+                Ok(sref) => TatCrs::from_spatial_ref(sref),
+                Err(_) => None,
+            };
+
+            fields.push(
+                TatGeomField::new(
+                    name.to_string(),
+                    geometry_type_to_name(field.field_type()),
+                    crs,
+                )
+            );
+        }
+        fields
+    }
+
+    /// Return all the attribute fields in the given layer
+    pub fn attribute_fields_from_layer(layer: &Layer) -> Vec<TatField> {
+        let mut fields: Vec<TatField> = vec![];
+        for field in layer.defn().fields() {
+            fields.push(
+                TatField::new(
+                    field.name(),
+                    field.field_type(),
+                )
+            );
+        }
+
+        fields
+    }
+
+    /// Constructs the layer information object for one layer
+    fn layer_info_text(&self, layer_index: usize) -> String {
+        let mut gdal_layer = self.gdal_ds.layer(layer_index).unwrap();
+        if let Some(wc) = self.where_clause.as_ref() {
+            gdal_layer.set_attribute_filter(wc.as_str()).unwrap();
+        }
+
+        // TODO: not sure I like the fact that these are constructed twice
+        let layer = TatLayer::new(
+            gdal_layer.name(),
+            TatDataset::crs_from_layer(&gdal_layer),
+            TatDataset::geom_fields_from_layer(&gdal_layer),
+            TatDataset::attribute_fields_from_layer(&gdal_layer),
+            layer_index,
+            gdal_layer.feature_count(),
+        );
+
+        let mut text: String = format!("- Name: {}\n", layer.name());
+
+        if let Some(crs) = layer.crs() {
+            write!(
+                text,
+                "- CRS: {}:{} ({})\n",
+                crs.auth_name(),
+                crs.auth_code(),
+                crs.name(),
+            ).unwrap();
+        }
+
+        write!(
+            text,
+            "- Feature Count: {}\n",
+            layer.feature_count(),
+        ).unwrap();
+
+        if layer.geom_fields().len() > 0 {
+            write!(text, "- Geometry fields:\n").unwrap();
+
+            for field in layer.geom_fields() {
+                write!(
+                    text,
+                    "    \"{}\" - ({}",
+                    field.name(),
+                    field.geom_type(),
+                ).unwrap();
+
+                if let Some(crs) = field.crs() {
+                    write!(
+                        text,
+                        ", {}:{}",
+                        crs.auth_name(),
+                        crs.auth_code(),
+                    ).unwrap();
+                }
+
+                write!(text, ")\n").unwrap();
+            }
+        }
+
+        if layer.attribute_fields().len() > 0 {
+            write!(
+                text,
+                "- Fields ({}):\n",
+                layer.attribute_fields().len(),
+            ).unwrap();
+
+            for field in layer.attribute_fields() {
+                write!(
+                    text,
+                    "    \"{}\" - ({})\n",
+                    field.name(),
+                    field_type_to_name(field.dtype()),
+                ).unwrap();
+            }
+        }
+
+        text
     }
 }

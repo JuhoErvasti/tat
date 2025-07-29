@@ -44,6 +44,10 @@ impl TatLayerList {
         }
     }
 
+    pub fn add_info(&mut self, info: TatLayerInfo) {
+        self.layer_infos.push(info);
+    }
+
     /// Returns the displayable layer information as a navigable paragraph based on the currently
     /// selected layer
     pub fn current_layer_info_paragraph(&mut self) -> Option<&mut TatNavigableParagraph> {

@@ -1,4 +1,4 @@
-use cli_log::error;
+use cli_log::{error, info};
 use std::{
     env::temp_dir, fs::File, io::{
         BufRead,
@@ -74,8 +74,7 @@ enum TatMainMenuSectionFocus {
 pub enum TatEvent {
     Keyboard(KeyEvent),
     Mouse(MouseEvent),
-    // LayerInfoLoaded(TatLayerInfo),
-    // FeatureLoaded(Feature<'a>),
+    Gdal(GdalResponse),
 }
 
 /// This is the main widget of the program, initiating the rendering and primarily handling
@@ -91,14 +90,12 @@ pub struct TatApp {
     table_area: Rect,
     number_input: Option<TatNumberInput>,
     clipboard_feedback: Option<String>,
-    gdal_request_tx: Sender<GdalRequest>,
-    gdal_response_rx: Receiver<GdalResponse>,
     dataset_info_text: String,
 }
 
 impl TatApp {
     /// Constructs a new object
-    pub fn new(gdal_request_tx: Sender<GdalRequest>, gdal_response_rx: Receiver<GdalResponse>) -> Self {
+    pub fn new(gdal_request_tx: Sender<GdalRequest>) -> Self {
         let mut ls = ListState::default();
         ls.select_first();
 
@@ -124,8 +121,6 @@ impl TatApp {
             table_area: Rect::default(),
             number_input: None,
             clipboard_feedback: None,
-            gdal_request_tx,
-            gdal_response_rx,
             dataset_info_text: String::default(),
         }
     }
@@ -134,16 +129,6 @@ impl TatApp {
     /// mouse events being handled
     pub fn run(&mut self, terminal: &mut DefaultTerminal, rx: mpsc::Receiver<TatEvent>) -> Result<()> {
         while !self.quit {
-            match self.gdal_response_rx.recv().unwrap() {
-                GdalResponse::Layer(tat_layer) => todo!(),
-                GdalResponse::LayerInfo(_) => todo!(),
-                GdalResponse::Feature(items) => todo!(),
-                GdalResponse::FidCache(items) => todo!(),
-                GdalResponse::DatasetInfo(info) => {
-                    self.dataset_info_text = info;
-                },
-            }
-
             terminal.draw(|frame| {
                 self.render(frame);
             })?;
@@ -152,10 +137,28 @@ impl TatApp {
             match rx.recv().unwrap() {
                 TatEvent::Keyboard(key) => self.handle_key(key),
                 TatEvent::Mouse(mouse) => self.handle_mouse(mouse),
+                TatEvent::Gdal(gdal_response) => self.handle_gdal(gdal_response),
             }
-
         }
         Ok(())
+    }
+
+    fn handle_gdal(&mut self, response: GdalResponse) {
+        match response {
+            GdalResponse::Layer(tat_layer) => todo!(),
+            GdalResponse::LayerInfo(layer_info) => {
+                self.layerlist.add_info(layer_info);
+
+                if self.layerlist.current_layer_info_paragraph().is_none() {
+                    self.layerlist.nav(TatNavVertical::First);
+                }
+            }
+            GdalResponse::Feature(items) => todo!(),
+            GdalResponse::FidCache(items) => todo!(),
+            GdalResponse::DatasetInfo(info) => {
+                self.dataset_info_text = info;
+            },
+        }
     }
 
     /// Renders the current menu and any other active pop-ups or dialogs
