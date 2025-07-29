@@ -65,7 +65,7 @@ fn main() {
     let ds_event_sender = tatevent_tx.clone();
 
     let ds_handle = thread::spawn(move || {
-        if let Some(ds) = TatDataset::new(
+        if let Some(mut ds) = TatDataset::new(
             ds_event_sender,
             gdal_request_rx,
             uri.to_string(),
@@ -88,6 +88,8 @@ fn main() {
 
     init_cli_log!();
     let mut terminal = ratatui::init();
+
+    // TODO: maybe we do rendering 30fps or something
 
     let event_handle = thread::spawn(move || {
         handle_events(tatevent_tx).unwrap();

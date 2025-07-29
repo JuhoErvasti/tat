@@ -1,6 +1,6 @@
 use std::sync::mpsc::Sender;
 
-use cli_log::error;
+use cli_log::{error, info};
 use ratatui::{
     layout::{
         Constraint, Rect

@@ -64,6 +64,7 @@ pub struct TatDataset {
     request_rx: Receiver<GdalRequest>,
     layer_filter: Option<Vec<String>>,
     where_clause: Option<String>,
+    feature_requests: Vec<(usize, usize)>,
 }
 
 impl TatDataset {
@@ -151,6 +152,7 @@ impl TatDataset {
                 request_rx,
                 where_clause,
                 layer_filter,
+                feature_requests: vec![],
             }
         )
     }
@@ -173,7 +175,7 @@ impl TatDataset {
         ).unwrap();
     }
 
-    pub fn handle_requests(&self) {
+    pub fn handle_requests(&mut  self) {
         loop {
             match self.request_rx.recv() {
                 Ok(request) => {
@@ -216,6 +218,15 @@ impl TatDataset {
                             }
                         },
                         GdalRequest::Feature(layer_index, row, fid) => {
+                            let info = (layer_index, row);
+
+                            if self.feature_requests.contains(&info) {
+                                continue
+                            } else {
+                                self.feature_requests.push(info);
+                            }
+
+
                             let lyr = gdal_ds.layer(layer_index).unwrap();
                             self.send_response(
                                 GdalResponse::Feature(
