@@ -1,7 +1,7 @@
-use cli_log::init_cli_log;
+use cli_log::{info, init_cli_log};
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use tat::dataset::{GdalRequest, GdalResponse, TatDataset};
-use std::sync::mpsc;
+use std::sync::mpsc::{self, SendError};
 use std::thread;
 use std::{env::temp_dir, fs::File};
 use clap::{CommandFactory, Parser};
@@ -25,15 +25,15 @@ struct Cli {
     all_drivers: bool,
 }
 
-fn handle_events(tx: mpsc::Sender<TatEvent>) {
+fn handle_events(tx: mpsc::Sender<TatEvent>) -> Result<(), SendError<TatEvent>> {
     loop {
         // TODO: don't unwrap
         match crossterm::event::read().unwrap() {
             crossterm::event::Event::Key(key_event) => {
-                tx.send(TatEvent::Keyboard(key_event)).unwrap()
+                tx.send(TatEvent::Keyboard(key_event))?
             },
             crossterm::event::Event::Mouse(mouse_event) => {
-                tx.send(TatEvent::Mouse(mouse_event)).unwrap()
+                tx.send(TatEvent::Mouse(mouse_event))?
             },
             _ => {},
         }
@@ -90,12 +90,15 @@ fn main() {
 
     let (tatevent_tx, tatevent_rx) = mpsc::channel::<TatEvent>();
 
-    thread::spawn(move || {
-        handle_events(tatevent_tx);
+    let event_handle = thread::spawn(move || {
+        handle_events(tatevent_tx).unwrap();
     });
 
     let _result = TatApp::new(gdal_request_tx, gdal_response_rx)
         .run(&mut terminal, tatevent_rx);
+
+    // ds_handle.join().unwrap();
+    // event_handle.join().unwrap();
 
     // FIXME: if the program panics or is killed this will not happen
     // crossterm::execute!(std::io::stdout(), DisableMouseCapture).unwrap();

@@ -1,12 +1,14 @@
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::{Receiver, RecvError, Sender};
 
-use cli_log::{info, log};
+use cli_log::{error, info, log};
+use gdal::Metadata;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::layer::TatLayer;
+use crate::{layer::TatLayer, layerlist::TatLayerInfo};
 
 pub enum GdalRequest {
     AllLayers,
+    AllLayerInfos,
     Feature(usize, u64),
     FidCache(usize),
     DatasetInfo,
@@ -14,6 +16,7 @@ pub enum GdalRequest {
 
 pub enum GdalResponse {
     Layer(TatLayer),
+    LayerInfo(TatLayerInfo),
     Feature(Option<Vec<String>>),
     FidCache(Vec<u64>),
     DatasetInfo(String),
@@ -121,18 +124,37 @@ impl TatDataset {
     pub fn handle_requests(&self) {
         loop {
             // TODO: no unwrap blah blah
-            match self.request_rx.recv().unwrap() {
-                GdalRequest::AllLayers => {
-                    info!("ALL LAYERS REQUESTED!");
+            match self.request_rx.recv() {
+                Ok(request) => {
+                    match request {
+                        GdalRequest::AllLayers => {
+                            info!("ALL LAYERS REQUESTED!");
+                        },
+                        GdalRequest::AllLayerInfos => {
+                            info!("ALL LAYER INFOS REQUESTED!");
+                        },
+                        GdalRequest::Feature(_, _) => {
+                            info!("FEATURE REQUESTED!");
+                        },
+                        GdalRequest::FidCache(_) => {
+                            info!("FID CACHE REQUESTED!");
+                        },
+                        GdalRequest::DatasetInfo => {
+                            let info = format!(
+                                "- URI: \"{}\"\n- Driver: {} ({})",
+                                self.gdal_ds.description().unwrap_or("ERROR: COULD NOT READ DATASET DESCRIPTION!".to_string()),
+                                self.gdal_ds.driver().long_name(),
+                                self.gdal_ds.driver().short_name(),
+                            );
+
+                            self.response_tx.send(
+                                GdalResponse::DatasetInfo(info)
+                            ).unwrap();
+                        },
+                    }
                 },
-                GdalRequest::Feature(_, _) => {
-                    info!("FEATURE REQUESTED!");
-                },
-                GdalRequest::FidCache(_) => {
-                    info!("FID CACHE REQUESTED!");
-                },
-                GdalRequest::DatasetInfo => {
-                    info!("DATASET INFO REQUESTED!");
+                Err(err) => {
+                    error!("{}", err.to_string());
                 },
             }
         }

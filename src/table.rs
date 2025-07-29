@@ -62,7 +62,7 @@ impl TatTable {
         ts.select_first();
         ts.select_first_column();
 
-        gdal_request_tx.send(GdalRequest::AllLayers);
+        gdal_request_tx.send(GdalRequest::AllLayers).unwrap();
 
         Self {
             table_state: ts,

@@ -33,7 +33,7 @@ impl TatLayerList {
         let mut ls = ListState::default();
         ls.select_first();
 
-        request_rx.send(GdalRequest::AllLayers).unwrap();
+        request_rx.send(GdalRequest::AllLayerInfos).unwrap();
 
         let scr = ScrollbarState::new(0);
         Self {
@@ -71,14 +71,18 @@ impl TatLayerList {
     }
 
     /// Returns the index of the currently selected layer
-    pub fn layer_index(&self) -> usize {
-        let i = self.state.selected().unwrap();
+    pub fn layer_index(&self) -> Option<usize> {
+        let i = self.state.selected()?;
 
-        if i >= self.layer_infos.len() {
-            return self.layer_infos.len() - 1;
+        if self.layer_infos.len() == 0 {
+            return None;
         }
 
-        i
+        if i >= self.layer_infos.len() {
+            return Some(self.layer_infos.len() - 1);
+        }
+
+        Some(i)
     }
 
     /// Renders the current state of the widget

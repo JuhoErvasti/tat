@@ -117,8 +117,8 @@ impl TatApp {
             current_menu: TatMenu::MainMenu,
             quit: false,
             modal_popup: None,
-            table: TatTable::new(gdal_request_tx.clone()),
             layerlist: TatLayerList::new(gdal_request_tx.clone()),
+            table: TatTable::new(gdal_request_tx.clone()),
             focused_section: TatMainMenuSectionFocus::LayerList,
             clip,
             table_area: Rect::default(),
@@ -134,6 +134,16 @@ impl TatApp {
     /// mouse events being handled
     pub fn run(&mut self, terminal: &mut DefaultTerminal, rx: mpsc::Receiver<TatEvent>) -> Result<()> {
         while !self.quit {
+            match self.gdal_response_rx.recv().unwrap() {
+                GdalResponse::Layer(tat_layer) => todo!(),
+                GdalResponse::LayerInfo(_) => todo!(),
+                GdalResponse::Feature(items) => todo!(),
+                GdalResponse::FidCache(items) => todo!(),
+                GdalResponse::DatasetInfo(info) => {
+                    self.dataset_info_text = info;
+                },
+            }
+
             terminal.draw(|frame| {
                 self.render(frame);
             })?;
@@ -143,6 +153,7 @@ impl TatApp {
                 TatEvent::Keyboard(key) => self.handle_key(key),
                 TatEvent::Mouse(mouse) => self.handle_mouse(mouse),
             }
+
         }
         Ok(())
     }
@@ -423,7 +434,7 @@ impl TatApp {
             KeyCode::Enter => {
                 match self.current_menu {
                     TatMenu::MainMenu => {
-                        if !in_table && !popup_open && (in_preview_table || in_layer_list) {
+                        if !in_table && !popup_open && (in_preview_table || in_layer_list && self.layerlist.layer_index().is_some()) {
                             self.open_table();
                         }
                     },
@@ -597,7 +608,9 @@ impl TatApp {
                     TatMainMenuSectionFocus::LayerList => {
                         self.layerlist.nav(conf);
 
-                        self.table.set_layer_index(self.layerlist.layer_index());
+                        if let Some(lyr_i) = self.layerlist.layer_index() {
+                            self.table.set_layer_index(lyr_i);
+                        }
                         self.table.reset();
                     },
                     TatMainMenuSectionFocus::LayerInfo => {
