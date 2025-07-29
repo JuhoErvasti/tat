@@ -1,5 +1,6 @@
 pub mod app;
-pub mod fixtures;
+// FIXME: bring back online
+// pub mod fixtures;
 pub mod layerlist;
 pub mod layer;
 pub mod navparagraph;

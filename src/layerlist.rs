@@ -1,18 +1,10 @@
-use gdal::{
-    vector::{
-        field_type_to_name, LayerAccess
-    },
-    Dataset,
-};
 use ratatui::{layout::{Constraint, Layout, Margin}, style::Style, symbols::{self, scrollbar::DOUBLE_VERTICAL}, text::Line, widgets::{Block, List, ListItem, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState}, Frame};
 use ratatui::widgets::HighlightSpacing;
 use ratatui::prelude::Stylize;
-use std::fmt::Write;
+use std::sync::mpsc::Sender;
 
 use crate::{
-    navparagraph::TatNavigableParagraph,
-    types::TatNavVertical,
-    layer::TatLayer,
+    dataset::GdalRequest, navparagraph::TatNavigableParagraph, types::TatNavVertical
 };
 
 const BORDER_LAYER_LIST: symbols::border::Set = symbols::border::Set {
@@ -37,26 +29,26 @@ pub struct TatLayerList {
 
 impl TatLayerList {
     /// Constructs new widget
-    pub fn new(ds: &'static Dataset, layers: Option<Vec<String>>) -> Self {
+    pub fn new(request_rx: Sender<GdalRequest>) -> Self {
         let mut ls = ListState::default();
         ls.select_first();
 
-        let infos = TatLayerList::layer_infos(&ds, layers);
-        let scr = ScrollbarState::new(infos.len());
+        request_rx.send(GdalRequest::AllLayers).unwrap();
 
+        let scr = ScrollbarState::new(0);
         Self {
             state: ls,
             scroll: scr,
-            layer_infos: infos,
+            layer_infos: vec![],
             available_rows: 0,
         }
     }
 
     /// Returns the displayable layer information as a navigable paragraph based on the currently
     /// selected layer
-    pub fn current_layer_info_paragraph(&mut self) -> &mut TatNavigableParagraph {
-        let (_, para) = self.layer_infos.get_mut(self.state.selected().unwrap()).unwrap();
-        para
+    pub fn current_layer_info_paragraph(&mut self) -> Option<&mut TatNavigableParagraph> {
+        let (_, para) = self.layer_infos.get_mut(self.state.selected()?)?;
+        Some(para)
     }
 
     /// Handles navigation of the list
@@ -149,90 +141,6 @@ impl TatLayerList {
                 );
             }
         }
-    }
-
-    /// Constructs all the displayable layer information objects from the dataset
-    fn layer_infos(ds: &'static Dataset, layers: Option<Vec<String>>) -> Vec<TatLayerInfo> {
-        let mut infos: Vec<TatLayerInfo> = vec![];
-        for (i, layer) in ds.layers().enumerate() {
-            if let Some(lyrs) = layers.as_ref() {
-                if !lyrs.contains(&layer.name()) {
-                    continue
-                }
-            }
-
-            let p = TatNavigableParagraph::new(TatLayerList::layer_info_text(ds, i));
-            infos.push((layer.name().to_string(), p));
-        }
-
-        infos
-    }
-
-    /// Constructs the layer information object for one layer
-    fn layer_info_text(ds: &'static Dataset, layer_index: usize) -> String {
-        // TODO: not sure I like the fact that these are constructed twice
-        let layer = TatLayer::new(&ds, layer_index, None);
-
-        let mut text: String = format!("- Name: {}\n", layer.name());
-
-        if let Some(crs) = layer.crs() {
-            write!(
-                text,
-                "- CRS: {}:{} ({})\n",
-                crs.auth_name(),
-                crs.auth_code(),
-                crs.name(),
-            ).unwrap();
-        }
-
-        write!(
-            text,
-            "- Feature Count: {}\n",
-            layer.feature_count(),
-        ).unwrap();
-
-        if layer.geom_fields().len() > 0 {
-            write!(text, "- Geometry fields:\n").unwrap();
-
-            for field in layer.geom_fields() {
-                write!(
-                    text,
-                    "    \"{}\" - ({}",
-                    field.name(),
-                    field.geom_type(),
-                ).unwrap();
-
-                if let Some(crs) = field.crs() {
-                    write!(
-                        text,
-                        ", {}:{}",
-                        crs.auth_name(),
-                        crs.auth_code(),
-                    ).unwrap();
-                }
-
-                write!(text, ")\n").unwrap();
-            }
-        }
-
-        if layer.attribute_fields().len() > 0 {
-            write!(
-                text,
-                "- Fields ({}):\n",
-                layer.attribute_fields().len(),
-            ).unwrap();
-
-            for field in layer.attribute_fields() {
-                write!(
-                    text,
-                    "    \"{}\" - ({})\n",
-                    field.name(),
-                    field_type_to_name(field.dtype()),
-                ).unwrap();
-            }
-        }
-
-        text
     }
 
     /// Updates the state of the scrollbar. Should be called anytime navigation of the list

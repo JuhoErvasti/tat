@@ -3,16 +3,14 @@ use std::{
     env::temp_dir, fs::File, io::{
         BufRead,
         Result,
-    }, sync::mpsc::{self, Sender}
+    }, sync::mpsc::{self, Receiver, Sender}
 };
 
 use cli_clipboard::{ClipboardContext, ClipboardProvider};
 
 use crossterm::event::{
-    EnableMouseCapture, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind
+    KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind
 };
-use gdal::Dataset
-;
 use ratatui::{
     layout::{
         Constraint,
@@ -37,7 +35,7 @@ use ratatui::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 use crate::{
-    dataset::{GdalRequest, GdalResponse}, layerlist::{TatLayerInfo, TatLayerList}, navparagraph::TatNavigableParagraph, numberinput::{TatNumberInput, TatNumberInputResult}, table::TableRects, types::{TatNavHorizontal, TatNavVertical}
+    dataset::{GdalRequest, GdalResponse}, layerlist::TatLayerList, navparagraph::TatNavigableParagraph, numberinput::{TatNumberInput, TatNumberInputResult}, table::TableRects, types::{TatNavHorizontal, TatNavVertical}
 };
 use crate::table::TatTable;
 
@@ -94,12 +92,13 @@ pub struct TatApp {
     number_input: Option<TatNumberInput>,
     clipboard_feedback: Option<String>,
     gdal_request_tx: Sender<GdalRequest>,
-    gdal_response_rx: Sender<GdalResponse>,
+    gdal_response_rx: Receiver<GdalResponse>,
+    dataset_info_text: String,
 }
 
 impl TatApp {
     /// Constructs a new object
-    pub fn new(gdal_request_tx: Sender<GdalRequest>, gdal_response_rx: Sender<GdalResponse>, where_clause: Option<String>, layers: Option<Vec<String>>) -> Self {
+    pub fn new(gdal_request_tx: Sender<GdalRequest>, gdal_response_rx: Receiver<GdalResponse>) -> Self {
         let mut ls = ListState::default();
         ls.select_first();
 
@@ -109,14 +108,17 @@ impl TatApp {
             Err(_) => None
         };
 
-        crossterm::execute!(std::io::stdout(), EnableMouseCapture).unwrap();
+        gdal_request_tx.send(GdalRequest::DatasetInfo).unwrap();
+
+        // TODO: disable for now
+        // crossterm::execute!(std::io::stdout(), EnableMouseCapture).unwrap();
 
         Self {
             current_menu: TatMenu::MainMenu,
             quit: false,
             modal_popup: None,
-            table: TatTable::new(&ds, where_clause, layers.clone()),
-            layerlist: TatLayerList::new(&ds, layers),
+            table: TatTable::new(gdal_request_tx.clone()),
+            layerlist: TatLayerList::new(gdal_request_tx.clone()),
             focused_section: TatMainMenuSectionFocus::LayerList,
             clip,
             table_area: Rect::default(),
@@ -124,6 +126,7 @@ impl TatApp {
             clipboard_feedback: None,
             gdal_request_tx,
             gdal_response_rx,
+            dataset_info_text: String::default(),
         }
     }
 
@@ -465,7 +468,7 @@ impl TatApp {
         let title = format!(
                 " Feature {} - Value of \"{}\" ",
                 self.table.current_row(),
-                self.table.current_column_name(),
+                self.table.current_column_name().unwrap_or("UNKNOWN COLUMN".to_string()),
             );
 
         self.modal_popup = Some(
@@ -597,7 +600,11 @@ impl TatApp {
                         self.table.set_layer_index(self.layerlist.layer_index());
                         self.table.reset();
                     },
-                    TatMainMenuSectionFocus::LayerInfo => self.layerlist.current_layer_info_paragraph().nav_v(conf),
+                    TatMainMenuSectionFocus::LayerInfo => {
+                        if let Some(para) = self.layerlist.current_layer_info_paragraph() {
+                            para.nav_v(conf);
+                        }
+                    },
                     TatMainMenuSectionFocus::PreviewTable => {
                         self.table.nav_v(conf);
                     }
@@ -618,7 +625,11 @@ impl TatApp {
             TatMenu::MainMenu => {
                 match self.focused_section {
                     TatMainMenuSectionFocus::LayerList => return,
-                    TatMainMenuSectionFocus::LayerInfo => self.layerlist.current_layer_info_paragraph().nav_h(conf),
+                    TatMainMenuSectionFocus::LayerInfo => {
+                        if let Some(para) = self.layerlist.current_layer_info_paragraph() {
+                            para.nav_h(conf);
+                        }
+                    },
                     TatMainMenuSectionFocus::PreviewTable => {
                         self.table.nav_h(conf);
                     }
@@ -679,7 +690,7 @@ impl TatApp {
             .title_top(Line::raw(crate::shared::SHOW_HELP).centered());
 
         frame.render_widget(
-            Paragraph::new(self.table.dataset_info_text())
+            Paragraph::new(self.dataset_info_text.as_str())
                 .fg(crate::shared::palette::DEFAULT.default_fg)
                 .block(block),
             area
@@ -709,60 +720,60 @@ impl TatApp {
             .border_set(BORDER_LAYER_INFO)
             .border_style(border_style);
 
-        let info = self.layerlist.current_layer_info_paragraph();
+        if let Some(info) = self.layerlist.current_layer_info_paragraph() {
+            frame.render_widget(
+                info.paragraph().block(block),
+                area,
+            );
 
-        frame.render_widget(
-            info.paragraph().block(block),
-            area,
-        );
+            let (
+                visible_cols,
+                has_h_scrollbar,
+                visible_rows,
+                has_v_scrollbar,
+            ) = TatApp::text_area_dimensions(
+                &area,
+                info.max_line_len() as i64,
+                info.total_lines() as i64,
+            );
 
-        let (
-            visible_cols,
-            has_h_scrollbar,
-            visible_rows,
-            has_v_scrollbar,
-        ) = TatApp::text_area_dimensions(
-            &area,
-            info.max_line_len() as i64,
-            info.total_lines() as i64,
-        );
+            info.set_visible_rows(visible_rows as usize);
+            info.set_visible_cols(visible_cols as usize);
 
-        info.set_visible_rows(visible_rows as usize);
-        info.set_visible_cols(visible_cols as usize);
+            if has_v_scrollbar {
+                let scrollbar = Scrollbar::default()
+                    .orientation(ScrollbarOrientation::VerticalRight)
+                    .style(border_style)
+                    .begin_symbol(Some(DOUBLE_VERTICAL.begin))
+                    .end_symbol(Some(DOUBLE_VERTICAL.end));
 
-        if has_v_scrollbar {
-            let scrollbar = Scrollbar::default()
-                .orientation(ScrollbarOrientation::VerticalRight)
-                .style(border_style)
-                .begin_symbol(Some(DOUBLE_VERTICAL.begin))
-                .end_symbol(Some(DOUBLE_VERTICAL.end));
+                let scrollbar_area = area.inner(Margin { horizontal: 1, vertical: 1 });
 
-            let scrollbar_area = area.inner(Margin { horizontal: 1, vertical: 1 });
-
-            if !scrollbar_area.is_empty() {
-                frame.render_stateful_widget(
-                    scrollbar,
-                    scrollbar_area,
-                    &mut info.scroll_state_v(),
-                );
+                if !scrollbar_area.is_empty() {
+                    frame.render_stateful_widget(
+                        scrollbar,
+                        scrollbar_area,
+                        &mut info.scroll_state_v(),
+                    );
+                }
             }
-        }
 
-        if has_h_scrollbar {
-            let scrollbar = Scrollbar::default()
-                .orientation(ScrollbarOrientation::HorizontalBottom)
-                .begin_symbol(Some(DOUBLE_HORIZONTAL.begin))
-                .style(crate::shared::palette::DEFAULT.highlighted_style())
-                .end_symbol(Some(DOUBLE_HORIZONTAL.end));
+            if has_h_scrollbar {
+                let scrollbar = Scrollbar::default()
+                    .orientation(ScrollbarOrientation::HorizontalBottom)
+                    .begin_symbol(Some(DOUBLE_HORIZONTAL.begin))
+                    .style(crate::shared::palette::DEFAULT.highlighted_style())
+                    .end_symbol(Some(DOUBLE_HORIZONTAL.end));
 
-            let scrollbar_area = area.inner(Margin { horizontal: 1, vertical: 1 });
+                let scrollbar_area = area.inner(Margin { horizontal: 1, vertical: 1 });
 
-            if !scrollbar_area.is_empty() {
-                frame.render_stateful_widget(
-                    scrollbar,
-                    scrollbar_area,
-                    &mut info.scroll_state_h(),
-                );
+                if !scrollbar_area.is_empty() {
+                    frame.render_stateful_widget(
+                        scrollbar,
+                        scrollbar_area,
+                        &mut info.scroll_state_h(),
+                    );
+                }
             }
         }
     }

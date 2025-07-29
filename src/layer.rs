@@ -12,24 +12,33 @@ pub struct TatLayer {
     geom_fields: Vec<TatGeomField>,
     attribute_fields: Vec<TatField>,
     index: usize,
+
+    /// A cache of feature ids in the underlying GDAL layer. This is needed because the
+    /// features are listed and numbered sequentially in the table for clarity and navigation
+    /// reasons but the GDAL fids are not always sequential so in order to access the features in
+    /// the layer from a sequential index we need to save its corresponding fid.,
     fid_cache: Vec<u64>,
     feature_count: u64,
-    where_clause: Option<String>,
 }
 
 impl TatLayer {
     /// Constructs new object
-    pub fn new(dataset: &'static Dataset, i: usize, where_clause: Option<String>) -> Self {
-        let lyr = TatLayer::get_gdal_layer(dataset, i, where_clause.clone());
+    pub fn new(
+        name: String,
+        crs: Option<TatCrs>,
+        geom_fields: Vec<TatGeomField>,
+        attribute_fields: Vec<TatField>,
+        index: usize,
+        feature_count: u64,
+    ) -> Self {
         Self {
-            name: lyr.name(),
-            feature_count: lyr.feature_count(),
-            crs: TatLayer::crs_from_layer(&lyr),
-            attribute_fields: TatLayer::fields_from_layer(&lyr),
-            geom_fields: TatLayer::geom_fields_from_layer(&lyr),
-            index: i,
+            name,
+            feature_count,
+            crs,
+            attribute_fields,
+            geom_fields,
+            index,
             fid_cache: vec![], // don't build immediately to be more flexible (maybe?)
-            where_clause,
         }
     }
 
@@ -93,22 +102,6 @@ impl TatLayer {
         fields
     }
 
-    /// Builds a cache of feature ids in the underlying GDAL layer. This is needed because the
-    /// features are listed and numbered sequentially in the table for clarity and navigation
-    /// reasons but the GDAL fids are not always sequential so in order to access the features in
-    /// the layer from a sequential index we need to save its corresponding fid.
-    pub fn build_fid_cache(&mut self) {
-        self.fid_cache.clear();
-
-        let mut cache: Vec<u64> = vec![];
-        for feature in self.gdal_layer().features() {
-            let fid = feature.fid().unwrap();
-            cache.push(fid);
-        }
-
-        self.fid_cache = cache;
-    }
-
     /// Returns the total number of attribute AND geometry fields in the layer. The reason this
     /// returns the sum of attribute and geometry fields is because both are displayed in the
     /// table. For more information, check get_value_by_id()
@@ -146,37 +139,38 @@ impl TatLayer {
     /// any exist. The given field index matches how the fields are displayed in the table i.e.
     /// geometry columns are always displayed first, attribute fields second.
     pub fn get_value_by_fid(&self, fid: u64, field_idx: i32) -> Option<String> {
+        return None;
         // TODO: the geom + attribute field abstraction could probably refactored to be a lot
         // clearer
 
-        if let Some(f) = self.gdal_layer().feature(fid) {
-            let total_geom_fields: i32 = self.geom_fields().len() as i32;
-
-            if total_geom_fields == 0 {
-                return f.field_as_string(field_idx as usize)
-                    .unwrap_or(None);
-            }
-
-            if field_idx < total_geom_fields {
-                let res = f.geometry_by_index(field_idx as usize);
-                if res.is_err() {
-                    return None;
-                }
-
-                let wkt_res = res.unwrap().wkt();
-                if wkt_res.is_err() {
-                    return None;
-                }
-
-                return Some(wkt_res.unwrap());
-            } else {
-                let attribute_field_idx = field_idx - total_geom_fields;
-                return f.field_as_string(attribute_field_idx as usize)
-                    .unwrap_or(None);
-            }
-        }
-
-        None
+        // if let Some(f) = self.gdal_layer().feature(fid) {
+        //     let total_geom_fields: i32 = self.geom_fields().len() as i32;
+        //
+        //     if total_geom_fields == 0 {
+        //         return f.field_as_string(field_idx as usize)
+        //             .unwrap_or(None);
+        //     }
+        //
+        //     if field_idx < total_geom_fields {
+        //         let res = f.geometry_by_index(field_idx as usize);
+        //         if res.is_err() {
+        //             return None;
+        //         }
+        //
+        //         let wkt_res = res.unwrap().wkt();
+        //         if wkt_res.is_err() {
+        //             return None;
+        //         }
+        //
+        //         return Some(wkt_res.unwrap());
+        //     } else {
+        //         let attribute_field_idx = field_idx - total_geom_fields;
+        //         return f.field_as_string(attribute_field_idx as usize)
+        //             .unwrap_or(None);
+        //     }
+        // }
+        //
+        // None
     }
 
     /// Returns the layer's attribute fields
@@ -199,11 +193,6 @@ impl TatLayer {
         &self.geom_fields
     }
 
-    /// Returns the GDAL dataset
-    pub fn dataset(&self) -> &Dataset {
-        self.ds
-    }
-
     /// Returns the GDAL layer from the given dataset based on its index
     fn get_gdal_layer(dataset: &Dataset, layer_index: usize, where_clause: Option<String>) -> Layer {
         match dataset.layer(layer_index) {
@@ -220,6 +209,10 @@ impl TatLayer {
             // TODO: maybe don't panic
             Err(_) => panic!(),
         }
+    }
+
+    pub fn set_fid_cache(&mut self, fid_cache: Vec<u64>) {
+        self.fid_cache = fid_cache;
     }
 }
 

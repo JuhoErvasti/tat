@@ -1,17 +1,22 @@
 use std::sync::mpsc::{Receiver, Sender};
 
+use cli_log::{info, log};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::layer::TatLayer;
 
 pub enum GdalRequest {
-    LayerRequest(usize),
-    FeatureRequest(usize, u64),
+    AllLayers,
+    Feature(usize, u64),
+    FidCache(usize),
+    DatasetInfo,
 }
 
 pub enum GdalResponse {
-    LayerResponse(TatLayer),
-    FeatureResponse(Option<Vec<String>>),
+    Layer(TatLayer),
+    Feature(Option<Vec<String>>),
+    FidCache(Vec<u64>),
+    DatasetInfo(String),
 }
 
 /// Struct for handling interfacing with GDAL in a separate thread
@@ -19,11 +24,20 @@ pub struct TatDataset {
     gdal_ds: &'static gdal::Dataset,
     response_tx: Sender<GdalResponse>,
     request_rx: Receiver<GdalRequest>,
+    layer_filter: Option<Vec<String>>,
+    where_clause: Option<String>,
 }
 
 impl TatDataset {
     /// Attempts to open a dataset from a string.
-    pub fn new(response_tx: Sender<GdalResponse>, request_rx: Receiver<GdalRequest>, uri: String, all_drivers: bool) -> Option<Self> {
+    pub fn new(
+        response_tx: Sender<GdalResponse>,
+        request_rx: Receiver<GdalRequest>,
+        uri: String,
+        all_drivers: bool,
+        where_clause: Option<String>,
+        layer_filter: Option<Vec<String>>,
+    ) -> Option<Self> {
         // deal with vectors only at least for now
         let flags = gdal::GdalOpenFlags::GDAL_OF_VECTOR | gdal::GdalOpenFlags::GDAL_OF_READONLY;
 
@@ -98,6 +112,8 @@ impl TatDataset {
                 gdal_ds: Box::leak(Box::new(ds)),
                 response_tx,
                 request_rx,
+                where_clause,
+                layer_filter,
             }
         )
     }
@@ -106,11 +122,17 @@ impl TatDataset {
         loop {
             // TODO: no unwrap blah blah
             match self.request_rx.recv().unwrap() {
-                GdalRequest::LayerRequest(_) => {
-                    todo!()
+                GdalRequest::AllLayers => {
+                    info!("ALL LAYERS REQUESTED!");
                 },
-                GdalRequest::FeatureRequest(_, _) => {
-                    todo!()
+                GdalRequest::Feature(_, _) => {
+                    info!("FEATURE REQUESTED!");
+                },
+                GdalRequest::FidCache(_) => {
+                    info!("FID CACHE REQUESTED!");
+                },
+                GdalRequest::DatasetInfo => {
+                    info!("DATASET INFO REQUESTED!");
                 },
             }
         }

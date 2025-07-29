@@ -1,13 +1,13 @@
 use cli_log::init_cli_log;
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
-use tat::dataset::{GdalRequest, TatDataset};
+use tat::dataset::{GdalRequest, GdalResponse, TatDataset};
 use std::sync::mpsc;
 use std::thread;
 use std::{env::temp_dir, fs::File};
 use clap::{CommandFactory, Parser};
 
 use tat::app::{TatApp, TatEvent};
-use tat::utils::{error_handler, open_dataset};
+use tat::utils::error_handler;
 
 #[derive(Parser)]
 #[command(arg_required_else_help = true)]
@@ -45,7 +45,7 @@ fn main() {
     let uri = cli.uri;
     let where_clause = cli.where_sql;
 
-    let layers = if let Some(lyrs) = cli.layers {
+    let layer_filter = if let Some(lyrs) = cli.layers {
         let layers = lyrs.split(',');
         let mut _layers = vec![];
         for _lyr in layers {
@@ -60,11 +60,18 @@ fn main() {
     let _ = File::create(format!("{}/tat_gdal.log", temp_dir().display())).unwrap();
     gdal::config::set_error_handler(error_handler);
 
-    let (gdal_request_tx, gdal_request_rx) = mpsc::channel<GdalRequest>();
-    let (gdal_response_tx, gdal_response_rx) = mpsc::channel<GdalResponse>();
+    let (gdal_request_tx, gdal_request_rx) = mpsc::channel::<GdalRequest>();
+    let (gdal_response_tx, gdal_response_rx) = mpsc::channel::<GdalResponse>();
 
     let ds_handle = thread::spawn(move || {
-        if let Some(ds) = TatDataset::new(gdal_response_tx, gdal_request_rx, where_clause.to_string(), cli.all_drivers) {
+        if let Some(ds) = TatDataset::new(
+            gdal_response_tx,
+            gdal_request_rx,
+            uri.to_string(),
+            cli.all_drivers,
+            where_clause,
+            layer_filter,
+        ) {
             ds.handle_requests();
         } else {
             return;
@@ -72,7 +79,7 @@ fn main() {
     });
 
     // TODO: really not sure this works at all
-    // maybe we need to send a GdalResponse to confirm the dataset could be opened or something
+    // maybe we need to send a GdalResponse to confirm the dataset was opened or something
     if ds_handle.is_finished() {
         Cli::command().print_help().unwrap();
         return;
@@ -87,10 +94,10 @@ fn main() {
         handle_events(tatevent_tx);
     });
 
-    let _result = TatApp::new(gdal_request_tx, gdal_response_rx, &ds, where_clause, layers)
+    let _result = TatApp::new(gdal_request_tx, gdal_response_rx)
         .run(&mut terminal, tatevent_rx);
 
     // FIXME: if the program panics or is killed this will not happen
-    crossterm::execute!(std::io::stdout(), DisableMouseCapture).unwrap();
+    // crossterm::execute!(std::io::stdout(), DisableMouseCapture).unwrap();
     ratatui::restore();
 }

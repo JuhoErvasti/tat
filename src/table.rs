@@ -1,3 +1,5 @@
+use std::sync::mpsc::Sender;
+
 use ratatui::{
     layout::{
         Constraint, Rect
@@ -12,12 +14,11 @@ use ratatui::{
         Block, Borders, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table, TableState
     }, Frame,
 };
-use gdal::{Dataset, Metadata, vector::LayerAccess};
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::types::{
+use crate::{dataset::GdalRequest, types::{
     TatNavHorizontal, TatNavVertical
-};
+}};
 use crate::layer::TatLayer;
 
 pub const FEATURE_COLUMN_BORDER_FULL: symbols::border::Set = symbols::border::Set {
@@ -51,14 +52,17 @@ pub struct TatTable {
     feature_col_rect: Rect,
     v_scroll_area: Rect,
     h_scroll_area: Rect,
+    gdal_request_tx: Sender<GdalRequest>,
 }
 
 impl TatTable {
     /// Constructs new object
-    pub fn new(ds: &'static Dataset, where_clause: Option<String>, layers: Option<Vec<String>>) -> Self {
+    pub fn new(gdal_request_tx: Sender<GdalRequest>) -> Self {
         let mut ts = TableState::default();
         ts.select_first();
         ts.select_first_column();
+
+        gdal_request_tx.send(GdalRequest::AllLayers);
 
         Self {
             table_state: ts,
@@ -71,37 +75,9 @@ impl TatTable {
             feature_col_rect: Rect::default(),
             v_scroll_area: Rect::default(),
             h_scroll_area: Rect::default(),
-            layers: TatTable::layers_from_ds(ds, where_clause, layers),
+            layers: vec![],
+            gdal_request_tx,
         }
-    }
-
-    /// Constructs TatLayers from dataset
-    pub fn layers_from_ds(ds: &'static Dataset, where_clause: Option<String>, layers: Option<Vec<String>>) -> Vec<TatLayer> {
-        let mut _layers: Vec<TatLayer> = vec![];
-        for (i, layer) in ds.layers().enumerate() {
-            if let Some(lyrs) = layers.as_ref() {
-                if !lyrs.contains(&layer.name()) {
-                    continue
-                }
-            }
-
-            let mut lyr = TatLayer::new(&ds, i, where_clause.clone());
-            lyr.build_fid_cache();
-            _layers.push(lyr);
-        }
-
-        _layers
-    }
-
-    /// Returns information string about dataset
-    pub fn dataset_info_text(&self) -> String {
-        let ds = self.layer().dataset();
-        format!(
-            "- URI: \"{}\"\n- Driver: {} ({})",
-            ds.description().unwrap_or("ERROR: COULD NOT READ DATASET DESCRIPTION!".to_string()),
-            ds.driver().long_name(),
-            ds.driver().short_name(),
-        )
     }
 
     /// Sets currently selected layer's index
@@ -114,9 +90,12 @@ impl TatTable {
         self.top_row + self.relative_highlighted_row()
     }
 
-    /// Returns the name of the currentl selected column
-    pub fn current_column_name(&self) -> String {
-        self.layer().field_name_by_id(self.current_column() as i32).unwrap_or(crate::shared::MISSING_VALUE.to_string())
+    /// Returns the name of the currently selected column
+    pub fn current_column_name(&self) -> Option<String> {
+        Some(
+            self.layer()?
+            .field_name_by_id(self.current_column() as i32)?
+        )
     }
 
     /// Returns the index of the highlighted column from the current visible column
@@ -127,6 +106,10 @@ impl TatTable {
 
     /// Handles horizontal navigation (in columns)
     pub fn nav_h(&mut self, conf: TatNavHorizontal) {
+        if self.layer().is_none() {
+            return;
+        }
+
         if self.visible_columns() <= 0 {
             return;
         }
@@ -138,7 +121,7 @@ impl TatTable {
                 self.update_h_scrollbar();
             },
             TatNavHorizontal::End => {
-                self.set_first_column(self.layer().field_count() as i64 - self.visible_columns() as i64);
+                self.set_first_column(self.layer().unwrap().field_count() as i64 - self.visible_columns() as i64);
                 self.table_state.select_column(Some(self.visible_columns() as usize - 1));
                 self.update_h_scrollbar();
             },
@@ -147,7 +130,7 @@ impl TatTable {
                 let real_col = self.current_column();
 
                 if relative_col == self.visible_columns() - 1 {
-                    let cols =  self.layer().field_count();
+                    let cols =  self.layer().unwrap().field_count();
 
                     if real_col == cols {
                         self.update_h_scrollbar();
@@ -179,6 +162,10 @@ impl TatTable {
 
     /// Handles vertical navigation (in rows)
     pub fn nav_v(&mut self, conf: TatNavVertical) {
+        if self.layer().is_none() {
+            return;
+        }
+
         let visible_rows = self.visible_rows() as i64;
         if visible_rows <= 0 {
             return;
@@ -209,7 +196,7 @@ impl TatTable {
             },
             TatNavVertical::Last => {
                 let jump_to_relative = if self.all_rows_visible() {
-                    if self.layer().feature_count() > 0 { self.layer().feature_count() as i64 - 1 } else { 0 }
+                    if self.layer().unwrap().feature_count() > 0 { self.layer().unwrap().feature_count() as i64 - 1 } else { 0 }
                 } else {
                     visible_rows - 1
                 };
@@ -242,7 +229,7 @@ impl TatTable {
                 nav_by(-(visible_rows / 3));
             },
             TatNavVertical::Specific(row) => {
-                if row >= self.layer().feature_count() as i64 {
+                if row >= self.layer().unwrap().feature_count() as i64 {
                     self.nav_v(TatNavVertical::Last);
                     return;
                 }
@@ -260,8 +247,8 @@ impl TatTable {
 
     /// Returns the currently selected cell's value as a string (if any)
     pub fn selected_value(&self) -> Option<String> {
-        if let Some(fid) = self.layer().fid_cache().get(self.current_row() as usize - 1) {
-            self.layer().get_value_by_fid(*fid, self.current_column() as i32)
+        if let Some(fid) = self.layer()?.fid_cache().get(self.current_row() as usize - 1) {
+            self.layer()?.get_value_by_fid(*fid, self.current_column() as i32)
         } else { None }
     }
 
@@ -284,6 +271,10 @@ impl TatTable {
         } else { false };
 
         if rect_changed {
+            if self.layer().is_none() {
+                return;
+            }
+
             self.table_rect = table_rect;
             self.feature_col_rect = feature_col_rect;
             self.v_scroll_area = v_scroll_area;
@@ -292,7 +283,7 @@ impl TatTable {
             self.update_v_scrollbar();
             self.update_h_scrollbar();
 
-            if self.bottom_row() + self.top_row >= self.layer().feature_count() {
+            if self.bottom_row() + self.top_row >= self.layer().unwrap().feature_count() {
                 self.set_top_row(self.max_top_row());
             }
 
@@ -372,7 +363,7 @@ impl TatTable {
         let block = Block::new()
             .title(
                 Line::raw(
-                    format!("{}", self.layer().name())
+                    format!("{}", if self.layer().is_some() { self.layer().unwrap().name() } else {"NO LAYER!!!"})
                 ).centered().bold().underlined(),
             )
             .title_bottom(
@@ -387,8 +378,8 @@ impl TatTable {
     }
 
     /// Returns currently selected layer
-    pub fn layer(&self) -> &TatLayer {
-        self.layers.get(self.layer_index).unwrap()
+    pub fn layer(&self) -> Option<&TatLayer> {
+        Some(self.layers.get(self.layer_index)?)
     }
 
     /// Returns the currently selected column index which can be used in TatLayer
@@ -411,13 +402,21 @@ impl TatTable {
 
     /// Updates the state of the vertical scrollbar
     fn update_v_scrollbar(&mut self) {
-        self.v_scroll = ScrollbarState::new(self.layer().feature_count() as usize - self.visible_rows() as usize + 1);
+        if self.layer().is_none() {
+            return;
+        }
+
+        self.v_scroll = ScrollbarState::new(self.layer().unwrap().feature_count() as usize - self.visible_rows() as usize + 1);
         self.v_scroll = self.v_scroll.position(self.top_row as usize);
     }
 
     /// Updates the state of the horizontal scrollbar
     fn update_h_scrollbar(&mut self) {
-        self.h_scroll = ScrollbarState::new(self.layer().field_count() as usize - self.visible_columns() as usize + 1);
+        if self.layer().is_none() {
+            return;
+        }
+
+        self.h_scroll = ScrollbarState::new(self.layer().unwrap().field_count() as usize - self.visible_columns() as usize + 1);
         self.h_scroll = self.h_scroll.position(self.first_column as usize);
     }
 
@@ -440,7 +439,11 @@ impl TatTable {
 
     /// Sets the column which is displayed first
     fn set_first_column(&mut self, col: i64) {
-        let max_first_column: i64 = self.layer().field_count() as i64 - self.visible_columns() as i64;
+        if self.layer().is_none() {
+            return;
+        }
+
+        let max_first_column: i64 = self.layer().unwrap().field_count() as i64 - self.visible_columns() as i64;
 
         if col >= max_first_column {
             self.first_column = max_first_column as u64;
@@ -486,15 +489,25 @@ impl TatTable {
 
     /// Returns the row which if the top row all other rows will be visible as well
     fn max_top_row(&self) -> i64 {
-        self.layer().feature_count() as i64 - self.visible_rows() as i64 + 1
+        if self.layer().is_none() {
+            return 1;
+        }
+
+        self.layer().unwrap().feature_count() as i64 - self.visible_rows() as i64 + 1
     }
 
     /// Returns table based on current state
     fn get_table(&self) -> Table {
+        if self.layer().is_none() {
+            return Table::default();
+        }
+
+        let layer = self.layer().unwrap();
+
         let mut header_items: Vec<String> = vec![];
 
         for i in self.first_column..self.first_column + self.visible_columns() {
-            if let Some(field_name) = self.layer().field_name_by_id(i as i32) {
+            if let Some(field_name) = layer.field_name_by_id(i as i32) {
                 header_items.push(field_name);
             } else {
                 panic!();
@@ -509,7 +522,7 @@ impl TatTable {
         }
 
         for i in self.top_row..self.bottom_row() + 1 {
-            let fid = match self.layer().fid_cache().get(i as usize - 1) {
+            let fid = match layer.fid_cache().get(i as usize - 1) {
                 Some(fid) => fid,
                 None => break,
             };
@@ -517,7 +530,7 @@ impl TatTable {
             let mut row_items: Vec<String> = vec![];
 
             for i in self.first_column..self.first_column + self.visible_columns() {
-                if let Some(str) = self.layer().get_value_by_fid(*fid, i as i32) {
+                if let Some(str) = layer.get_value_by_fid(*fid, i as i32) {
                     // this is (maybe a premature (lol)) optimization fast path
                     // since str.len() is O(1) and str.chars().count() is O(n),
                     // we check first if a theoretically full 4 byte UTF-8 would overflow
@@ -569,14 +582,18 @@ impl TatTable {
 
     /// Returns the number of rows currently visible
     fn visible_rows(&self) -> u64 {
+        if self.layer().is_none() {
+            return 0;
+        }
+
         let value = if self.table_rect.height >= 4 {
             (self.table_rect.height - 4) as u64
         } else {
             0
         };
 
-        if value > self.layer().feature_count() {
-            return self.layer().feature_count();
+        if value > self.layer().unwrap().feature_count() {
+            return self.layer().unwrap().feature_count();
         }
 
         value
@@ -584,8 +601,12 @@ impl TatTable {
 
     /// Returns the number of columns currently visible
     fn visible_columns(&self) -> u64 {
-        if self.layer().field_count() * (MIN_COLUMN_LENGTH as u64) < self.table_rect.width as u64 {
-            self.layer().field_count() as u64
+        if self.layer().is_none() {
+            return 0;
+        }
+
+        if self.layer().unwrap().field_count() * (MIN_COLUMN_LENGTH as u64) < self.table_rect.width as u64 {
+            self.layer().unwrap().field_count() as u64
         } else {
             (self.table_rect.width / MIN_COLUMN_LENGTH as u16) as u64
         }
@@ -593,7 +614,11 @@ impl TatTable {
 
     /// Returns whether all rows are currently visible
     fn all_rows_visible(&self) -> bool {
-        self.visible_rows() >= self.layer().feature_count()
+        if self.layer().is_none() {
+            return true;
+        }
+
+        self.visible_rows() >= self.layer().unwrap().feature_count()
     }
 
     /// Returns the "feature" column, i.e. the indexes of the rows in which the features are
