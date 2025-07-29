@@ -1,5 +1,6 @@
 use std::fmt::Write;
 use std::sync::mpsc::{Receiver, Sender};
+use std::thread;
 
 use cli_log::{error, info};
 use gdal::vector::field_type_to_name;
@@ -136,26 +137,33 @@ impl TatDataset {
         cache
     }
 
+    fn send_response(&self, r: GdalResponse) {
+        self.response_tx.send(
+            TatEvent::Gdal(
+                r
+            )
+        ).unwrap();
+    }
+
     pub fn handle_requests(&self) {
         loop {
             match self.request_rx.recv() {
                 Ok(request) => {
                     match request {
                         GdalRequest::AllLayers => {
-                            for (i, ref mut layer) in self.gdal_ds.layers().enumerate() {
-                                if let Some(lyr_filter) = self.layer_filter.as_ref() {
+                            let this = &self;
+                            for (i, ref mut layer) in this.gdal_ds.layers().enumerate() {
+                                if let Some(lyr_filter) = this.layer_filter.as_ref() {
                                     if lyr_filter.contains(&layer.name()) {
                                         continue;
                                     }
                                 }
 
-                                self.response_tx.send(
-                                    TatEvent::Gdal(
-                                        GdalResponse::Layer(
-                                            self.layer_from_gdal_layer(i, layer)
-                                        )
+                                self.send_response(
+                                    GdalResponse::Layer(
+                                        this.layer_from_gdal_layer(i, layer)
                                     )
-                                ).unwrap();
+                                );
                             }
                         },
                         GdalRequest::AllLayerInfos => {
@@ -166,40 +174,34 @@ impl TatDataset {
                                     }
                                 }
 
-                                self.response_tx.send(
-                                    TatEvent::Gdal(
-                                        GdalResponse::LayerInfo(
-                                            (
-                                                layer.name(),
-                                                TatNavigableParagraph::new(
-                                                    self.layer_info_text(i),
-                                                ),
+                                self.send_response(
+                                    GdalResponse::LayerInfo(
+                                        (
+                                            layer.name(),
+                                            TatNavigableParagraph::new(
+                                                self.layer_info_text(i),
                                             ),
-                                        )
+                                        ),
                                     )
-                                ).unwrap();
+                                )
                             }
                         },
                         GdalRequest::Feature(_, _) => {
                             info!("FEATURE REQUESTED!");
                         },
                         GdalRequest::FidCache(index) => {
-                            self.response_tx.send(
-                                TatEvent::Gdal(
-                                    GdalResponse::FidCache(
-                                        (index, self.layer_fid_cache(index)),
-                                    )
+                            self.send_response(
+                                GdalResponse::FidCache(
+                                    (index, self.layer_fid_cache(index)),
                                 )
-                            ).unwrap();
+                            )
                         },
                         GdalRequest::DatasetInfo => {
-                            self.response_tx.send(
-                                TatEvent::Gdal(
-                                    GdalResponse::DatasetInfo(
-                                        self.dataset_info_text()
-                                    )
+                            self.send_response(
+                                GdalResponse::DatasetInfo(
+                                    self.dataset_info_text()
                                 )
-                            ).unwrap();
+                            );
                         },
                     }
                 },
