@@ -1,5 +1,6 @@
 use std::sync::mpsc::Sender;
 
+use cli_log::error;
 use ratatui::{
     layout::{
         Constraint, Rect
@@ -16,7 +17,7 @@ use ratatui::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::{dataset::GdalRequest, types::{
+use crate::{dataset::GdalRequest, layer::TatFeature, types::{
     TatNavHorizontal, TatNavVertical
 }};
 use crate::layer::TatLayer;
@@ -41,13 +42,13 @@ pub type TableRects = (Rect, Rect, Rect, Rect);
 pub struct TatTable {
     table_state: TableState,
 
-    /// The uppermost visible row. Here feature
+    /// The uppermost visible row.
     top_row: u64,
     first_column: u64,
     v_scroll: ScrollbarState,
     h_scroll: ScrollbarState,
     layer_index: usize,
-    layers: Vec<TatLayer>,
+    layers: Vec<TatLayer>, // TODO: consider making a HashMap
     table_rect: Rect,
     feature_col_rect: Rect,
     v_scroll_area: Rect,
@@ -89,11 +90,14 @@ impl TatTable {
         ).unwrap();
     }
 
-    pub fn add_fid_cache(&mut self, cache: (usize, Vec<u64>)) {
+    pub fn add_feature(&mut self, lyr_index: usize, row: usize, f: TatFeature) {
+        self.layers.get_mut(lyr_index).unwrap().add_feature(row, f);
+    }
+
+    pub fn add_fid_cache(&mut self, layer_index: usize, cache: Vec<u64>) {
         // TODO: think about this, shouldn't TatDataset have the caches?
-        // ALSO FIXME: i think this'll screw up if there's a layer filter
-        let (i, cache) = cache;
-        self.layers.get_mut(i).unwrap().set_fid_cache(cache);
+        // ALSO  FIXME: i think this'll screw up if there's a layer filter
+        self.layers.get_mut(layer_index).unwrap().set_fid_cache(cache);
     }
 
     /// Sets currently selected layer's index
@@ -262,10 +266,8 @@ impl TatTable {
     }
 
     /// Returns the currently selected cell's value as a string (if any)
-    pub fn selected_value(&self) -> Option<String> {
-        if let Some(fid) = self.layer()?.fid_cache().get(self.current_row() as usize - 1) {
-            self.layer()?.get_value_by_fid(*fid, self.current_column() as i32)
-        } else { None }
+    pub fn selected_value(&self) -> Option<&str> {
+        self.layer()?.get_value_by_row(self.current_row() as usize, self.current_column() as usize)
     }
 
     /// Resets the table's state
@@ -538,15 +540,10 @@ impl TatTable {
         }
 
         for i in self.top_row..self.bottom_row() + 1 {
-            let fid = match layer.fid_cache().get(i as usize - 1) {
-                Some(fid) => fid,
-                None => break,
-            };
+            let mut row_items: Vec<&str> = vec![];
 
-            let mut row_items: Vec<String> = vec![];
-
-            for i in self.first_column..self.first_column + self.visible_columns() {
-                if let Some(str) = layer.get_value_by_fid(*fid, i as i32) {
+            for j in self.first_column..self.first_column + self.visible_columns() {
+                if let Some(str) = layer.get_value_by_row(j as usize, j as usize) {
                     // this is (maybe a premature (lol)) optimization fast path
                     // since str.len() is O(1) and str.chars().count() is O(n),
                     // we check first if a theoretically full 4 byte UTF-8 would overflow
@@ -564,12 +561,26 @@ impl TatTable {
                     if squish_contents {
                         let graph = str.graphemes(true);
                         let substring: String = graph.into_iter().take(MIN_COLUMN_LENGTH as usize).collect();
-                        row_items.push(format!("{substring}…",));
+                        // TODO: HANDLE THIS
+                        row_items.push(str);
                     } else {
                         row_items.push(str);
                     }
                 } else {
-                    row_items.push(String::from(crate::shared::MISSING_VALUE));
+                    let fid = match layer.fid_cache().get(i as usize - 1) {
+                        Some(fid) => fid,
+                        None => break,
+                    };
+
+                    self.gdal_request_tx.send(
+                        GdalRequest::Feature(
+                            layer.index(),
+                            i as usize,
+                            *fid,
+                        )
+                    ).unwrap();
+
+                    row_items.push(crate::shared::MISSING_VALUE);
                 }
 
             }

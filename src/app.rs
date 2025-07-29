@@ -156,9 +156,11 @@ impl TatApp {
                     self.layerlist.nav(TatNavVertical::First);
                 }
             }
-            GdalResponse::Feature(items) => todo!(),
-            GdalResponse::FidCache(cache) => {
-                self.table.add_fid_cache(cache);
+            GdalResponse::Feature(lyr_index, row, f) => {
+                self.table.add_feature(lyr_index, row, f);
+            },
+            GdalResponse::FidCache(lyr_index, cache) => {
+                self.table.add_fid_cache(lyr_index, cache);
             },
             GdalResponse::DatasetInfo(info) => {
                 self.dataset_info_text = info;
@@ -322,7 +324,7 @@ impl TatApp {
     fn copy_table_value_to_clipboard(&mut self) {
         if let Some(clip) = self.clip.as_mut() {
             if let Some(text_to_copy) = self.table.selected_value() {
-                match clip.set_contents(text_to_copy.clone()) {
+                match clip.set_contents(text_to_copy.to_string()) {
                     Ok(()) => {
                         let postscript = " copied to clipboard!";
                         let max_len = 50;
@@ -481,7 +483,7 @@ impl TatApp {
         let value = if let Some(_value) = self.table.selected_value() {
             _value
         } else {
-            crate::shared::MISSING_VALUE.to_string()
+            crate::shared::MISSING_VALUE
         };
 
         let title = format!(

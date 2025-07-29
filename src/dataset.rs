@@ -9,6 +9,7 @@ use gdal::{vector::{geometry_type_to_name, Layer, LayerAccess}, Metadata};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::app::TatEvent;
+use crate::layer::TatFeature;
 use crate::navparagraph::TatNavigableParagraph;
 use crate::{layer::TatLayer, layerlist::TatLayerInfo, types::{TatCrs, TatField, TatGeomField}};
 
@@ -16,7 +17,9 @@ use crate::{layer::TatLayer, layerlist::TatLayerInfo, types::{TatCrs, TatField, 
 pub enum GdalRequest {
     AllLayers,
     AllLayerInfos,
-    Feature(usize, u64),
+
+    /// layer_index, row, fid
+    Feature(usize, usize, u64),
     FidCache(usize),
     DatasetInfo,
 }
@@ -26,7 +29,7 @@ impl Display for GdalRequest {
         match self {
             GdalRequest::AllLayers => write!(f, "GdalRequest::AllLayers"),
             GdalRequest::AllLayerInfos => write!(f, "GdalRequest::AllLayerInfos"),
-            GdalRequest::Feature(i, j) => write!(f, "GdalRequest::Feature({i}, {j})"),
+            GdalRequest::Feature(i, j, k) => write!(f, "GdalRequest::Feature({i}, {j}, {k})"),
             GdalRequest::FidCache(i) => write!(f, "GdalRequest::FidCache({i})"),
             GdalRequest::DatasetInfo => write!(f, "GdalRequest::DatasetInfo"),
         }
@@ -37,8 +40,8 @@ impl Display for GdalRequest {
 pub enum GdalResponse {
     Layer(TatLayer),
     LayerInfo(TatLayerInfo),
-    Feature(Option<Vec<String>>),
-    FidCache((usize, Vec<u64>)),
+    Feature(usize, usize, TatFeature),
+    FidCache(usize, Vec<u64>),
     DatasetInfo(String),
 }
 
@@ -47,8 +50,8 @@ impl Display for GdalResponse {
         match self {
             GdalResponse::Layer(tat_layer) => write!(f, "GdalResponse::Layer({})", tat_layer.name()),
             GdalResponse::LayerInfo(info) => write!(f, "GdalResponse::LayerInfo({})", info.0),
-            GdalResponse::Feature(_) => write!(f, "GdalResponse::Feature"),
-            GdalResponse::FidCache(cache) => write!(f, "GdalResponse::FidCache({}, {})", cache.0, cache.1.len()),
+            GdalResponse::Feature(_, _, feat) => write!(f, "GdalResponse::Feature({:?})", feat),
+            GdalResponse::FidCache(_, _) => write!(f, "GdalResponse::FidCache()"),
             GdalResponse::DatasetInfo(info) => write!(f, "GdalResponse::DatasetInfo({})", info),
         }
     }
@@ -77,25 +80,24 @@ impl TatDataset {
         let flags = gdal::GdalOpenFlags::GDAL_OF_VECTOR | gdal::GdalOpenFlags::GDAL_OF_READONLY;
 
         let allowed_drivers = vec![
-            "CSV".to_string(),
-            "OpenFileGDB".to_string(),
-            "GeoJSON".to_string(),
-            "GeoJSONSeq".to_string(),
-            "GML".to_string(),
-            "GPKG".to_string(),
-            "JML".to_string(),
-            "JSONFG".to_string(),
-            "MapML".to_string(),
-            "ODS".to_string(),
-            "ESRI Shapefile".to_string(),
-            "MapInfo File".to_string(),
-            "XLSX".to_string(),
+            "CSV",
+            "OpenFileGDB",
+            "GeoJSON",
+            "GeoJSONSeq",
+            "GML",
+            "GPKG",
+            "JML",
+            "JSONFG",
+            "MapML",
+            "ODS",
+            "ESRI Shapefile",
+            "MapInfo File",
+            "XLSX",
         ];
-        let v: Vec<&str> = allowed_drivers.iter().map(|x| x.as_ref()).collect();
 
         let options = gdal::DatasetOptions {
             open_flags: flags,
-            allowed_drivers: if all_drivers { None } else {Some(&v)},
+            allowed_drivers: if all_drivers { None } else {Some(&allowed_drivers)},
             open_options: None,
             sibling_files: None,
         };
@@ -213,14 +215,22 @@ impl TatDataset {
                                 )
                             }
                         },
-                        GdalRequest::Feature(_, _) => {
-                            info!("FEATURE REQUESTED!");
+                        GdalRequest::Feature(layer_index, row, fid) => {
+                            let lyr = gdal_ds.layer(layer_index).unwrap();
+                            self.send_response(
+                                GdalResponse::Feature(
+                                    layer_index,
+                                    row,
+                                    self.feature_from_gdal_feature(fid, &lyr),
+                                )
+                            );
                         },
                         GdalRequest::FidCache(index) => {
                             let mut lyr = gdal_ds.layer(index).unwrap();
                             self.send_response(
                                 GdalResponse::FidCache(
-                                    (index, self.layer_fid_cache(&mut lyr)),
+                                    index,
+                                    self.layer_fid_cache(&mut lyr),
                                 )
                             )
                         },
@@ -243,6 +253,21 @@ impl TatDataset {
                 },
             }
         }
+    }
+
+    fn feature_from_gdal_feature(&self, fid: u64, lyr: &Layer) -> TatFeature {
+        let mut f: Vec<String> = vec![];
+        let gdal_f = lyr.feature(fid).unwrap();
+
+        for (i, _) in lyr.defn().geom_fields().enumerate() {
+            f.push(gdal_f.geometry_by_index(i).unwrap().wkt().unwrap());
+        }
+
+        for (i, _) in gdal_f.fields().enumerate() {
+            f.push(gdal_f.field_as_string(i as usize).unwrap().unwrap());
+        }
+
+        f
     }
 
     pub fn layer_from_gdal_layer(&self, layer_index: usize, layer: &mut Layer) -> TatLayer {

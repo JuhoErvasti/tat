@@ -3,6 +3,9 @@ use gdal::{vector::{geometry_type_to_name, Layer, LayerAccess}, Dataset};
 use cli_log::error;
 use crate::types::{TatCrs, TatField, TatGeomField};
 
+// TODO: i wonder if this could be made into a Vec<&str>
+pub type TatFeature = Vec<String>;
+
 /// A struct which holds information about a layer in a GDAL Dataset and can also fetch infromation
 /// about features in the layer.
 #[derive(Clone, Debug)]
@@ -11,6 +14,7 @@ pub struct TatLayer {
     crs: Option<TatCrs>,
     geom_fields: Vec<TatGeomField>,
     attribute_fields: Vec<TatField>,
+    features: Vec<Option<TatFeature>>,
     index: usize,
 
     /// A cache of feature ids in the underlying GDAL layer. This is needed because the
@@ -38,7 +42,8 @@ impl TatLayer {
             attribute_fields,
             geom_fields,
             index,
-            fid_cache: vec![], // don't build immediately to be more flexible (maybe?)
+            fid_cache: vec![],
+            features: vec![],
         }
     }
 
@@ -80,47 +85,14 @@ impl TatLayer {
     }
 
     /// Returns a value of a specific row (if any)
-    #[allow(unused)]
-    pub fn get_value_by_row(&self, row: u64, field_idx: i32) -> Option<String> {
-        self.get_value_by_fid(*self.fid_cache.get(row as usize).unwrap(), field_idx)
-    }
+    pub fn get_value_by_row(&self, row: usize, field_idx: usize) -> Option<&str> {
+        if let Some(_feature) = self.features.get(row) {
+            if let Some(feature) = _feature {
+                return feature.get(field_idx).map(|f| f.as_str());
+            }
+        }
 
-    /// Returns a value from a specific feature and field. This also includes geometry fields if
-    /// any exist. The given field index matches how the fields are displayed in the table i.e.
-    /// geometry columns are always displayed first, attribute fields second.
-    pub fn get_value_by_fid(&self, fid: u64, field_idx: i32) -> Option<String> {
-        return None;
-        // TODO: the geom + attribute field abstraction could probably refactored to be a lot
-        // clearer
-
-        // if let Some(f) = self.gdal_layer().feature(fid) {
-        //     let total_geom_fields: i32 = self.geom_fields().len() as i32;
-        //
-        //     if total_geom_fields == 0 {
-        //         return f.field_as_string(field_idx as usize)
-        //             .unwrap_or(None);
-        //     }
-        //
-        //     if field_idx < total_geom_fields {
-        //         let res = f.geometry_by_index(field_idx as usize);
-        //         if res.is_err() {
-        //             return None;
-        //         }
-        //
-        //         let wkt_res = res.unwrap().wkt();
-        //         if wkt_res.is_err() {
-        //             return None;
-        //         }
-        //
-        //         return Some(wkt_res.unwrap());
-        //     } else {
-        //         let attribute_field_idx = field_idx - total_geom_fields;
-        //         return f.field_as_string(attribute_field_idx as usize)
-        //             .unwrap_or(None);
-        //     }
-        // }
-        //
-        // None
+        None
     }
 
     /// Returns the layer's attribute fields
@@ -143,26 +115,13 @@ impl TatLayer {
         &self.geom_fields
     }
 
-    /// Returns the GDAL layer from the given dataset based on its index
-    fn get_gdal_layer(dataset: &Dataset, layer_index: usize, where_clause: Option<String>) -> Layer {
-        match dataset.layer(layer_index) {
-            Ok(mut lyr) => {
-                if where_clause.is_some() {
-                    match lyr.set_attribute_filter(&where_clause.unwrap()) {
-                            Ok(()) => (),
-                            Err(e) => error!("ERROR! Could not set attribute filter: {}", e.to_string()),
-                        }
-                }
-
-                lyr
-            },
-            // TODO: maybe don't panic
-            Err(_) => panic!(),
-        }
+    pub fn set_fid_cache(&mut self, fid_cache: Vec<u64>) {
+        self.features.resize_with(fid_cache.len(), || None);
+        self.fid_cache = fid_cache;
     }
 
-    pub fn set_fid_cache(&mut self, fid_cache: Vec<u64>) {
-        self.fid_cache = fid_cache;
+    pub fn add_feature(&mut self, row: usize, feat: TatFeature) {
+        self.features.insert(row, Some(feat));
     }
 
     pub fn index(&self) -> usize {
