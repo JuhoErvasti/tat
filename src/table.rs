@@ -80,6 +80,22 @@ impl TatTable {
         }
     }
 
+    pub fn add_layer(&mut self, lyr: TatLayer) {
+        let i = lyr.index();
+        self.layers.push(lyr);
+
+        self.gdal_request_tx.send(
+            GdalRequest::FidCache(i),
+        ).unwrap();
+    }
+
+    pub fn add_fid_cache(&mut self, cache: (usize, Vec<u64>)) {
+        // TODO: think about this, shouldn't TatDataset have the caches?
+        // ALSO FIXME: i think this'll screw up if there's a layer filter
+        let (i, cache) = cache;
+        self.layers.get_mut(i).unwrap().set_fid_cache(cache);
+    }
+
     /// Sets currently selected layer's index
     pub fn set_layer_index(&mut self, idx: usize) {
         self.layer_index = idx;

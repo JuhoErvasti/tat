@@ -164,6 +164,10 @@ impl TatLayer {
     pub fn set_fid_cache(&mut self, fid_cache: Vec<u64>) {
         self.fid_cache = fid_cache;
     }
+
+    pub fn index(&self) -> usize {
+        self.index
+    }
 }
 
 #[cfg(test)]

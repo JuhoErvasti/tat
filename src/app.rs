@@ -145,7 +145,9 @@ impl TatApp {
 
     fn handle_gdal(&mut self, response: GdalResponse) {
         match response {
-            GdalResponse::Layer(tat_layer) => todo!(),
+            GdalResponse::Layer(tat_layer) => {
+                self.table.add_layer(tat_layer);
+            },
             GdalResponse::LayerInfo(layer_info) => {
                 self.layerlist.add_info(layer_info);
 
@@ -154,7 +156,9 @@ impl TatApp {
                 }
             }
             GdalResponse::Feature(items) => todo!(),
-            GdalResponse::FidCache(items) => todo!(),
+            GdalResponse::FidCache(cache) => {
+                self.table.add_fid_cache(cache);
+            },
             GdalResponse::DatasetInfo(info) => {
                 self.dataset_info_text = info;
             },
