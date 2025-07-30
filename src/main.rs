@@ -1,6 +1,6 @@
 use cli_log::{info, init_cli_log};
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
-use tat::dataset::{GdalRequest, GdalResponse, TatDataset};
+use tat::dataset::{DatasetRequest, DatasetResponse, TatDataset};
 use std::sync::mpsc::{self, SendError};
 use std::thread;
 use std::{env::temp_dir, fs::File};
@@ -60,7 +60,7 @@ fn main() {
     let _ = File::create(format!("{}/tat_gdal.log", temp_dir().display())).unwrap();
     gdal::config::set_error_handler(error_handler);
 
-    let (gdal_request_tx, gdal_request_rx) = mpsc::channel::<GdalRequest>();
+    let (gdal_request_tx, gdal_request_rx) = mpsc::channel::<DatasetRequest>();
     let (tatevent_tx, tatevent_rx) = mpsc::channel::<TatEvent>();
     let ds_event_sender = tatevent_tx.clone();
 

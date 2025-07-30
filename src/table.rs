@@ -17,7 +17,7 @@ use ratatui::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::{dataset::GdalRequest, layer::TatFeature, types::{
+use crate::{dataset::DatasetRequest, layer::TatFeature, types::{
     TatNavHorizontal, TatNavVertical
 }};
 use crate::layer::TatLayer;
@@ -53,17 +53,17 @@ pub struct TatTable {
     feature_col_rect: Rect,
     v_scroll_area: Rect,
     h_scroll_area: Rect,
-    gdal_request_tx: Sender<GdalRequest>,
+    gdal_request_tx: Sender<DatasetRequest>,
 }
 
 impl TatTable {
     /// Constructs new object
-    pub fn new(gdal_request_tx: Sender<GdalRequest>) -> Self {
+    pub fn new(gdal_request_tx: Sender<DatasetRequest>) -> Self {
         let mut ts = TableState::default();
         ts.select_first();
         ts.select_first_column();
 
-        gdal_request_tx.send(GdalRequest::AllLayers).unwrap();
+        gdal_request_tx.send(DatasetRequest::AllLayers).unwrap();
 
         Self {
             table_state: ts,
@@ -86,7 +86,7 @@ impl TatTable {
         self.layers.push(lyr);
 
         self.gdal_request_tx.send(
-            GdalRequest::FidCache(i),
+            DatasetRequest::FidCache(i),
         ).unwrap();
     }
 
@@ -573,7 +573,7 @@ impl TatTable {
                     };
 
                     self.gdal_request_tx.send(
-                        GdalRequest::Feature(
+                        DatasetRequest::Feature(
                             layer.index(),
                             i as usize,
                             *fid,

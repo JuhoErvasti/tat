@@ -4,7 +4,7 @@ use ratatui::prelude::Stylize;
 use std::sync::mpsc::Sender;
 
 use crate::{
-    dataset::GdalRequest, navparagraph::TatNavigableParagraph, types::TatNavVertical
+    dataset::DatasetRequest, navparagraph::TatNavigableParagraph, types::TatNavVertical
 };
 
 const BORDER_LAYER_LIST: symbols::border::Set = symbols::border::Set {
@@ -29,11 +29,11 @@ pub struct TatLayerList {
 
 impl TatLayerList {
     /// Constructs new widget
-    pub fn new(request_rx: Sender<GdalRequest>) -> Self {
+    pub fn new(request_rx: Sender<DatasetRequest>) -> Self {
         let mut ls = ListState::default();
         ls.select_first();
 
-        request_rx.send(GdalRequest::AllLayerInfos).unwrap();
+        request_rx.send(DatasetRequest::AllLayerInfos).unwrap();
 
         let scr = ScrollbarState::new(0);
         Self {

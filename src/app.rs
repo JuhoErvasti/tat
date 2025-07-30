@@ -35,7 +35,7 @@ use ratatui::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 use crate::{
-    dataset::{GdalRequest, GdalResponse}, layerlist::TatLayerList, navparagraph::TatNavigableParagraph, numberinput::{TatNumberInput, TatNumberInputResult}, table::TableRects, types::{TatNavHorizontal, TatNavVertical}
+    dataset::{DatasetRequest, DatasetResponse}, layerlist::TatLayerList, navparagraph::TatNavigableParagraph, numberinput::{TatNumberInput, TatNumberInputResult}, table::TableRects, types::{TatNavHorizontal, TatNavVertical}
 };
 use crate::table::TatTable;
 
@@ -74,7 +74,7 @@ enum TatMainMenuSectionFocus {
 pub enum TatEvent {
     Keyboard(KeyEvent),
     Mouse(MouseEvent),
-    Gdal(GdalResponse),
+    Dataset(DatasetResponse),
 }
 
 /// This is the main widget of the program, initiating the rendering and primarily handling
@@ -95,7 +95,7 @@ pub struct TatApp {
 
 impl TatApp {
     /// Constructs a new object
-    pub fn new(gdal_request_tx: Sender<GdalRequest>) -> Self {
+    pub fn new(gdal_request_tx: Sender<DatasetRequest>) -> Self {
         let mut ls = ListState::default();
         ls.select_first();
 
@@ -105,7 +105,7 @@ impl TatApp {
             Err(_) => None
         };
 
-        gdal_request_tx.send(GdalRequest::DatasetInfo).unwrap();
+        gdal_request_tx.send(DatasetRequest::DatasetInfo).unwrap();
 
         // TODO: disable for now
         // crossterm::execute!(std::io::stdout(), EnableMouseCapture).unwrap();
@@ -129,40 +129,41 @@ impl TatApp {
     /// mouse events being handled
     pub fn run(&mut self, terminal: &mut DefaultTerminal, rx: mpsc::Receiver<TatEvent>) -> Result<()> {
         while !self.quit {
-            terminal.draw(|frame| {
-                self.render(frame);
-            })?;
-
+            info!("APP RUN");
             // TODO: don't unwrap yada yada
             match rx.recv().unwrap() {
                 TatEvent::Keyboard(key) => self.handle_key(key),
                 TatEvent::Mouse(mouse) => self.handle_mouse(mouse),
-                TatEvent::Gdal(gdal_response) => self.handle_gdal(gdal_response),
+                TatEvent::Dataset(gdal_response) => self.handle_gdal(gdal_response),
             }
+
+            terminal.draw(|frame| {
+                self.render(frame);
+            })?;
         }
         Ok(())
     }
 
-    fn handle_gdal(&mut self, response: GdalResponse) {
+    fn handle_gdal(&mut self, response: DatasetResponse) {
         info!("HANDLING {response}");
         match response {
-            GdalResponse::Layer(tat_layer) => {
+            DatasetResponse::Layer(tat_layer) => {
                 self.table.add_layer(tat_layer);
             },
-            GdalResponse::LayerInfo(layer_info) => {
+            DatasetResponse::LayerInfo(layer_info) => {
                 self.layerlist.add_info(layer_info);
 
                 if self.layerlist.current_layer_info_paragraph().is_none() {
                     self.layerlist.nav(TatNavVertical::First);
                 }
             }
-            GdalResponse::Feature(lyr_index, row, f) => {
+            DatasetResponse::Feature(lyr_index, row, f) => {
                 self.table.add_feature(lyr_index, row, f);
             },
-            GdalResponse::FidCache(lyr_index, cache) => {
+            DatasetResponse::FidCache(lyr_index, cache) => {
                 self.table.add_fid_cache(lyr_index, cache);
             },
-            GdalResponse::DatasetInfo(info) => {
+            DatasetResponse::DatasetInfo(info) => {
                 self.dataset_info_text = info;
             },
         }
