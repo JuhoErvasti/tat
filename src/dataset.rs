@@ -179,7 +179,6 @@ impl TatDataset {
         loop {
             match self.request_rx.recv() {
                 Ok(request) => {
-                    info!("HANDLING {request}");
                     let gdal_ds = self.gdal_ds.lock().unwrap();
                     match request {
                         DatasetRequest::AllLayers => {

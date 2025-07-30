@@ -129,7 +129,6 @@ impl TatApp {
     /// mouse events being handled
     pub fn run(&mut self, terminal: &mut DefaultTerminal, rx: mpsc::Receiver<TatEvent>) -> Result<()> {
         while !self.quit {
-            info!("APP RUN");
             // TODO: don't unwrap yada yada
             match rx.recv().unwrap() {
                 TatEvent::Keyboard(key) => self.handle_key(key),
@@ -145,7 +144,6 @@ impl TatApp {
     }
 
     fn handle_gdal(&mut self, response: DatasetResponse) {
-        info!("HANDLING {response}");
         match response {
             DatasetResponse::Layer(tat_layer) => {
                 self.table.add_layer(tat_layer);
