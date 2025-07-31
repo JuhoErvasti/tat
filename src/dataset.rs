@@ -3,7 +3,7 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
 
 use cli_log::{error, info};
-use gdal::vector::field_type_to_name;
+use gdal::vector::{field_type_to_name, Feature};
 use gdal::Dataset;
 use gdal::{vector::{geometry_type_to_name, Layer, LayerAccess}, Metadata};
 use unicode_segmentation::UnicodeSegmentation;
@@ -20,6 +20,7 @@ pub struct TatAttributeViewRequest {
     pub bottom_row: u64,
     pub first_column: u64,
     pub last_column: u64,
+    pub total_geom_fields: usize,
 }
 
  // TODO: see if you can make this &str, and also not Vec<Vec
@@ -191,16 +192,31 @@ impl<'layers> TatDataset<'layers> {
                         },
                         DatasetRequest::UpdateAttributeView(request) => {
                             let mut v = self.attribute_view.lock().unwrap();
-                            v.push(vec![
-                                format!("{} {} {} {} {}",
-                                    request.layer_index,
-                                    request.top_row,
-                                    request.bottom_row,
-                                    request.first_column,
-                                    request.last_column,
-                                )
-                            ]);
+                            v.clear();
 
+                            let layer = self.layers.get_mut(request.layer_index).unwrap();
+
+                            info!("============================================================UPDATING============================================================");
+                            let mut current_row = request.top_row;
+                            for feature in layer.features()
+                                .skip(request.top_row as usize)
+                            {
+
+                                if current_row == request.bottom_row + 1 {
+                                    break;
+                                }
+
+
+                                let mut row = vec![];
+                                for current_column in request.first_column..=request.last_column {
+                                    let value = TatDataset::get_attribute_from_feature(&feature, current_column as i32, request.total_geom_fields);
+                                    row.push(value.unwrap_or(crate::shared::MISSING_VALUE.to_string()));
+                                }
+
+                                v.push(row);
+
+                                current_row += 1;
+                            }
                             self.send_response(
                                 DatasetResponse::AttributeViewUpdated,
                             );
@@ -296,6 +312,31 @@ impl<'layers> TatDataset<'layers> {
         }
 
         fields
+    }
+
+    fn get_attribute_from_feature(f: &Feature, field_idx: i32, total_geom_fields: usize) -> Option<String> {
+        if total_geom_fields == 0 {
+            return f.field_as_string(field_idx as usize)
+                .unwrap_or(None);
+        }
+
+        if field_idx < total_geom_fields as i32 {
+            let res = f.geometry_by_index(field_idx as usize);
+            if res.is_err() {
+                return None;
+            }
+
+            let wkt_res = res.unwrap().wkt();
+            if wkt_res.is_err() {
+                return None;
+            }
+
+            return Some(wkt_res.unwrap());
+        } else {
+            let attribute_field_idx = field_idx - total_geom_fields as i32;
+            return f.field_as_string(attribute_field_idx as usize)
+                .unwrap_or(None);
+        }
     }
 
     fn schema_from_gdal_layer(&self, layer_index: usize, layer: &Layer) -> TatLayerSchema {

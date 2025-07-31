@@ -96,7 +96,7 @@ impl TatTable {
     /// Sets currently selected layer's index
     pub fn set_layer_index(&mut self, idx: usize) {
         self.layer_index = idx;
-        self.on_visible_rows_changed();
+        self.on_visible_attributes_changed();
     }
 
     /// Returns currently selected row's index
@@ -299,7 +299,7 @@ impl TatTable {
             if self.bottom_row() + self.top_row >= self.layer_schema().unwrap().feature_count() {
                 self.set_top_row(self.max_top_row());
             } else {
-                self.on_visible_rows_changed();
+                self.on_visible_attributes_changed();
             }
 
             if !first_update {
@@ -334,6 +334,7 @@ impl TatTable {
 
     /// Renders the table fully
     pub fn render(&mut self, frame: &mut Frame) {
+        info!("render");
         self.render_feature_column(frame, false);
 
         let vert_scrollbar = Scrollbar::default()
@@ -403,11 +404,13 @@ impl TatTable {
             top_row: self.top_row,
             bottom_row: self.bottom_row(),
             first_column: self.first_column,
-            last_column: self.first_column + self.visible_rows(),
+            last_column: self.first_column + self.visible_columns(),
+            total_geom_fields: self.layer_schema().unwrap().geom_fields().len(),
         }
     }
 
-    fn on_visible_rows_changed(&self) {
+    fn on_visible_attributes_changed(&self) {
+        info!("visible attributes changed!");
         self.dataset_request_tx.send(
             DatasetRequest::UpdateAttributeView(
                 self.current_attribute_view(),
@@ -477,18 +480,25 @@ impl TatTable {
             return;
         }
 
+        if col == self.first_column as i64 {
+            return;
+        }
+
         let max_first_column: i64 = self.layer_schema().unwrap().field_count() as i64 - self.visible_columns() as i64;
 
         if col >= max_first_column {
             self.first_column = max_first_column as u64;
+            self.on_visible_attributes_changed();
             return;
         }
 
         if col <= 0 {
             self.first_column = 0;
+            self.on_visible_attributes_changed();
             return;
         }
 
+        self.on_visible_attributes_changed();
         self.first_column = col as u64;
     }
 
@@ -499,22 +509,24 @@ impl TatTable {
         }
 
         if self.max_top_row() <= 1 {
+            self.on_visible_attributes_changed();
             self.top_row = 1;
             return;
         }
 
         if row >= self.max_top_row() {
+            self.on_visible_attributes_changed();
             self.top_row = self.max_top_row() as u64;
             return;
         }
 
         if row <= 1 {
+            self.on_visible_attributes_changed();
             self.top_row = 1;
             return;
         }
 
-        self.on_visible_rows_changed();
-
+        self.on_visible_attributes_changed();
         self.top_row = row as u64;
     }
 
@@ -553,71 +565,40 @@ impl TatTable {
         let header = Row::new(header_items);
         let widths: Vec<Constraint> = (0..self.visible_columns()).map(|_| Constraint::Fill(1)).collect();
 
-        let mut rows: Vec<Row> = vec![];
 
-        if self.attribute_view.is_some() {
-            let v = self.attribute_view.as_ref().unwrap().lock().unwrap();
-            info!("{:?}", v);
+        if self.attribute_view.is_none() {
+            let filler: Vec<Row> = Vec::new();
+            return Table::new(filler, widths)
+                .header(header.underlined());
         }
 
-        // for i in self.top_row..self.bottom_row() + 1 {
-        //     let mut row_items: Vec<&str> = vec![];
-        //
-        //     for j in self.first_column..self.first_column + self.visible_columns() {
-        //         // if let Some(str) = layer.get_value_by_row(j as usize, j as usize) {
-        //         if let Some(str) = None::<&str> {
-        //             // this is (maybe a premature (lol)) optimization fast path
-        //             // since str.len() is O(1) and str.chars().count() is O(n),
-        //             // we check first if a theoretically full 4 byte UTF-8 would overflow
-        //             // which would mean that the string definitely will overflow no matter
-        //             // what. only then we check with the actual string "length" i.e. the
-        //             // number of actual symbols, not unicode code points
-        //             let squish_contents: bool = if str.len() > THEORETICAL_MAX_COLUMN_UTF8_BYTE_SIZE as usize {
-        //                 true
-        //             } else if str.chars().count() > MIN_COLUMN_LENGTH as usize {
-        //                 true
-        //             } else {
-        //                 false
-        //             };
-        //
-        //             if squish_contents {
-        //                 let graph = str.graphemes(true);
-        //                 let substring: String = graph.into_iter().take(MIN_COLUMN_LENGTH as usize).collect();
-        //                 // TODO: HANDLE THIS
-        //                 row_items.push(str);
-        //             } else {
-        //                 row_items.push(str);
-        //             }
-        //         } else {
-        //             let fid = match schema.fid_cache().get(i as usize - 1) {
-        //                 Some(fid) => fid,
-        //                 None => break,
-        //             };
-        //
-        //             row_items.push(crate::shared::MISSING_VALUE);
-        //         }
-        //
-        //     }
-        //
-        //     rows.push(Row::new(row_items));
-        // }
+        let _v = self.attribute_view.as_ref().unwrap();
 
+        if let Ok(v) = _v.lock() {
+            let mut rows: Vec<Row> = vec![];
 
-        let table = Table::new(rows, widths)
-            .header(header.underlined())
-            .style(crate::shared::palette::DEFAULT.default_style())
-            .column_highlight_style(
-                crate::shared::palette::DEFAULT.highlighted_darker_fg()
-            )
-            .row_highlight_style(
-                crate::shared::palette::DEFAULT.highlighted_darker_fg()
-            )
-            .cell_highlight_style(
-                crate::shared::palette::DEFAULT.selected_style()
-            )
-            .column_spacing(1);
+            for feature in v.iter() {
+                rows.push(Row::new(feature.clone()));
+            }
 
-        table
+            let table = Table::new(rows, widths)
+                .header(header.underlined())
+                .style(crate::shared::palette::DEFAULT.default_style())
+                .column_highlight_style(
+                    crate::shared::palette::DEFAULT.highlighted_darker_fg()
+                )
+                .row_highlight_style(
+                    crate::shared::palette::DEFAULT.highlighted_darker_fg()
+                )
+                .cell_highlight_style(
+                    crate::shared::palette::DEFAULT.selected_style()
+                )
+                .column_spacing(1);
+
+            return table;
+        }
+
+        Table::default()
     }
 
     /// Returns the number of rows currently visible
