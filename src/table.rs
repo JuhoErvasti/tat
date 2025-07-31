@@ -1,4 +1,4 @@
-use std::sync::mpsc::Sender;
+use std::{default, sync::{mpsc::Sender, Arc, Mutex}};
 
 use cli_log::{error, info};
 use ratatui::{
@@ -17,7 +17,7 @@ use ratatui::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::{dataset::DatasetRequest, types::{
+use crate::{dataset::{DatasetRequest, TatAttributeView, TatAttributeViewRequest}, types::{
     TatNavHorizontal, TatNavVertical
 }};
 use crate::layerschema::TatLayerSchema;
@@ -52,16 +52,24 @@ pub struct TatTable {
     feature_col_rect: Rect,
     v_scroll_area: Rect,
     h_scroll_area: Rect,
-    gdal_request_tx: Sender<DatasetRequest>,
+    dataset_request_tx: Sender<DatasetRequest>,
     layer_schemas: Vec<TatLayerSchema>,
+    attribute_view: Option<Arc<Mutex<TatAttributeView>>>,
 }
 
 impl TatTable {
     /// Constructs new object
-    pub fn new(gdal_request_tx: Sender<DatasetRequest>) -> Self {
+    pub fn new(dataset_request_tx: Sender<DatasetRequest>) -> Self {
         let mut ts = TableState::default();
         ts.select_first();
         ts.select_first_column();
+
+        dataset_request_tx.send(
+            DatasetRequest::LayerSchemas,
+        ).unwrap();
+        dataset_request_tx.send(
+            DatasetRequest::GetAttributeView,
+        ).unwrap();
 
         Self {
             table_state: ts,
@@ -74,10 +82,12 @@ impl TatTable {
             feature_col_rect: Rect::default(),
             v_scroll_area: Rect::default(),
             h_scroll_area: Rect::default(),
-            gdal_request_tx,
+            dataset_request_tx,
             layer_schemas: vec![],
+            attribute_view: None,
         }
     }
+
 
     pub fn set_layer_schemas(&mut self, schemas: Vec<TatLayerSchema>) {
         self.layer_schemas = schemas;
@@ -86,6 +96,7 @@ impl TatTable {
     /// Sets currently selected layer's index
     pub fn set_layer_index(&mut self, idx: usize) {
         self.layer_index = idx;
+        self.on_visible_rows_changed();
     }
 
     /// Returns currently selected row's index
@@ -94,7 +105,7 @@ impl TatTable {
     }
 
     /// Returns the name of the currently selected column
-    pub fn current_column_name(&self) -> Option<String> {
+    pub fn current_column_name(&self) -> Option<&str> {
         Some(
             self.layer_schema()?
             .field_name_by_id(self.current_column() as i32)?
@@ -287,6 +298,8 @@ impl TatTable {
 
             if self.bottom_row() + self.top_row >= self.layer_schema().unwrap().feature_count() {
                 self.set_top_row(self.max_top_row());
+            } else {
+                self.on_visible_rows_changed();
             }
 
             if !first_update {
@@ -382,6 +395,25 @@ impl TatTable {
     /// Returns currently selected layer
     pub fn layer_schema(&self) -> Option<&TatLayerSchema> {
         Some(self.layer_schemas.get(self.layer_index)?)
+    }
+
+    fn current_attribute_view(&self) -> TatAttributeViewRequest {
+        TatAttributeViewRequest {
+            layer_index: self.layer_index,
+            top_row: self.top_row,
+            bottom_row: self.bottom_row(),
+            first_column: self.first_column,
+            last_column: self.first_column + self.visible_rows(),
+        }
+    }
+
+    fn on_visible_rows_changed(&self) {
+        self.dataset_request_tx.send(
+            DatasetRequest::UpdateAttributeView(
+                self.current_attribute_view(),
+            )
+        ).unwrap();
+        // TODO: unwrap blah blah
     }
 
     /// Returns the currently selected column index which can be used in TatLayer
@@ -481,6 +513,8 @@ impl TatTable {
             return;
         }
 
+        self.on_visible_rows_changed();
+
         self.top_row = row as u64;
     }
 
@@ -504,68 +538,70 @@ impl TatTable {
             return Table::default();
         }
 
-        let layer = self.layer_schema().unwrap();
+        let schema = self.layer_schema().unwrap();
 
-        let mut header_items: Vec<String> = vec![];
-
-        for i in self.first_column..self.first_column + self.visible_columns() {
-            if let Some(field_name) = layer.field_name_by_id(i as i32) {
-                header_items.push(field_name);
-            } else {
-                panic!();
-            }
-        }
-
-        let mut rows: Vec<Row> = [].to_vec();
-        let mut widths = [].to_vec();
-
-        for _ in 0..self.visible_columns() {
-            widths.push(Constraint::Fill(3));
-        }
-
-        for i in self.top_row..self.bottom_row() + 1 {
-            let mut row_items: Vec<&str> = vec![];
-
-            for j in self.first_column..self.first_column + self.visible_columns() {
-                // if let Some(str) = layer.get_value_by_row(j as usize, j as usize) {
-                if let Some(str) = None::<&str> {
-                    // this is (maybe a premature (lol)) optimization fast path
-                    // since str.len() is O(1) and str.chars().count() is O(n),
-                    // we check first if a theoretically full 4 byte UTF-8 would overflow
-                    // which would mean that the string definitely will overflow no matter
-                    // what. only then we check with the actual string "length" i.e. the
-                    // number of actual symbols, not unicode code points
-                    let squish_contents: bool = if str.len() > THEORETICAL_MAX_COLUMN_UTF8_BYTE_SIZE as usize {
-                        true
-                    } else if str.chars().count() > MIN_COLUMN_LENGTH as usize {
-                        true
-                    } else {
-                        false
-                    };
-
-                    if squish_contents {
-                        let graph = str.graphemes(true);
-                        let substring: String = graph.into_iter().take(MIN_COLUMN_LENGTH as usize).collect();
-                        // TODO: HANDLE THIS
-                        row_items.push(str);
-                    } else {
-                        row_items.push(str);
-                    }
+        let header_items: Vec<&str> = (self.first_column..self.first_column + self.visible_columns())
+            .map(|i| {
+                if let Some(field_name) = schema.field_name_by_id(i as i32) {
+                    field_name
                 } else {
-                    let fid = match layer.fid_cache().get(i as usize - 1) {
-                        Some(fid) => fid,
-                        None => break,
-                    };
-
-                    row_items.push(crate::shared::MISSING_VALUE);
+                    panic!();
                 }
-
-            }
-
-            rows.push(Row::new(row_items));
-        }
+            })
+            .collect();
 
         let header = Row::new(header_items);
+        let widths: Vec<Constraint> = (0..self.visible_columns()).map(|_| Constraint::Fill(1)).collect();
+
+        let mut rows: Vec<Row> = vec![];
+
+        if self.attribute_view.is_some() {
+            let v = self.attribute_view.as_ref().unwrap().lock().unwrap();
+            info!("{:?}", v);
+        }
+
+        // for i in self.top_row..self.bottom_row() + 1 {
+        //     let mut row_items: Vec<&str> = vec![];
+        //
+        //     for j in self.first_column..self.first_column + self.visible_columns() {
+        //         // if let Some(str) = layer.get_value_by_row(j as usize, j as usize) {
+        //         if let Some(str) = None::<&str> {
+        //             // this is (maybe a premature (lol)) optimization fast path
+        //             // since str.len() is O(1) and str.chars().count() is O(n),
+        //             // we check first if a theoretically full 4 byte UTF-8 would overflow
+        //             // which would mean that the string definitely will overflow no matter
+        //             // what. only then we check with the actual string "length" i.e. the
+        //             // number of actual symbols, not unicode code points
+        //             let squish_contents: bool = if str.len() > THEORETICAL_MAX_COLUMN_UTF8_BYTE_SIZE as usize {
+        //                 true
+        //             } else if str.chars().count() > MIN_COLUMN_LENGTH as usize {
+        //                 true
+        //             } else {
+        //                 false
+        //             };
+        //
+        //             if squish_contents {
+        //                 let graph = str.graphemes(true);
+        //                 let substring: String = graph.into_iter().take(MIN_COLUMN_LENGTH as usize).collect();
+        //                 // TODO: HANDLE THIS
+        //                 row_items.push(str);
+        //             } else {
+        //                 row_items.push(str);
+        //             }
+        //         } else {
+        //             let fid = match schema.fid_cache().get(i as usize - 1) {
+        //                 Some(fid) => fid,
+        //                 None => break,
+        //             };
+        //
+        //             row_items.push(crate::shared::MISSING_VALUE);
+        //         }
+        //
+        //     }
+        //
+        //     rows.push(Row::new(row_items));
+        // }
+
 
         let table = Table::new(rows, widths)
             .header(header.underlined())
@@ -699,6 +735,10 @@ impl TatTable {
 
     pub fn layer_schemas(&self) -> &[TatLayerSchema] {
         &self.layer_schemas
+    }
+
+    pub fn set_attribute_view(&mut self, attribute_view: Arc<Mutex<TatAttributeView>>) {
+        self.attribute_view = Some(attribute_view);
     }
 }
 

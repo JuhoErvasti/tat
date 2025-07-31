@@ -60,19 +60,19 @@ impl TatLayerSchema {
     }
 
     /// Returns the name of a field based on its index. This includes the geometry fields.
-    pub fn field_name_by_id(&self, field_idx: i32) -> Option<String> {
+    pub fn field_name_by_id(&self, field_idx: i32) -> Option<&str> {
         let total_geom_fields: i32 = self.geom_fields().len() as i32;
 
         if field_idx < total_geom_fields {
             if let Some(field) = self.geom_fields.get(field_idx as usize) {
-                return Some(field.name().to_string());
+                return Some(field.name());
             } else {
                 None
             }
         } else {
             let attribute_field_idx = field_idx - total_geom_fields;
             if let Some(field) = self.attribute_fields.get(attribute_field_idx as usize) {
-                return Some(field.name().to_string());
+                return Some(field.name());
             } else {
                 None
             }

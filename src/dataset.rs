@@ -12,44 +12,38 @@ use crate::app::TatEvent;
 use crate::navparagraph::TatNavigableParagraph;
 use crate::{layerschema::TatLayerSchema, layerlist::TatLayerInfo, types::{TatCrs, TatField, TatGeomField}};
 
+/// Used to communicate which chunk of attributes should be transmitted
+#[derive(Debug)]
+pub struct TatAttributeViewRequest {
+    pub layer_index: usize,
+    pub top_row: u64,
+    pub bottom_row: u64,
+    pub first_column: u64,
+    pub last_column: u64,
+}
+
+ // TODO: see if you can make this &str, and also not Vec<Vec
+pub type TatAttributeView = Vec<Vec<String>>;
+
 #[derive(Debug)]
 pub enum DatasetRequest {
-    AllLayerInfos,
-    BuildLayers,
+    LayerInfos,
+    BuildLayers, // TODO: maybe send a response whether this was successful
+    LayerSchemas,
 
-    /// layer_index, row, fid
-    Features(u64, u64),
+    GetAttributeView,
+    UpdateAttributeView(TatAttributeViewRequest),
     DatasetInfo,
 }
 
-// impl Display for DatasetRequest {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         match self {
-//             DatasetRequest::AllLayers => write!(f, "GdalRequest::AllLayers"),
-//             DatasetRequest::AllLayerInfos => write!(f, "GdalRequest::AllLayerInfos"),
-//             DatasetRequest::FidCache(i) => write!(f, "GdalRequest::FidCache({i})"),
-//             DatasetRequest::DatasetInfo => write!(f, "GdalRequest::DatasetInfo"),
-//         }
-//     }
-// }
-
 #[derive(Debug)]
 pub enum DatasetResponse {
+    LayerSchemas(Vec<TatLayerSchema>),
     LayerInfos(Vec<TatLayerInfo>),
-    Features(Vec<String>), // TODO: see if you can make this &str
+    AttributeView(Arc<Mutex<TatAttributeView>>),
+    AttributeViewUpdated,
     DatasetInfo(String),
 }
-
-// impl Display for DatasetResponse {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         match self {
-//             DatasetResponse::Layer(tat_layer) => write!(f, "GdalResponse::Layer({})", tat_layer.name()),
-//             DatasetResponse::LayerInfo(info) => write!(f, "GdalResponse::LayerInfo({})", info.0),
-//             DatasetResponse::FidCache(_, _) => write!(f, "GdalResponse::FidCache()"),
-//             DatasetResponse::DatasetInfo(info) => write!(f, "GdalResponse::DatasetInfo({})", info),
-//         }
-//     }
-// }
 
 /// Struct for handling interfacing with GDAL in a separate thread
 pub struct TatDataset<'layers> {
@@ -58,8 +52,8 @@ pub struct TatDataset<'layers> {
     request_rx: Receiver<DatasetRequest>,
     layer_filter: Option<Vec<String>>,
     where_clause: Option<String>,
-    feature_requests: Vec<(usize, usize)>,
     layers: Vec<Layer<'layers>>, // make hashmap
+    attribute_view: Arc<Mutex<TatAttributeView>>,
 }
 
 impl<'layers> TatDataset<'layers> {
@@ -147,8 +141,8 @@ impl<'layers> TatDataset<'layers> {
                 request_rx,
                 where_clause, // TODO: are these still needed as members?
                 layer_filter,
-                feature_requests: vec![],
                 layers: vec![],
+                attribute_view: Arc::new(Mutex::new(vec![])),
             }
         )
     }
@@ -166,7 +160,7 @@ impl<'layers> TatDataset<'layers> {
             match self.request_rx.recv() {
                 Ok(request) => {
                     match request {
-                        DatasetRequest::AllLayerInfos => {
+                        DatasetRequest::LayerInfos => {
                             let infos = self.layers.iter().enumerate().map(|(i, layer)| {
                                 (
                                     layer.name().to_string(),
@@ -183,8 +177,33 @@ impl<'layers> TatDataset<'layers> {
                                 )
                             );
                         },
-                        DatasetRequest::Features(top_row, bottom_row) => {
-                            info!("supposedly sent some features");
+                        DatasetRequest::LayerSchemas => {
+                            let infos = self.layers.iter().enumerate().map(|(i, layer)| {
+                                self.schema_from_gdal_layer(i, layer)
+
+                            }).collect();
+
+                            self.send_response(
+                                DatasetResponse::LayerSchemas(
+                                    infos,
+                                )
+                            );
+                        },
+                        DatasetRequest::UpdateAttributeView(request) => {
+                            let mut v = self.attribute_view.lock().unwrap();
+                            v.push(vec![
+                                format!("{} {} {} {} {}",
+                                    request.layer_index,
+                                    request.top_row,
+                                    request.bottom_row,
+                                    request.first_column,
+                                    request.last_column,
+                                )
+                            ]);
+
+                            self.send_response(
+                                DatasetResponse::AttributeViewUpdated,
+                            );
                         },
                         DatasetRequest::DatasetInfo => {
                             self.send_response(
@@ -213,6 +232,13 @@ impl<'layers> TatDataset<'layers> {
                                 self.layers.push(layer);
                             }
                         },
+                        DatasetRequest::GetAttributeView => {
+                            self.send_response(
+                                DatasetResponse::AttributeView(
+                                    self.attribute_view.clone(),
+                                )
+                            );
+                        }
                     }
                 },
                 Err(err) => {

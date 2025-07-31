@@ -33,7 +33,7 @@ impl TatLayerList {
         let mut ls = ListState::default();
         ls.select_first();
 
-        request_rx.send(DatasetRequest::AllLayerInfos).unwrap();
+        request_rx.send(DatasetRequest::LayerInfos).unwrap();
 
         let scr = ScrollbarState::new(0);
         Self {

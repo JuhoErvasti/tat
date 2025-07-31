@@ -39,7 +39,6 @@ use crate::{
 };
 use crate::table::TatTable;
 
-
 const BORDER_LAYER_INFO: symbols::border::Set = symbols::border::Set {
     top_left: symbols::line::ROUNDED.horizontal_down,
     top_right: symbols::line::NORMAL.horizontal_down,
@@ -131,11 +130,12 @@ impl TatApp {
     pub fn run(&mut self, terminal: &mut DefaultTerminal, rx: mpsc::Receiver<TatEvent>) -> Result<()> {
         while !self.quit {
             // TODO: don't unwrap yada yada
-            match rx.recv().unwrap() {
-                TatEvent::Keyboard(key) => self.handle_key(key),
+            let feedback = match rx.recv().unwrap() {
+                TatEvent::Keyboard(key) if key.kind == KeyEventKind::Press => self.handle_key(key),
                 TatEvent::Mouse(mouse) => self.handle_mouse(mouse),
-                TatEvent::Dataset(gdal_response) => self.handle_gdal(gdal_response),
-            }
+                TatEvent::Dataset(dataset_response) => self.handle_dataset(dataset_response),
+                _ => continue,
+            };
 
             terminal.draw(|frame| {
                 self.render(frame);
@@ -144,21 +144,26 @@ impl TatApp {
         Ok(())
     }
 
-    fn handle_gdal(&mut self, response: DatasetResponse) {
+    fn handle_dataset(&mut self, response: DatasetResponse) {
+        info!("HANDLING GDAL");
         match response {
             DatasetResponse::LayerInfos(layer_info) => {
-                info!("received a layer info");
                 self.layerlist.set_infos(layer_info);
 
                 if self.layerlist.current_layer_info_paragraph().is_none() {
                     self.layerlist.nav(TatNavVertical::First);
                 }
             },
-            DatasetResponse::Features(features) => {
-                info!("supposedly got some features");
-            },
             DatasetResponse::DatasetInfo(info) => {
                 self.dataset_info_text = info;
+            },
+            DatasetResponse::LayerSchemas(tat_layer_schemas) => {
+                self.table.set_layer_schemas(tat_layer_schemas);
+            },
+            DatasetResponse::AttributeView(view) => {
+                self.table.set_attribute_view(view);
+            },
+            DatasetResponse::AttributeViewUpdated => {
             },
         }
     }
@@ -357,6 +362,7 @@ impl TatApp {
 
     /// Handles incoming mouse events and delegates to other widgets
     fn handle_mouse(&mut self, event: MouseEvent) {
+        info!("HANDLING MOUSE");
         match event.kind {
             MouseEventKind::ScrollUp => self.delegate_nav_v(TatNavVertical::MouseScrollUp),
             MouseEventKind::ScrollDown => self.delegate_nav_v(TatNavVertical::MouseScrollDown),
@@ -366,10 +372,6 @@ impl TatApp {
 
     /// Handles incoming key events and delegates to other widgets
     fn handle_key(&mut self, key: KeyEvent) {
-        if key.kind != KeyEventKind::Press {
-            return;
-        }
-
         let ctrl_down: bool = key.modifiers.contains(KeyModifiers::CONTROL);
         let in_layer_list: bool = matches!(self.current_menu, TatMenu::MainMenu) && matches!(self.focused_section, TatMainMenuSectionFocus::LayerList);
         let in_table: bool = matches!(self.current_menu, TatMenu::TableView);
@@ -484,7 +486,7 @@ impl TatApp {
         let title = format!(
                 " Feature {} - Value of \"{}\" ",
                 self.table.current_row(),
-                self.table.current_column_name().unwrap_or("UNKNOWN COLUMN".to_string()),
+                self.table.current_column_name().unwrap_or("UNKNOWN COLUMN"),
             );
 
         self.modal_popup = Some(
