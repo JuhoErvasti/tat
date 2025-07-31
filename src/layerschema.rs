@@ -12,12 +12,6 @@ pub struct TatLayerSchema {
     geom_fields: Vec<TatGeomField>,
     attribute_fields: Vec<TatField>,
     index: usize,
-
-    /// A cache of feature ids in the underlying GDAL layer. This is needed because the
-    /// features are listed and numbered sequentially in the table for clarity and navigation
-    /// reasons but the GDAL fids are not always sequential so in order to access the features in
-    /// the layer from a sequential index we need to save its corresponding fid.,
-    fid_cache: Vec<u64>,
     feature_count: u64,
 }
 
@@ -38,7 +32,6 @@ impl TatLayerSchema {
             attribute_fields,
             geom_fields,
             index,
-            fid_cache: vec![],
         }
     }
 
@@ -84,11 +77,6 @@ impl TatLayerSchema {
         &self.attribute_fields
     }
 
-    /// Returns the fid cache
-    pub fn fid_cache(&self) -> &[u64] {
-        &self.fid_cache
-    }
-
     /// Returns the layer's CRS (if any)
     pub fn crs(&self) -> Option<&TatCrs> {
         self.crs.as_ref()
@@ -97,10 +85,6 @@ impl TatLayerSchema {
     /// Returns the layer's geometry fields
     pub fn geom_fields(&self) -> &[TatGeomField] {
         &self.geom_fields
-    }
-
-    pub fn set_fid_cache(&mut self, fid_cache: Vec<u64>) {
-        self.fid_cache = fid_cache;
     }
 
     pub fn index(&self) -> usize {
