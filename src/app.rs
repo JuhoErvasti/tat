@@ -95,7 +95,7 @@ pub struct TatApp {
 
 impl TatApp {
     /// Constructs a new object
-    pub fn new(gdal_request_tx: Sender<DatasetRequest>) -> Self {
+    pub fn new(dataset_request_tx: Sender<DatasetRequest>) -> Self {
         let mut ls = ListState::default();
         ls.select_first();
 
@@ -105,7 +105,8 @@ impl TatApp {
             Err(_) => None
         };
 
-        gdal_request_tx.send(DatasetRequest::DatasetInfo).unwrap();
+        dataset_request_tx.send(DatasetRequest::DatasetInfo).unwrap();
+        dataset_request_tx.send(DatasetRequest::BuildLayers).unwrap();
 
         // TODO: disable for now
         // crossterm::execute!(std::io::stdout(), EnableMouseCapture).unwrap();
@@ -114,8 +115,8 @@ impl TatApp {
             current_menu: TatMenu::MainMenu,
             quit: false,
             modal_popup: None,
-            layerlist: TatLayerList::new(gdal_request_tx.clone()),
-            table: TatTable::new(gdal_request_tx.clone()),
+            layerlist: TatLayerList::new(dataset_request_tx.clone()),
+            table: TatTable::new(dataset_request_tx.clone()),
             focused_section: TatMainMenuSectionFocus::LayerList,
             clip,
             table_area: Rect::default(),
@@ -145,21 +146,16 @@ impl TatApp {
 
     fn handle_gdal(&mut self, response: DatasetResponse) {
         match response {
-            DatasetResponse::Layer(tat_layer) => {
-                self.table.add_layer(tat_layer);
-            },
-            DatasetResponse::LayerInfo(layer_info) => {
-                self.layerlist.add_info(layer_info);
+            DatasetResponse::LayerInfos(layer_info) => {
+                info!("received a layer info");
+                self.layerlist.set_infos(layer_info);
 
                 if self.layerlist.current_layer_info_paragraph().is_none() {
                     self.layerlist.nav(TatNavVertical::First);
                 }
-            }
-            DatasetResponse::Feature(lyr_index, row, f) => {
-                self.table.add_feature(lyr_index, row, f);
             },
-            DatasetResponse::FidCache(lyr_index, cache) => {
-                self.table.add_fid_cache(lyr_index, cache);
+            DatasetResponse::Features(features) => {
+                info!("supposedly got some features");
             },
             DatasetResponse::DatasetInfo(info) => {
                 self.dataset_info_text = info;

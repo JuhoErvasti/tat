@@ -44,8 +44,8 @@ impl TatLayerList {
         }
     }
 
-    pub fn add_info(&mut self, info: TatLayerInfo) {
-        self.layer_infos.push(info);
+    pub fn set_infos(&mut self, infos: Vec<TatLayerInfo>) {
+        self.layer_infos = infos;
     }
 
     /// Returns the displayable layer information as a navigable paragraph based on the currently

@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use tat::fixtures::datasets::*;
-use tat::{app::TatApp, layer::TatLayer};
+use tat::{app::TatApp, layer::TatLayerSchema};
 use gdal::Dataset;
 use rstest::rstest;
 use insta::assert_snapshot;
@@ -30,7 +30,7 @@ impl Display for LayerResults {
     }
 }
 
-fn build_test_results_from_layer(layer: &TatLayer) -> LayerResults {
+fn build_test_results_from_layer(layer: &TatLayerSchema) -> LayerResults {
     let mut headers: Vec<Option<String>> = vec![];
     for field in 0..layer.field_count() {
         headers.push(layer.field_name_by_id(field as i32));
@@ -52,20 +52,20 @@ fn build_test_results_from_layer(layer: &TatLayer) -> LayerResults {
 
 fn test_single_layer_dataset(ds: &'static Dataset) {
     let t = TatApp::new(ds, None, None);
-    let result = build_test_results_from_layer(&t.table().layer());
+    let result = build_test_results_from_layer(&t.table().layer_schema());
 
     let ds_name = ds.driver().short_name().to_lowercase().replace(" ", "_");
-    let snapshot_name = format!("{}_{}", ds_name, t.table().layer().name());
+    let snapshot_name = format!("{}_{}", ds_name, t.table().layer_schema().name());
     assert_snapshot!(snapshot_name, result);
 }
 
 fn test_all_layers(ds: &'static Dataset) {
     let mut t = TatApp::new(ds, None, None);
-    for index in 0..t.table().layers().len() as usize {
+    for index in 0..t.table().layer_schemas().len() as usize {
         t.set_layer_index(index);
-        let result = build_test_results_from_layer(&t.table().layer());
+        let result = build_test_results_from_layer(&t.table().layer_schema());
         let ds_name = ds.driver().short_name().to_lowercase().replace(" ", "_");
-        let snapshot_name = format!("{}_{}", ds_name, t.table().layer().name());
+        let snapshot_name = format!("{}_{}", ds_name, t.table().layer_schema().name());
         assert_snapshot!(snapshot_name, result);
     }
 }

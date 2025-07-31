@@ -17,10 +17,10 @@ use ratatui::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::{dataset::DatasetRequest, layer::TatFeature, types::{
+use crate::{dataset::DatasetRequest, types::{
     TatNavHorizontal, TatNavVertical
 }};
-use crate::layer::TatLayer;
+use crate::layerschema::TatLayerSchema;
 
 pub const FEATURE_COLUMN_BORDER_FULL: symbols::border::Set = symbols::border::Set {
     bottom_right: symbols::line::HORIZONTAL_UP,
@@ -48,12 +48,12 @@ pub struct TatTable {
     v_scroll: ScrollbarState,
     h_scroll: ScrollbarState,
     layer_index: usize,
-    layers: Vec<TatLayer>, // TODO: consider making a HashMap
     table_rect: Rect,
     feature_col_rect: Rect,
     v_scroll_area: Rect,
     h_scroll_area: Rect,
     gdal_request_tx: Sender<DatasetRequest>,
+    layer_schemas: Vec<TatLayerSchema>,
 }
 
 impl TatTable {
@@ -62,8 +62,6 @@ impl TatTable {
         let mut ts = TableState::default();
         ts.select_first();
         ts.select_first_column();
-
-        gdal_request_tx.send(DatasetRequest::AllLayers).unwrap();
 
         Self {
             table_state: ts,
@@ -76,28 +74,13 @@ impl TatTable {
             feature_col_rect: Rect::default(),
             v_scroll_area: Rect::default(),
             h_scroll_area: Rect::default(),
-            layers: vec![],
             gdal_request_tx,
+            layer_schemas: vec![],
         }
     }
 
-    pub fn add_layer(&mut self, lyr: TatLayer) {
-        let i = lyr.index();
-        self.layers.push(lyr);
-
-        self.gdal_request_tx.send(
-            DatasetRequest::FidCache(i),
-        ).unwrap();
-    }
-
-    pub fn add_feature(&mut self, lyr_index: usize, row: usize, f: TatFeature) {
-        self.layers.get_mut(lyr_index).unwrap().add_feature(row, f);
-    }
-
-    pub fn add_fid_cache(&mut self, layer_index: usize, cache: Vec<u64>) {
-        // TODO: think about this, shouldn't TatDataset have the caches?
-        // ALSO  FIXME: i think this'll screw up if there's a layer filter
-        self.layers.get_mut(layer_index).unwrap().set_fid_cache(cache);
+    pub fn set_layer_schemas(&mut self, schemas: Vec<TatLayerSchema>) {
+        self.layer_schemas = schemas;
     }
 
     /// Sets currently selected layer's index
@@ -113,7 +96,7 @@ impl TatTable {
     /// Returns the name of the currently selected column
     pub fn current_column_name(&self) -> Option<String> {
         Some(
-            self.layer()?
+            self.layer_schema()?
             .field_name_by_id(self.current_column() as i32)?
         )
     }
@@ -126,7 +109,7 @@ impl TatTable {
 
     /// Handles horizontal navigation (in columns)
     pub fn nav_h(&mut self, conf: TatNavHorizontal) {
-        if self.layer().is_none() {
+        if self.layer_schema().is_none() {
             return;
         }
 
@@ -141,7 +124,7 @@ impl TatTable {
                 self.update_h_scrollbar();
             },
             TatNavHorizontal::End => {
-                self.set_first_column(self.layer().unwrap().field_count() as i64 - self.visible_columns() as i64);
+                self.set_first_column(self.layer_schema().unwrap().field_count() as i64 - self.visible_columns() as i64);
                 self.table_state.select_column(Some(self.visible_columns() as usize - 1));
                 self.update_h_scrollbar();
             },
@@ -150,7 +133,7 @@ impl TatTable {
                 let real_col = self.current_column();
 
                 if relative_col == self.visible_columns() - 1 {
-                    let cols =  self.layer().unwrap().field_count();
+                    let cols =  self.layer_schema().unwrap().field_count();
 
                     if real_col == cols {
                         self.update_h_scrollbar();
@@ -182,7 +165,7 @@ impl TatTable {
 
     /// Handles vertical navigation (in rows)
     pub fn nav_v(&mut self, conf: TatNavVertical) {
-        if self.layer().is_none() {
+        if self.layer_schema().is_none() {
             return;
         }
 
@@ -216,7 +199,7 @@ impl TatTable {
             },
             TatNavVertical::Last => {
                 let jump_to_relative = if self.all_rows_visible() {
-                    if self.layer().unwrap().feature_count() > 0 { self.layer().unwrap().feature_count() as i64 - 1 } else { 0 }
+                    if self.layer_schema().unwrap().feature_count() > 0 { self.layer_schema().unwrap().feature_count() as i64 - 1 } else { 0 }
                 } else {
                     visible_rows - 1
                 };
@@ -249,7 +232,7 @@ impl TatTable {
                 nav_by(-(visible_rows / 3));
             },
             TatNavVertical::Specific(row) => {
-                if row >= self.layer().unwrap().feature_count() as i64 {
+                if row >= self.layer_schema().unwrap().feature_count() as i64 {
                     self.nav_v(TatNavVertical::Last);
                     return;
                 }
@@ -267,7 +250,8 @@ impl TatTable {
 
     /// Returns the currently selected cell's value as a string (if any)
     pub fn selected_value(&self) -> Option<&str> {
-        self.layer()?.get_value_by_row(self.current_row() as usize, self.current_column() as usize)
+        None
+        // self.layer_schema()?.get_value_by_row(self.current_row() as usize, self.current_column() as usize)
     }
 
     /// Resets the table's state
@@ -289,7 +273,7 @@ impl TatTable {
         } else { false };
 
         if rect_changed {
-            if self.layer().is_none() {
+            if self.layer_schema().is_none() {
                 return;
             }
 
@@ -301,7 +285,7 @@ impl TatTable {
             self.update_v_scrollbar();
             self.update_h_scrollbar();
 
-            if self.bottom_row() + self.top_row >= self.layer().unwrap().feature_count() {
+            if self.bottom_row() + self.top_row >= self.layer_schema().unwrap().feature_count() {
                 self.set_top_row(self.max_top_row());
             }
 
@@ -381,7 +365,7 @@ impl TatTable {
         let block = Block::new()
             .title(
                 Line::raw(
-                    format!("{}", if self.layer().is_some() { self.layer().unwrap().name() } else {"NO LAYER!!!"})
+                    format!("{}", if self.layer_schema().is_some() { self.layer_schema().unwrap().name() } else {"NO LAYER!!!"})
                 ).centered().bold().underlined(),
             )
             .title_bottom(
@@ -396,8 +380,8 @@ impl TatTable {
     }
 
     /// Returns currently selected layer
-    pub fn layer(&self) -> Option<&TatLayer> {
-        Some(self.layers.get(self.layer_index)?)
+    pub fn layer_schema(&self) -> Option<&TatLayerSchema> {
+        Some(self.layer_schemas.get(self.layer_index)?)
     }
 
     /// Returns the currently selected column index which can be used in TatLayer
@@ -420,21 +404,21 @@ impl TatTable {
 
     /// Updates the state of the vertical scrollbar
     fn update_v_scrollbar(&mut self) {
-        if self.layer().is_none() {
+        if self.layer_schema().is_none() {
             return;
         }
 
-        self.v_scroll = ScrollbarState::new(self.layer().unwrap().feature_count() as usize - self.visible_rows() as usize + 1);
+        self.v_scroll = ScrollbarState::new(self.layer_schema().unwrap().feature_count() as usize - self.visible_rows() as usize + 1);
         self.v_scroll = self.v_scroll.position(self.top_row as usize);
     }
 
     /// Updates the state of the horizontal scrollbar
     fn update_h_scrollbar(&mut self) {
-        if self.layer().is_none() {
+        if self.layer_schema().is_none() {
             return;
         }
 
-        self.h_scroll = ScrollbarState::new(self.layer().unwrap().field_count() as usize - self.visible_columns() as usize + 1);
+        self.h_scroll = ScrollbarState::new(self.layer_schema().unwrap().field_count() as usize - self.visible_columns() as usize + 1);
         self.h_scroll = self.h_scroll.position(self.first_column as usize);
     }
 
@@ -457,11 +441,11 @@ impl TatTable {
 
     /// Sets the column which is displayed first
     fn set_first_column(&mut self, col: i64) {
-        if self.layer().is_none() {
+        if self.layer_schema().is_none() {
             return;
         }
 
-        let max_first_column: i64 = self.layer().unwrap().field_count() as i64 - self.visible_columns() as i64;
+        let max_first_column: i64 = self.layer_schema().unwrap().field_count() as i64 - self.visible_columns() as i64;
 
         if col >= max_first_column {
             self.first_column = max_first_column as u64;
@@ -507,20 +491,20 @@ impl TatTable {
 
     /// Returns the row which if the top row all other rows will be visible as well
     fn max_top_row(&self) -> i64 {
-        if self.layer().is_none() {
+        if self.layer_schema().is_none() {
             return 1;
         }
 
-        self.layer().unwrap().feature_count() as i64 - self.visible_rows() as i64 + 1
+        self.layer_schema().unwrap().feature_count() as i64 - self.visible_rows() as i64 + 1
     }
 
     /// Returns table based on current state
     fn get_table(&self) -> Table {
-        if self.layer().is_none() {
+        if self.layer_schema().is_none() {
             return Table::default();
         }
 
-        let layer = self.layer().unwrap();
+        let layer = self.layer_schema().unwrap();
 
         let mut header_items: Vec<String> = vec![];
 
@@ -543,7 +527,8 @@ impl TatTable {
             let mut row_items: Vec<&str> = vec![];
 
             for j in self.first_column..self.first_column + self.visible_columns() {
-                if let Some(str) = layer.get_value_by_row(j as usize, j as usize) {
+                // if let Some(str) = layer.get_value_by_row(j as usize, j as usize) {
+                if let Some(str) = None::<&str> {
                     // this is (maybe a premature (lol)) optimization fast path
                     // since str.len() is O(1) and str.chars().count() is O(n),
                     // we check first if a theoretically full 4 byte UTF-8 would overflow
@@ -571,14 +556,6 @@ impl TatTable {
                         Some(fid) => fid,
                         None => break,
                     };
-
-                    self.gdal_request_tx.send(
-                        DatasetRequest::Feature(
-                            layer.index(),
-                            i as usize,
-                            *fid,
-                        )
-                    ).unwrap();
 
                     row_items.push(crate::shared::MISSING_VALUE);
                 }
@@ -609,7 +586,7 @@ impl TatTable {
 
     /// Returns the number of rows currently visible
     fn visible_rows(&self) -> u64 {
-        if self.layer().is_none() {
+        if self.layer_schema().is_none() {
             return 0;
         }
 
@@ -619,8 +596,8 @@ impl TatTable {
             0
         };
 
-        if value > self.layer().unwrap().feature_count() {
-            return self.layer().unwrap().feature_count();
+        if value > self.layer_schema().unwrap().feature_count() {
+            return self.layer_schema().unwrap().feature_count();
         }
 
         value
@@ -628,12 +605,12 @@ impl TatTable {
 
     /// Returns the number of columns currently visible
     fn visible_columns(&self) -> u64 {
-        if self.layer().is_none() {
+        if self.layer_schema().is_none() {
             return 0;
         }
 
-        if self.layer().unwrap().field_count() * (MIN_COLUMN_LENGTH as u64) < self.table_rect.width as u64 {
-            self.layer().unwrap().field_count() as u64
+        if self.layer_schema().unwrap().field_count() * (MIN_COLUMN_LENGTH as u64) < self.table_rect.width as u64 {
+            self.layer_schema().unwrap().field_count() as u64
         } else {
             (self.table_rect.width / MIN_COLUMN_LENGTH as u16) as u64
         }
@@ -641,11 +618,11 @@ impl TatTable {
 
     /// Returns whether all rows are currently visible
     fn all_rows_visible(&self) -> bool {
-        if self.layer().is_none() {
+        if self.layer_schema().is_none() {
             return true;
         }
 
-        self.visible_rows() >= self.layer().unwrap().feature_count()
+        self.visible_rows() >= self.layer_schema().unwrap().feature_count()
     }
 
     /// Returns the "feature" column, i.e. the indexes of the rows in which the features are
@@ -720,8 +697,8 @@ impl TatTable {
         }
     }
 
-    pub fn layers(&self) -> &[TatLayer] {
-        &self.layers
+    pub fn layer_schemas(&self) -> &[TatLayerSchema] {
+        &self.layer_schemas
     }
 }
 
@@ -745,13 +722,13 @@ mod test {
             assert_eq!(t.layer_index, 0);
             assert_eq!(t.top_row, 1);
 
-            assert_eq!(t.layers.len(), 5);
+            assert_eq!(t.layer_schemas.len(), 5);
 
-            assert_eq!(t.layers.get(0).unwrap().name(), "point".to_string());
-            assert_eq!(t.layers.get(1).unwrap().name(), "line".to_string());
-            assert_eq!(t.layers.get(2).unwrap().name(), "polygon".to_string());
-            assert_eq!(t.layers.get(3).unwrap().name(), "multipolygon".to_string());
-            assert_eq!(t.layers.get(4).unwrap().name(), "nogeom".to_string());
+            assert_eq!(t.layer_schemas.get(0).unwrap().name(), "point".to_string());
+            assert_eq!(t.layer_schemas.get(1).unwrap().name(), "line".to_string());
+            assert_eq!(t.layer_schemas.get(2).unwrap().name(), "polygon".to_string());
+            assert_eq!(t.layer_schemas.get(3).unwrap().name(), "multipolygon".to_string());
+            assert_eq!(t.layer_schemas.get(4).unwrap().name(), "nogeom".to_string());
         }
 
         {
@@ -759,9 +736,9 @@ mod test {
                 "nogeom".to_string(),
             ]);
             let t = TatTable::new(basic_gpkg, None, filter);
-            assert_eq!(t.layers.len(), 1);
+            assert_eq!(t.layer_schemas.len(), 1);
 
-            assert_eq!(t.layers.get(0).unwrap().name(), "nogeom".to_string());
+            assert_eq!(t.layer_schemas.get(0).unwrap().name(), "nogeom".to_string());
         }
     }
 
@@ -779,11 +756,11 @@ mod test {
         let mut t = TatTable::new(basic_gpkg, None, None);
         assert_eq!(t.layer_index, 0);
 
-        assert_eq!(t.layer().name(), "point");
+        assert_eq!(t.layer_schema().name(), "point");
 
         t.set_layer_index(2);
 
-        assert_eq!(t.layer().name(), "polygon");
+        assert_eq!(t.layer_schema().name(), "polygon");
     }
 
     #[rstest]
@@ -1102,11 +1079,11 @@ mod test {
 
         let expected = Some("participate".to_string());
 
-        assert_eq!(t.layer().feature_count(), 4);
-        assert_eq!(t.layer().get_value_by_row(0, 0), expected);
-        assert_eq!(t.layer().get_value_by_row(1, 0), expected);
-        assert_eq!(t.layer().get_value_by_row(2, 0), expected);
-        assert_eq!(t.layer().get_value_by_row(3, 0), expected);
+        assert_eq!(t.layer_schema().feature_count(), 4);
+        assert_eq!(t.layer_schema().get_value_by_row(0, 0), expected);
+        assert_eq!(t.layer_schema().get_value_by_row(1, 0), expected);
+        assert_eq!(t.layer_schema().get_value_by_row(2, 0), expected);
+        assert_eq!(t.layer_schema().get_value_by_row(3, 0), expected);
     }
 
     #[rstest]
@@ -1114,8 +1091,8 @@ mod test {
         let filter = Some(vec!["nogeom".to_string()]);
         let t = TatTable::new(basic_gpkg, Some("text_field = 'verify' AND i32_field = -28".to_string()), filter);
 
-        assert_eq!(t.layer().feature_count(), 1);
-        assert_eq!(t.layer().get_value_by_row(0, 0), Some("verify".to_string()));
-        assert_eq!(t.layer().get_value_by_row(0, 1), Some("-28".to_string()));
+        assert_eq!(t.layer_schema().feature_count(), 1);
+        assert_eq!(t.layer_schema().get_value_by_row(0, 0), Some("verify".to_string()));
+        assert_eq!(t.layer_schema().get_value_by_row(0, 1), Some("-28".to_string()));
     }
 }

@@ -3,18 +3,14 @@ use gdal::{vector::{geometry_type_to_name, Layer, LayerAccess}, Dataset};
 use cli_log::error;
 use crate::types::{TatCrs, TatField, TatGeomField};
 
-// TODO: i wonder if this could be made into a Vec<&str>
-pub type TatFeature = Vec<String>;
-
 /// A struct which holds information about a layer in a GDAL Dataset and can also fetch infromation
 /// about features in the layer.
-#[derive(Clone, Debug)]
-pub struct TatLayer {
+#[derive(Debug)]
+pub struct TatLayerSchema {
     name: String,
     crs: Option<TatCrs>,
     geom_fields: Vec<TatGeomField>,
     attribute_fields: Vec<TatField>,
-    features: Vec<Option<TatFeature>>,
     index: usize,
 
     /// A cache of feature ids in the underlying GDAL layer. This is needed because the
@@ -25,7 +21,7 @@ pub struct TatLayer {
     feature_count: u64,
 }
 
-impl TatLayer {
+impl TatLayerSchema {
     /// Constructs new object
     pub fn new(
         name: String,
@@ -43,7 +39,6 @@ impl TatLayer {
             geom_fields,
             index,
             fid_cache: vec![],
-            features: vec![],
         }
     }
 
@@ -84,17 +79,6 @@ impl TatLayer {
         }
     }
 
-    /// Returns a value of a specific row (if any)
-    pub fn get_value_by_row(&self, row: usize, field_idx: usize) -> Option<&str> {
-        if let Some(_feature) = self.features.get(row) {
-            if let Some(feature) = _feature {
-                return feature.get(field_idx).map(|f| f.as_str());
-            }
-        }
-
-        None
-    }
-
     /// Returns the layer's attribute fields
     pub fn attribute_fields(&self) -> &[TatField] {
         &self.attribute_fields
@@ -116,12 +100,7 @@ impl TatLayer {
     }
 
     pub fn set_fid_cache(&mut self, fid_cache: Vec<u64>) {
-        self.features.resize_with(fid_cache.len(), || None);
         self.fid_cache = fid_cache;
-    }
-
-    pub fn add_feature(&mut self, row: usize, feat: TatFeature) {
-        self.features.insert(row, Some(feat));
     }
 
     pub fn index(&self) -> usize {
@@ -149,7 +128,7 @@ mod test {
         // fields_from_layer()
         // also I think this sufficiently covers
         // types::TatCrs,TatField,TatGeomField
-        let l = TatLayer::new(basic_gpkg, 0, None);
+        let l = TatLayerSchema::new(basic_gpkg, 0, None);
 
         assert_eq!(l.name(), "point");
         assert_eq!(l.feature_count(), 4);
@@ -173,7 +152,7 @@ mod test {
     #[rstest]
     fn test_build_fid_cache(basic_gpkg: &'static Dataset) {
         // use "line" layer which has a deleted feature making the fids non-sequential
-        let mut l = TatLayer::new(basic_gpkg, 1, None);
+        let mut l = TatLayerSchema::new(basic_gpkg, 1, None);
         l.build_fid_cache();
 
         assert_eq!(l.feature_count, 3);
@@ -188,19 +167,19 @@ mod test {
     fn test_field_count(basic_gpkg: &'static Dataset) {
         {
             // multi polygon layer, has only a geom field
-            let l = TatLayer::new(basic_gpkg, 3, None);
+            let l = TatLayerSchema::new(basic_gpkg, 3, None);
             assert_eq!(l.field_count(), 1);
         }
 
         {
             // no geoms
-            let l = TatLayer::new(basic_gpkg, 4, None);
+            let l = TatLayerSchema::new(basic_gpkg, 4, None);
             assert_eq!(l.field_count(), 9);
         }
 
         {
             // polygon, has one of each
-            let l = TatLayer::new(basic_gpkg, 2, None);
+            let l = TatLayerSchema::new(basic_gpkg, 2, None);
             assert_eq!(l.field_count(), 2);
         }
     }
@@ -210,14 +189,14 @@ mod test {
         // covers gdal_layer() -> get_gdal_layer()
         {
             // multi polygon layer, has only a geom field
-            let l = TatLayer::new(basic_gpkg, 3, None);
+            let l = TatLayerSchema::new(basic_gpkg, 3, None);
             assert_eq!(l.field_name_by_id(0), Some("geom".to_string()));
             assert_eq!(l.field_name_by_id(1), None);
         }
 
         {
             // no geoms
-            let l = TatLayer::new(basic_gpkg, 4, None);
+            let l = TatLayerSchema::new(basic_gpkg, 4, None);
             assert_eq!(l.field_name_by_id(0), Some("text_field".to_string()));
             assert_eq!(l.field_name_by_id(1), Some("i32_field".to_string()));
             assert_eq!(l.field_name_by_id(2), Some("i64_field".to_string()));
@@ -231,7 +210,7 @@ mod test {
 
         {
             // polygon, has one of each
-            let l = TatLayer::new(basic_gpkg, 2, None);
+            let l = TatLayerSchema::new(basic_gpkg, 2, None);
             assert_eq!(l.field_name_by_id(0), Some("geom".to_string()));
             assert_eq!(l.field_name_by_id(1), Some("field".to_string()));
         }
@@ -241,7 +220,7 @@ mod test {
     fn test_get_value_by_fid(basic_gpkg: &'static Dataset) {
         // covers gdal_layer() -> get_gdal_layer()
         {
-            let l = TatLayer::new(basic_gpkg, 2, None);
+            let l = TatLayerSchema::new(basic_gpkg, 2, None);
             assert_eq!(l.get_value_by_fid(0, 0), None);
             assert_eq!(l.get_value_by_fid(1, 2), None);
             assert_eq!(l.get_value_by_fid(3, 0), None);
