@@ -24,6 +24,7 @@ pub struct TatAttributeViewRequest {
 }
 
  // TODO: see if you can make this &str, and also not Vec<Vec
+// FIXME: at least make it an option, for null values
 pub type TatAttributeView = Vec<Vec<String>>;
 
 #[derive(Debug)]

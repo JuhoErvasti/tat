@@ -264,7 +264,7 @@ impl TatTable {
         if let Some(_view) = self.attribute_view.as_ref() {
             let view = _view.lock().unwrap();
 
-            let row = view.get(self.current_row() as usize - 1).unwrap();
+            let row = view.get(self.relative_highlighted_row() as usize).unwrap();
             let value = row.get(self.relative_highlighted_column() as usize).unwrap();
 
             return Some(value.clone());
@@ -505,8 +505,8 @@ impl TatTable {
             return;
         }
 
-        self.on_visible_attributes_changed();
         self.first_column = col as u64;
+        self.on_visible_attributes_changed();
     }
 
     /// Sets the column which is displayed first
@@ -533,8 +533,8 @@ impl TatTable {
             return;
         }
 
-        self.on_visible_attributes_changed();
         self.top_row = row as u64;
+        self.on_visible_attributes_changed();
     }
 
     /// Returns the currently visible bottom row
@@ -1066,23 +1066,27 @@ mod test {
         assert_eq!(t.selected_value(), Some("1".to_string()));
 
         t.nav_h(TatNavHorizontal::RightOne);
+        TatTestUtils::wait_attribute_view_update(&test.tatevent_rx);
         assert_eq!(t.selected_value(), Some("626C6F620A".to_string()));
 
         t.nav_h(TatNavHorizontal::RightOne);
+        TatTestUtils::wait_attribute_view_update(&test.tatevent_rx);
         assert_eq!(t.selected_value(), Some("{\"another_key\":\"another_value\",\"key\":\"value\"}".to_string()));
 
         t.nav_h(TatNavHorizontal::Home);
         t.nav_v(TatNavVertical::Specific(5));
+        TatTestUtils::wait_attribute_view_update(&test.tatevent_rx);
         assert_eq!(t.selected_value(), Some("participate".to_string()));
 
         t.set_layer_index(0); // point, has null values and geom field
+        TatTestUtils::wait_attribute_view_update(&test.tatevent_rx);
 
         t.nav_h(TatNavHorizontal::Home);
         t.nav_v(TatNavVertical::First);
         assert_eq!(t.selected_value(), Some("POINT (0 0)".to_string()));
 
         t.nav_h(TatNavHorizontal::End);
-        assert_eq!(t.selected_value(), None);
+        assert_eq!(t.selected_value(), Some("NULL".to_string()));
 
         test.terminate();
     }

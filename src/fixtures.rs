@@ -6,7 +6,7 @@ use rstest::{fixture, rstest};
 use gdal::Dataset;
 use std::sync::mpsc;
 
-use crate::{app::{TatApp, TatEvent}, dataset::{DatasetRequest, DatasetResponse, TatDataset}, layerlist::TatLayerInfo, layerschema::TatLayerSchema, navparagraph::TatNavigableParagraph, table::{TableRects, TatTable}, types::{TatCrs, TatField, TatGeomField}};
+use crate::{app::{TatApp, TatEvent}, dataset::{DatasetRequest, DatasetResponse, TatAttributeViewRequest, TatDataset}, layerlist::TatLayerInfo, layerschema::TatLayerSchema, navparagraph::TatNavigableParagraph, table::{TableRects, TatTable}, types::{TatCrs, TatField, TatGeomField}};
 
 const N_TAT_TABLE_INIT_EVENTS: u8 = 2;
 const N_TAT_APP_INIT_EVENTS: u8 = 5;
@@ -14,9 +14,25 @@ const N_TAT_APP_INIT_EVENTS: u8 = 5;
 pub struct TatTestUtils {}
 
 impl TatTestUtils {
+    pub fn request_attribute_view_update_mocked(layer_index: usize, total_geom_fields: usize, tx: Sender<DatasetRequest>) {
+        let r = TatAttributeViewRequest {
+            layer_index: layer_index,
+            top_row: 1,
+            bottom_row: 10,
+            first_column: 0,
+            last_column: 4,
+            total_geom_fields: total_geom_fields,
+        };
+        tx.send(DatasetRequest::UpdateAttributeView(r)).unwrap();
+    }
+
     pub fn set_layer_index_and_update(index: usize, table: &mut TatTable, rx: &Receiver<TatEvent>) {
         table.set_layer_index(index);
 
+        TatTestUtils::wait_attribute_view_update(rx);
+    }
+
+    pub fn wait_attribute_view_update(rx: &Receiver<TatEvent>) {
         match rx.recv().unwrap() {
             TatEvent::Dataset(ds_r) => {
                 match ds_r {
@@ -85,6 +101,16 @@ pub fn table_rects() -> TableRects {
     };
 
     TatApp::table_rects(rect, false)
+}
+
+#[fixture]
+pub fn app_rect() -> Rect {
+    Rect {
+        x: 0,
+        y: 0,
+        width: 250,
+        height: 20,
+    }
 }
 
 

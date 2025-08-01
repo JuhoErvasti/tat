@@ -170,6 +170,10 @@ impl TatApp {
         }
     }
 
+    pub fn set_table_area(&mut self, area: Rect) {
+        self.table_area = area;
+    }
+
     /// Renders the current menu and any other active pop-ups or dialogs
     pub fn render(&mut self, frame: &mut Frame) {
         self.table_area = frame.area();
@@ -931,7 +935,7 @@ mod test {
     #[allow(unused)]
     use super::*;
 
-    use crate::fixtures::{basic_app, table_rects, TatTestStructure};
+    use crate::fixtures::{basic_app, table_rects, TatTestStructure, TatTestUtils};
 
     use crossterm::event::KeyEventState;
     use rstest::*;
@@ -966,6 +970,8 @@ mod test {
         }
 
         {
+            TatTestUtils::request_attribute_view_update_mocked(0, 1, test.ds_request_tx.clone());
+            TatTestUtils::wait_attribute_view_update(&test.tatevent_rx);
             t.copy_table_value_to_clipboard();
             let clip = t.clip.as_mut().unwrap();
             let contents = clip.get_contents().unwrap();
@@ -1005,6 +1011,8 @@ mod test {
     #[rstest]
     fn test_show_full_value_popup(basic_app: (TatTestStructure, TatApp)) {
         let (test, mut t) = basic_app;
+        TatTestUtils::request_attribute_view_update_mocked(0, 1, test.ds_request_tx.clone());
+        TatTestUtils::wait_attribute_view_update(&test.tatevent_rx);
         t.show_full_value_popup();
 
         assert!(t.modal_popup.is_some());
@@ -1092,9 +1100,6 @@ mod test {
     fn test_delegate_nav_v(basic_app: (TatTestStructure, TatApp), table_rects: TableRects) {
         let (test, mut t) = basic_app;
         t.layerlist.set_available_rows(10);
-
-        // FIXME: for some reason the layerlist gets double the layer infos
-        t.layerlist.available_rows();
 
         t.delegate_nav_v(TatNavVertical::DownParagraph);
         assert_eq!(t.layerlist.layer_index(), Some(4));

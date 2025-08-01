@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 // use tat::fixtures::datasets::*;
-// use tat::{app::TatApp, layer::TatLayerSchema};
+// use tat::{app::TatApp, layerschema::TatLayerSchema};
 // use gdal::Dataset;
 // use rstest::rstest;
 // use insta::assert_snapshot;
