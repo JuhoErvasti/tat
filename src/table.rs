@@ -417,7 +417,7 @@ impl TatTable {
         }
     }
 
-    fn on_visible_attributes_changed(&self) {
+    pub fn on_visible_attributes_changed(&self) {
         self.dataset_request_tx.send(
             DatasetRequest::UpdateAttributeView(
                 self.current_attribute_view(),
@@ -585,21 +585,31 @@ impl TatTable {
             let mut rows: Vec<Row> = vec![];
 
             for feature in v.iter() {
-                rows.push(Row::new(feature.clone()));
+                rows.push(Row::new(feature.iter().map(|attr| {
+                    let squish: bool = if attr.len() > THEORETICAL_MAX_COLUMN_UTF8_BYTE_SIZE as usize {
+                        true
+                    } else if attr.chars().count() > MIN_COLUMN_LENGTH as usize {
+                        true
+                    } else {
+                        false
+                    };
+
+                    if squish {
+                        let graph = attr.graphemes(true);
+                        let substr: String = graph.into_iter().take(MIN_COLUMN_LENGTH as usize).collect();
+                        return format!("{substr}…");
+                    } else {
+                        attr.to_string()
+                    }
+                })));
             }
 
             let table = Table::new(rows, widths)
                 .header(header.underlined())
                 .style(crate::shared::palette::DEFAULT.default_style())
-                .column_highlight_style(
-                    crate::shared::palette::DEFAULT.highlighted_darker_fg()
-                )
-                .row_highlight_style(
-                    crate::shared::palette::DEFAULT.highlighted_darker_fg()
-                )
-                .cell_highlight_style(
-                    crate::shared::palette::DEFAULT.selected_style()
-                )
+                .column_highlight_style(crate::shared::palette::DEFAULT.highlighted_darker_fg())
+                .row_highlight_style(crate::shared::palette::DEFAULT.highlighted_darker_fg())
+                .cell_highlight_style(crate::shared::palette::DEFAULT.selected_style())
                 .column_spacing(1);
 
             return table;

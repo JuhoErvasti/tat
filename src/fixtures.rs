@@ -9,7 +9,7 @@ use std::sync::mpsc;
 use crate::{app::{TatApp, TatEvent}, dataset::{DatasetRequest, DatasetResponse, TatAttributeViewRequest, TatDataset}, layerlist::TatLayerInfo, layerschema::TatLayerSchema, navparagraph::TatNavigableParagraph, table::{TableRects, TatTable}, types::{TatCrs, TatField, TatGeomField}};
 
 const N_TAT_TABLE_INIT_EVENTS: u8 = 2;
-const N_TAT_APP_INIT_EVENTS: u8 = 5;
+const N_TAT_APP_INIT_EVENTS: u8 = 6;
 
 pub struct TatTestUtils {}
 
@@ -43,6 +43,11 @@ impl TatTestUtils {
             },
             _ => panic!(),
         };
+    }
+
+    pub fn refresh_table_attribute_view(table: &mut TatTable, rx: &Receiver<TatEvent>) {
+        table.on_visible_attributes_changed();
+        TatTestUtils::wait_attribute_view_update(rx);
     }
 }
 

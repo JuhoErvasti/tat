@@ -217,6 +217,7 @@ impl<'layers> TatDataset<'layers> {
 
                                 current_row += 1;
                             }
+
                             self.send_response(
                                 DatasetResponse::AttributeViewUpdated,
                             );
