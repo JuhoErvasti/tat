@@ -60,14 +60,16 @@ fn main() {
     let _ = File::create(format!("{}/tat_gdal.log", temp_dir().display())).unwrap();
     gdal::config::set_error_handler(error_handler);
 
-    let (gdal_request_tx, gdal_request_rx) = mpsc::channel::<DatasetRequest>();
+    let (dataset_request_tx, dataset_request_rx) = mpsc::channel::<DatasetRequest>();
     let (tatevent_tx, tatevent_rx) = mpsc::channel::<TatEvent>();
-    let ds_event_sender = tatevent_tx.clone();
+
+    // has to be cloned here because it's used later and moved to a closure here
+    let cp_tatevent_tx = tatevent_tx.clone();
 
     let ds_handle = thread::spawn(move || {
         if let Some(mut ds) = TatDataset::new(
-            ds_event_sender,
-            gdal_request_rx,
+            cp_tatevent_tx,
+            dataset_request_rx,
             uri.to_string(),
             cli.all_drivers,
             where_clause,
@@ -95,8 +97,11 @@ fn main() {
         handle_events(tatevent_tx).unwrap();
     });
 
-    let _result = TatApp::new(gdal_request_tx)
+    let _result = TatApp::new(dataset_request_tx.clone())
         .run(&mut terminal, tatevent_rx);
+
+    dataset_request_tx.send(DatasetRequest::Terminate).unwrap();
+    ds_handle.join().unwrap();
 
     // ds_handle.join().unwrap();
     // event_handle.join().unwrap();

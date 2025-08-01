@@ -2,7 +2,7 @@ use std::fmt::{Display, Write};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
 
-use cli_log::{error, info};
+use cli_log::{debug, error, info};
 use gdal::vector::{field_type_to_name, Feature};
 use gdal::Dataset;
 use gdal::{vector::{geometry_type_to_name, Layer, LayerAccess}, Metadata};
@@ -35,6 +35,7 @@ pub enum DatasetRequest {
     GetAttributeView,
     UpdateAttributeView(TatAttributeViewRequest),
     DatasetInfo,
+    Terminate,
 }
 
 #[derive(Debug)]
@@ -44,6 +45,7 @@ pub enum DatasetResponse {
     AttributeView(Arc<Mutex<TatAttributeView>>),
     AttributeViewUpdated,
     DatasetInfo(String),
+    LayersBuilt,
 }
 
 /// Struct for handling interfacing with GDAL in a separate thread
@@ -179,14 +181,14 @@ impl<'layers> TatDataset<'layers> {
                             );
                         },
                         DatasetRequest::LayerSchemas => {
-                            let infos = self.layers.iter().enumerate().map(|(i, layer)| {
+                            let schemas = self.layers.iter().enumerate().map(|(i, layer)| {
                                 self.schema_from_gdal_layer(i, layer)
 
                             }).collect();
 
                             self.send_response(
                                 DatasetResponse::LayerSchemas(
-                                    infos,
+                                    schemas,
                                 )
                             );
                         },
@@ -234,6 +236,7 @@ impl<'layers> TatDataset<'layers> {
                             );
                         },
                         DatasetRequest::BuildLayers => {
+                            debug!("total layers: {}", self.gdal_ds.layers().count());
                             for mut layer in self.gdal_ds.layers() {
                                 if let Some(lf) = self.layer_filter.as_ref() {
                                     if lf.contains(&layer.name()) {
@@ -247,6 +250,10 @@ impl<'layers> TatDataset<'layers> {
 
                                 self.layers.push(layer);
                             }
+
+                            self.send_response(
+                                DatasetResponse::LayersBuilt,
+                            )
                         },
                         DatasetRequest::GetAttributeView => {
                             self.send_response(
@@ -254,7 +261,10 @@ impl<'layers> TatDataset<'layers> {
                                     self.attribute_view.clone(),
                                 )
                             );
-                        }
+                        },
+                        DatasetRequest::Terminate => {
+                            break;
+                        },
                     }
                 },
                 Err(err) => {

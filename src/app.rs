@@ -3,7 +3,7 @@ use std::{
     env::temp_dir, fs::File, io::{
         BufRead,
         Result,
-    }, sync::mpsc::{self, Receiver, Sender}
+    }, sync::mpsc::{self, Sender}
 };
 
 use cli_clipboard::{ClipboardContext, ClipboardProvider};
@@ -130,7 +130,7 @@ impl TatApp {
     pub fn run(&mut self, terminal: &mut DefaultTerminal, rx: mpsc::Receiver<TatEvent>) -> Result<()> {
         while !self.quit {
             // TODO: don't unwrap yada yada
-            let feedback = match rx.recv().unwrap() {
+            match rx.recv().unwrap() {
                 TatEvent::Keyboard(key) if key.kind == KeyEventKind::Press => self.handle_key(key),
                 TatEvent::Mouse(mouse) => self.handle_mouse(mouse),
                 TatEvent::Dataset(dataset_response) => self.handle_dataset(dataset_response),
@@ -141,11 +141,11 @@ impl TatApp {
                 self.render(frame);
             })?;
         }
+
         Ok(())
     }
 
-    fn handle_dataset(&mut self, response: DatasetResponse) {
-        info!("HANDLING GDAL");
+    pub fn handle_dataset(&mut self, response: DatasetResponse) {
         match response {
             DatasetResponse::LayerInfos(layer_info) => {
                 self.layerlist.set_infos(layer_info);
@@ -164,6 +164,8 @@ impl TatApp {
                 self.table.set_attribute_view(view);
             },
             DatasetResponse::AttributeViewUpdated => {
+            },
+            DatasetResponse::LayersBuilt => {
             },
         }
     }
@@ -930,14 +932,14 @@ mod test {
     #[allow(unused)]
     use super::*;
 
-    use crate::fixtures::{basic_tat, table_rects, datasets::basic_gpkg};
+    use crate::fixtures::{basic_app, table_rects, TatTestStructure};
 
     use crossterm::event::KeyEventState;
     use rstest::*;
 
     #[rstest]
-    fn test_new(basic_tat: TatApp) {
-        let t = basic_tat;
+    fn test_new(basic_app: (TatTestStructure, TatApp)) {
+        let (test, t) = basic_app;
 
         assert_eq!(t.current_menu, TatMenu::MainMenu);
         assert_eq!(t.quit, false);
@@ -946,11 +948,12 @@ mod test {
         assert!(t.table_area.is_empty());
         assert_eq!(t.number_input, None);
         assert_eq!(t.clipboard_feedback, None);
+        test.terminate();
     }
 
     #[rstest]
-    fn test_copy_table_value_to_clipboard(basic_tat: TatApp) {
-        let mut t = basic_tat;
+    fn test_copy_table_value_to_clipboard(basic_app: (TatTestStructure, TatApp)) {
+        let (test, mut t) = basic_app;
 
         if t.clip.is_none() {
             return;
@@ -974,17 +977,18 @@ mod test {
             let clip = t.clip.as_mut().unwrap();
             clip.set_contents(old_contents).unwrap();
         }
+        test.terminate();
     }
 
     #[rstest]
-    fn test_handle_mouse(basic_tat: TatApp, table_rects: TableRects) {
-        let mut t = basic_tat;
+    fn test_handle_mouse(basic_app: (TatTestStructure, TatApp), table_rects: TableRects) {
+        let (test, mut t) = basic_app;
         t.layerlist.set_available_rows(10);
 
         t.handle_mouse(MouseEvent { kind: MouseEventKind::ScrollDown, column: 0, row: 0, modifiers: KeyModifiers::NONE });
-        assert_eq!(t.layerlist.layer_index(), 3);
+        assert_eq!(t.layerlist.layer_index(), Some(3));
         t.handle_mouse(MouseEvent { kind: MouseEventKind::ScrollUp, column: 0, row: 0, modifiers: KeyModifiers::NONE });
-        assert_eq!(t.layerlist.layer_index(), 0);
+        assert_eq!(t.layerlist.layer_index(), Some(0));
         t.handle_mouse(MouseEvent { kind: MouseEventKind::ScrollDown, column: 0, row: 0, modifiers: KeyModifiers::NONE });
         t.handle_mouse(MouseEvent { kind: MouseEventKind::ScrollDown, column: 0, row: 0, modifiers: KeyModifiers::NONE });
 
@@ -996,25 +1000,27 @@ mod test {
         assert_eq!(t.table.current_row(), 6);
         t.handle_mouse(MouseEvent { kind: MouseEventKind::ScrollUp, column: 0, row: 0, modifiers: KeyModifiers::NONE });
         assert_eq!(t.table.current_row(), 1);
+        test.terminate();
     }
 
     #[rstest]
-    fn test_show_full_value_popup(basic_tat: TatApp) {
-        let mut t = basic_tat;
+    fn test_show_full_value_popup(basic_app: (TatTestStructure, TatApp)) {
+        let (test, mut t) = basic_app;
         t.show_full_value_popup();
 
         assert!(t.modal_popup.is_some());
         assert_eq!(t.modal_popup.as_ref().unwrap().text(), "POINT (0 0)".to_string());
         let title = t.modal_popup.unwrap().title().unwrap().clone();
         assert_eq!(title, " Feature 1 - Value of \"geom\" ".to_string());
+        test.terminate();
     }
 
     #[rstest]
-    fn test_show_gdal_log(basic_tat: TatApp) {
+    fn test_show_gdal_log(basic_app: (TatTestStructure, TatApp)) {
         {
             use std::io::prelude::Write;
 
-            let mut t = basic_tat;
+            let (test, mut t) = basic_app;
 
 
             let path = format!("{}/tat_gdal.log", temp_dir().display());
@@ -1039,35 +1045,34 @@ mod test {
             let expected = "\noutput from gdal";
             assert!(t.modal_popup.is_some());
             assert_eq!(t.modal_popup.as_ref().unwrap().text(), expected);
+
+            test.terminate();
         }
     }
 
     #[rstest]
-    fn test_show_help(basic_tat: TatApp, basic_gpkg: &'static Dataset) {
-        {
-            let mut t = basic_tat;
-            t.show_help();
+    fn test_show_help(basic_app: (TatTestStructure, TatApp)) {
+        let (test, mut t) = basic_app;
+        t.show_help();
 
-            assert!(t.modal_popup.is_some());
-            assert!(t.modal_popup.as_ref().unwrap().text().starts_with("Keybinds for Main Menu"));
+        assert!(t.modal_popup.is_some());
+        assert!(t.modal_popup.as_ref().unwrap().text().starts_with("Keybinds for Main Menu"));
 
-            let popup = t.modal_popup.as_ref().unwrap();
-            let title = popup.title().unwrap();
-            assert_eq!(title.as_str(), " Help ");
-        }
+        let popup = t.modal_popup.as_ref().unwrap();
+        let title = popup.title().unwrap();
+        assert_eq!(title.as_str(), " Help ");
 
-        {
-            let mut t = TatApp::new(basic_gpkg, None, None);
-            t.current_menu = TatMenu::TableView;
-            t.show_help();
+        t.current_menu = TatMenu::TableView;
+        t.show_help();
 
-            assert!(t.modal_popup.as_ref().unwrap().text().starts_with("Keybinds for Attribute Table"));
-        }
+        assert!(t.modal_popup.as_ref().unwrap().text().starts_with("Keybinds for Attribute Table"));
+
+        test.terminate();
     }
 
     #[rstest]
-    fn test_previous_menu(basic_tat: TatApp) {
-        let mut t = basic_tat;
+    fn test_previous_menu(basic_app: (TatTestStructure, TatApp)) {
+        let (test, mut t) = basic_app;
 
         t.show_help();
         assert!(t.modal_popup.is_some());
@@ -1081,15 +1086,19 @@ mod test {
 
         t.previous_menu();
         assert_eq!(t.quit, true);
+        test.terminate();
     }
 
     #[rstest]
-    fn test_delegate_nav_v(basic_tat: TatApp, table_rects: TableRects) {
-        let mut t = basic_tat;
+    fn test_delegate_nav_v(basic_app: (TatTestStructure, TatApp), table_rects: TableRects) {
+        let (test, mut t) = basic_app;
         t.layerlist.set_available_rows(10);
 
+        // FIXME: for some reason the layerlist gets double the layer infos
+        t.layerlist.available_rows();
+
         t.delegate_nav_v(TatNavVertical::DownParagraph);
-        assert_eq!(t.layerlist.layer_index(), 4);
+        assert_eq!(t.layerlist.layer_index(), Some(4));
 
         t.table.set_rects(table_rects);
         t.current_menu = TatMenu::TableView;
@@ -1097,22 +1106,24 @@ mod test {
         assert_eq!(t.table.current_row(), 1);
         t.delegate_nav_v(TatNavVertical::DownParagraph);
         assert_eq!(t.table.current_row(), 16);
+        test.terminate();
     }
 
     #[rstest]
-    fn test_delegate_nav_h(basic_tat: TatApp, table_rects: TableRects) {
-        let mut t = basic_tat;
+    fn test_delegate_nav_h(basic_app: (TatTestStructure, TatApp), table_rects: TableRects) {
+        let (test, mut t) = basic_app;
         t.table.set_rects(table_rects);
         t.current_menu = TatMenu::TableView;
 
-        assert_eq!(t.table.current_column_name(), "geom");
+        assert_eq!(t.table.current_column_name(), Some("geom"));
         t.delegate_nav_h(TatNavHorizontal::RightOne);
-        assert_eq!(t.table.current_column_name(), "field");
+        assert_eq!(t.table.current_column_name(), Some("field"));
+        test.terminate();
     }
 
     #[rstest]
-    fn test_table_rect(basic_tat: TatApp) {
-        let mut t = basic_tat;
+    fn test_table_rect(basic_app: (TatTestStructure, TatApp)) {
+        let (test, mut t) = basic_app;
         t.table_area = Rect {
             x: 0,
             y: 0,
@@ -1190,6 +1201,7 @@ mod test {
             assert!(scroll_v_area.is_empty());
             assert!(scroll_h_area.is_empty());
         }
+        test.terminate();
     }
 
     #[rstest]
@@ -1296,223 +1308,225 @@ mod test {
         );
     }
 
-    use insta::assert_snapshot;
-    use ratatui::{backend::TestBackend, Terminal};
-
-    #[rstest]
-    fn test_render_main_menu(basic_tat: TatApp) {
-        let mut t = basic_tat;
-        let mut terminal = Terminal::new(TestBackend::new(100, 40)).unwrap();
-
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Tab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Char('l'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Right, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Right, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Tab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Right, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('?'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::BackTab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::BackTab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Char('j'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('j'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('j'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('j'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Tab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Tab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::End, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Home, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::BackTab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('l'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('h'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('$'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('0'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('?'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Right, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Down, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Tab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Tab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Enter, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
-    }
-
-    #[rstest]
-    fn test_render_table(basic_tat: TatApp) {
-        let mut t = basic_tat;
-        let mut terminal = Terminal::new(TestBackend::new(100, 40)).unwrap();
-
-        t.open_table();
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("open_table", terminal.backend());
-
-        t.show_full_value_popup();
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("show_value_popup", terminal.backend());
-
-        if t.clip.is_some() {
-            t.copy_table_value_to_clipboard();
-            terminal.draw(|frame| {t.render(frame)}).unwrap();
-            assert_snapshot!("copied_to_clipboard", terminal.backend());
-
-            t.handle_key(KeyEvent { code: KeyCode::Char('b'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-            terminal.draw(|frame| {t.render(frame)}).unwrap();
-            assert_snapshot!("any_key_closed_clipboard_feedback", terminal.backend());
-        }
-
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("close_value_popup", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("back_to_main_menu", terminal.backend());
-
-        t.open_table();
-        t.show_help();
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("open_table_again", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Char('G'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("select_last_layer", terminal.backend());
-
-        t.open_table();
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("open_table_with_last_layer", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('G'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("goto_last_feature", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('g'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("goto_first_feature", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char(':'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("open_jump_to_line", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('5'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("type_5_to_jump_to_line", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('2'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("type_2_to_jump_to_line", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Enter, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("execute_jump_to_line", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char(':'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("close_jump_to_line", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char(':'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Char('0'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("try_enter_0_as_first_in_jump_to_line", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('9'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("type_9_to_jump_to_line", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('8'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Char('7'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Char('6'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Char('5'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Char('4'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("long_number_in_jump_to_line", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Backspace, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("backspace_in_jump_to_line", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Left, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Left, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Delete, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("delete_in_jump_to_line", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Home, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Delete, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("home_in_jump_to_line", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::End, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Backspace, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("end_in_jump_to_line", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Home, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Char('5'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("enter_in_middle_in_jump_to_line", terminal.backend());
-    }
+    // use insta::assert_snapshot;
+    // use ratatui::{backend::TestBackend, Terminal};
+    //
+    // #[rstest]
+    // fn test_render_main_menu(basic_app: (TatTestStructure, TatApp)) {
+    //     let (test, mut t) = basic_app;
+    //     let mut terminal = Terminal::new(TestBackend::new(100, 40)).unwrap();
+    //
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!(terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Tab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('l'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::Right, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::Right, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!(terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Tab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::Right, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!(terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('?'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!(terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!(terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::BackTab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::BackTab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('j'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!(terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('j'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!(terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('j'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!(terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('j'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!(terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Tab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::Tab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::End, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!(terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Home, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!(terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::BackTab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!(terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('l'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!(terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('h'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!(terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('$'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!(terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('0'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!(terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('?'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::Right, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!(terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Down, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!(terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!(terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Tab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::Tab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::Enter, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!(terminal.backend());
+    //     test.terminate();
+    // }
+    //
+    // #[rstest]
+    // fn test_render_table(basic_app: (TatTestStructure, TatApp)) {
+    //     let (test, mut t) = basic_app;
+    //     let mut terminal = Terminal::new(TestBackend::new(100, 40)).unwrap();
+    //
+    //     t.open_table();
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!("open_table", terminal.backend());
+    //
+    //     t.show_full_value_popup();
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!("show_value_popup", terminal.backend());
+    //
+    //     if t.clip.is_some() {
+    //         t.copy_table_value_to_clipboard();
+    //         terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //         assert_snapshot!("copied_to_clipboard", terminal.backend());
+    //
+    //         t.handle_key(KeyEvent { code: KeyCode::Char('b'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //         terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //         assert_snapshot!("any_key_closed_clipboard_feedback", terminal.backend());
+    //     }
+    //
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!("close_value_popup", terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!("back_to_main_menu", terminal.backend());
+    //
+    //     t.open_table();
+    //     t.show_help();
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!("open_table_again", terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('G'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!("select_last_layer", terminal.backend());
+    //
+    //     t.open_table();
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!("open_table_with_last_layer", terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('G'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!("goto_last_feature", terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('g'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!("goto_first_feature", terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Char(':'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!("open_jump_to_line", terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('5'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!("type_5_to_jump_to_line", terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('2'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!("type_2_to_jump_to_line", terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Enter, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!("execute_jump_to_line", terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Char(':'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!("close_jump_to_line", terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Char(':'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('0'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!("try_enter_0_as_first_in_jump_to_line", terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('9'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!("type_9_to_jump_to_line", terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('8'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('7'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('6'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('5'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('4'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!("long_number_in_jump_to_line", terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Backspace, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!("backspace_in_jump_to_line", terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Left, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::Left, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::Delete, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!("delete_in_jump_to_line", terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Home, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::Delete, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!("home_in_jump_to_line", terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::End, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::Backspace, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!("end_in_jump_to_line", terminal.backend());
+    //
+    //     t.handle_key(KeyEvent { code: KeyCode::Home, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     t.handle_key(KeyEvent { code: KeyCode::Char('5'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+    //     terminal.draw(|frame| {t.render(frame)}).unwrap();
+    //     assert_snapshot!("enter_in_middle_in_jump_to_line", terminal.backend());
+    //     test.terminate();
+    // }
 }

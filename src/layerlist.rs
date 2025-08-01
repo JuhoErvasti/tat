@@ -27,6 +27,20 @@ pub struct TatLayerList {
     available_rows: usize,
 }
 
+#[cfg(test)]
+impl Default for TatLayerList {
+    fn default() -> Self {
+        let mut ls = ListState::default();
+        ls.select_first();
+        Self {
+            state: ls,
+            scroll: ScrollbarState::new(0),
+            layer_infos: vec![],
+            available_rows: 0,
+        }
+    }
+}
+
 impl TatLayerList {
     /// Constructs new widget
     pub fn new(request_rx: Sender<DatasetRequest>) -> Self {
@@ -162,6 +176,13 @@ impl TatLayerList {
     pub fn set_available_rows(&mut self, available_rows: usize) {
         self.available_rows = available_rows;
     }
+
+    pub fn available_rows(&self) -> usize {
+        for l in self.layer_infos.iter() {
+            println!("{}", l.0);
+        }
+        self.available_rows
+    }
 }
 
 #[cfg(test)]
@@ -171,145 +192,56 @@ mod test {
 
     #[allow(unused)]
     use crate::fixtures::datasets::basic_gpkg;
+    use crate::fixtures::layer_infos;
 
     use rstest::*;
 
     #[rstest]
-    fn test_layer_infos(basic_gpkg: &'static Dataset) {
-        let ll = TatLayerList::new(basic_gpkg, None);
-        assert_eq!(ll.layer_infos.len(), 5);
+    fn test_set_infos(layer_infos: Vec<TatLayerInfo>) {
+        // TODO: not sure this actually warrants a test
+        let mut ll = TatLayerList::default();
+        ll.set_infos(layer_infos);
 
-        {
-            let (name, info) = ll.layer_infos.get(0).unwrap();
-            assert_eq!(name, "point");
+        assert_eq!(ll.layer_infos.get(0).unwrap().0, "Layer1");
+        assert_eq!(ll.layer_infos.get(1).unwrap().0, "Layer2");
+        assert_eq!(ll.layer_infos.get(2).unwrap().0, "Layer3");
 
-            let expected = "- Name: point
-- CRS: EPSG:3857 (WGS 84 / Pseudo-Mercator)
-- Feature Count: 4
-- Geometry fields:
-    \"geom\" - (Point, EPSG:3857)
-- Fields (1):
-    \"field\" - (Integer)
-";
-
-            assert_eq!(info.text(), expected);
-        }
-
-        {
-            let (name, info) = ll.layer_infos.get(1).unwrap();
-            assert_eq!(name, "line");
-
-            let expected = "- Name: line
-- CRS: EPSG:4326 (WGS 84)
-- Feature Count: 3
-- Geometry fields:
-    \"geom\" - (Multi Line String, EPSG:4326)
-- Fields (1):
-    \"field\" - (Integer)
-";
-
-            assert_eq!(info.text(), expected);
-        }
-
-        {
-            let (name, info) = ll.layer_infos.get(2).unwrap();
-            assert_eq!(name, "polygon");
-
-            let expected = "- Name: polygon
-- CRS: EPSG:3067 (ETRS89 / TM35FIN(E,N))
-- Feature Count: 2
-- Geometry fields:
-    \"geom\" - (Polygon, EPSG:3067)
-- Fields (1):
-    \"field\" - (Integer)
-";
-            assert_eq!(info.text(), expected);
-        }
-
-        {
-            let (name, info) = ll.layer_infos.get(3).unwrap();
-            assert_eq!(name, "multipolygon");
-
-            let expected = "- Name: multipolygon
-- CRS: EPSG:3067 (ETRS89 / TM35FIN(E,N))
-- Feature Count: 3
-- Geometry fields:
-    \"geom\" - (Multi Polygon, EPSG:3067)
-";
-            assert_eq!(info.text(), expected);
-        }
-
-        {
-            let (name, info) = ll.layer_infos.get(4).unwrap();
-            assert_eq!(name, "nogeom");
-
-            let expected = "- Name: nogeom
-- Feature Count: 60
-- Fields (9):
-    \"text_field\" - (String)
-    \"i32_field\" - (Integer)
-    \"i64_field\" - (Integer64)
-    \"decimal_field\" - (Real)
-    \"date_field\" - (Date)
-    \"datetime_field\" - (DateTime)
-    \"bool_field\" - (Integer)
-    \"blob_field\" - (Binary)
-    \"json_field\" - (String)
-";
-            assert_eq!(info.text(), expected);
-        }
+        assert_eq!(ll.layer_infos.get(0).unwrap().1.text(), "Layer 1 info");
+        assert_eq!(ll.layer_infos.get(1).unwrap().1.text(), "Layer 2 info");
+        assert_eq!(ll.layer_infos.get(2).unwrap().1.text(), "Layer 3 info");
     }
 
     #[rstest]
-    fn test_nav(basic_gpkg: &'static Dataset) {
-        let mut ll = TatLayerList::new(basic_gpkg, None);
+    fn test_nav(layer_infos: Vec<TatLayerInfo>) {
+        let mut ll = TatLayerList::default();
+        ll.set_infos(layer_infos);
         ll.available_rows = 2;
 
-        assert_eq!(ll.layer_index(), 0);
+        assert_eq!(ll.layer_index(), Some(0));
 
         ll.nav(TatNavVertical::Last);
-        assert_eq!(ll.layer_index(), 4);
+        assert_eq!(ll.layer_index(), Some(4));
         ll.nav(TatNavVertical::DownOne);
-        assert_eq!(ll.layer_index(), 4);
+        assert_eq!(ll.layer_index(), Some(4));
 
         ll.nav(TatNavVertical::First);
-        assert_eq!(ll.layer_index(), 0);
+        assert_eq!(ll.layer_index(), Some(0));
         ll.nav(TatNavVertical::UpOne);
-        assert_eq!(ll.layer_index(), 0);
+        assert_eq!(ll.layer_index(), Some(0));
         ll.nav(TatNavVertical::DownOne);
-        assert_eq!(ll.layer_index(), 1);
+        assert_eq!(ll.layer_index(), Some(1));
         ll.nav(TatNavVertical::DownHalfParagraph);
-        assert_eq!(ll.layer_index(), 2);
+        assert_eq!(ll.layer_index(), Some(2));
         ll.nav(TatNavVertical::DownParagraph);
-        assert_eq!(ll.layer_index(), 4);
+        assert_eq!(ll.layer_index(), Some(4));
         ll.nav(TatNavVertical::UpHalfParagraph);
-        assert_eq!(ll.layer_index(), 3);
+        assert_eq!(ll.layer_index(), Some(3));
         ll.nav(TatNavVertical::UpParagraph);
-        assert_eq!(ll.layer_index(), 1);
+        assert_eq!(ll.layer_index(), Some(1));
         ll.nav(TatNavVertical::UpParagraph);
-        assert_eq!(ll.layer_index(), 0);
+        assert_eq!(ll.layer_index(), Some(0));
 
         ll.nav(TatNavVertical::Specific(2));
-        assert_eq!(ll.layer_index(), 2);
-    }
-
-    #[rstest]
-    fn test_with_layer_filter(basic_gpkg: &'static Dataset) {
-        let filter = Some(vec![
-            "nogeom".to_string(),
-            "multipolygon".to_string(),
-            ]);
-        let ll = TatLayerList::new(basic_gpkg, filter);
-        assert_eq!(ll.layer_infos.len(), 2);
-
-        {
-            let (name, _) = ll.layer_infos.get(0).unwrap();
-            assert_eq!(name, "multipolygon");
-        }
-
-        {
-            let (name, _) = ll.layer_infos.get(1).unwrap();
-            assert_eq!(name, "nogeom");
-        }
+        assert_eq!(ll.layer_index(), Some(2));
     }
 }

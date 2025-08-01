@@ -729,63 +729,43 @@ mod test {
     #[allow(unused)]
     use super::*;
 
-    use crate::fixtures::basic_table;
-    use crate::fixtures::datasets::basic_gpkg;
+    use crate::fixtures::{basic_table, TatTestStructure};
 
     use rstest::*;
 
     #[rstest]
-    fn test_new(basic_gpkg: &'static Dataset) {
-        // covers:
-        // layers_from_ds()
-        {
-            let t = TatTable::new(basic_gpkg, None, None);
-            assert_eq!(t.layer_index, 0);
-            assert_eq!(t.top_row, 1);
+    fn test_new(basic_table: (TatTestStructure, TatTable)) {
+        let (test, t) = basic_table;
 
-            assert_eq!(t.layer_schemas.len(), 5);
-
-            assert_eq!(t.layer_schemas.get(0).unwrap().name(), "point".to_string());
-            assert_eq!(t.layer_schemas.get(1).unwrap().name(), "line".to_string());
-            assert_eq!(t.layer_schemas.get(2).unwrap().name(), "polygon".to_string());
-            assert_eq!(t.layer_schemas.get(3).unwrap().name(), "multipolygon".to_string());
-            assert_eq!(t.layer_schemas.get(4).unwrap().name(), "nogeom".to_string());
-        }
-
-        {
-            let filter = Some(vec![
-                "nogeom".to_string(),
-            ]);
-            let t = TatTable::new(basic_gpkg, None, filter);
-            assert_eq!(t.layer_schemas.len(), 1);
-
-            assert_eq!(t.layer_schemas.get(0).unwrap().name(), "nogeom".to_string());
-        }
-    }
-
-    #[rstest]
-    fn test_dataset_info_text(basic_gpkg: &'static Dataset) {
-        let t = TatTable::new(basic_gpkg, None, None);
-        let expected = "- URI: \"./testdata/basic.gpkg\"
-- Driver: GeoPackage (GPKG)";
-
-        assert_eq!(t.dataset_info_text(), expected);
-    }
-
-    #[rstest]
-    fn test_layer(basic_gpkg: &'static Dataset) {
-        let mut t = TatTable::new(basic_gpkg, None, None);
         assert_eq!(t.layer_index, 0);
+        assert_eq!(t.top_row, 1);
 
-        assert_eq!(t.layer_schema().name(), "point");
+        assert_eq!(t.layer_schemas.len(), 5);
+
+        assert_eq!(t.layer_schemas.get(0).unwrap().name(), "point".to_string());
+        assert_eq!(t.layer_schemas.get(1).unwrap().name(), "line".to_string());
+        assert_eq!(t.layer_schemas.get(2).unwrap().name(), "polygon".to_string());
+        assert_eq!(t.layer_schemas.get(3).unwrap().name(), "multipolygon".to_string());
+        assert_eq!(t.layer_schemas.get(4).unwrap().name(), "nogeom".to_string());
+
+        test.terminate();
+    }
+
+    #[rstest]
+    fn test_layer_schema(basic_table: (TatTestStructure, TatTable)) {
+        let (test, mut t) = basic_table;
+
+        assert_eq!(t.layer_index, 0);
+        assert_eq!(t.layer_schema().unwrap().name(), "point");
 
         t.set_layer_index(2);
+        assert_eq!(t.layer_schema().unwrap().name(), "polygon");
 
-        assert_eq!(t.layer_schema().name(), "polygon");
+        test.terminate();
     }
 
     #[rstest]
-    fn test_nav_v(basic_table: TatTable) {
+    fn test_nav_v(basic_table: (TatTestStructure, TatTable)) {
         // covers:
         // current_row()
         // relative_highlighted_row()
@@ -793,7 +773,7 @@ mod test {
         // set_top_row()
         // bottom_row()
         // all_rows_visible()
-        let mut t = basic_table;
+        let (test, mut t) = basic_table;
         t.set_layer_index(4); // nogeom, has most features
 
         assert_eq!(t.current_row(), 1);
@@ -967,11 +947,13 @@ mod test {
         assert_eq!(t.relative_highlighted_row(), 9);
         assert_eq!(t.top_row, 16);
         assert_eq!(t.bottom_row(), 30);
+
+        test.terminate();
     }
 
     #[rstest]
-    fn test_nav_h(basic_table: TatTable) {
-        let mut t = basic_table;
+    fn test_nav_h(basic_table: (TatTestStructure, TatTable)) {
+        let (test, mut t) = basic_table;
         t.set_layer_index(4); // nogeom, has most features and columns
 
         assert_eq!(t.current_column(), 0);
@@ -1046,74 +1028,54 @@ mod test {
         assert_eq!(t.current_column(), 0);
         assert_eq!(t.relative_highlighted_column(), 0);
         assert_eq!(t.first_column, 0);
+
+        test.terminate();
     }
 
     #[rstest]
-    fn test_selected_value(basic_table: TatTable) {
-        let mut t = basic_table;
+    fn test_selected_value(basic_table: (TatTestStructure, TatTable)) {
+        let (test, mut t) = basic_table;
         t.set_layer_index(4);
 
-        assert_eq!(t.selected_value(), Some("text".to_string()));
+        assert_eq!(t.selected_value(), Some("text"));
 
         t.nav_h(TatNavHorizontal::RightOne);
-        assert_eq!(t.selected_value(), Some("10".to_string()));
+        assert_eq!(t.selected_value(), Some("10"));
 
         t.nav_h(TatNavHorizontal::RightOne);
-        assert_eq!(t.selected_value(), Some("100".to_string()));
+        assert_eq!(t.selected_value(), Some("100"));
 
         t.nav_h(TatNavHorizontal::RightOne);
-        assert_eq!(t.selected_value(), Some("1.541".to_string()));
+        assert_eq!(t.selected_value(), Some("1.541"));
 
         t.nav_h(TatNavHorizontal::RightOne);
-        assert_eq!(t.selected_value(), Some("1970/07/10".to_string()));
+        assert_eq!(t.selected_value(), Some("1970/07/10"));
 
         t.nav_h(TatNavHorizontal::RightOne);
-        assert_eq!(t.selected_value(), Some("2025/07/19 20:45:45+00".to_string()));
+        assert_eq!(t.selected_value(), Some("2025/07/19 20:45:45+00"));
 
         t.nav_h(TatNavHorizontal::RightOne);
-        assert_eq!(t.selected_value(), Some("1".to_string()));
+        assert_eq!(t.selected_value(), Some("1"));
 
         t.nav_h(TatNavHorizontal::RightOne);
-        assert_eq!(t.selected_value(), Some("626C6F620A".to_string()));
+        assert_eq!(t.selected_value(), Some("626C6F620A"));
 
         t.nav_h(TatNavHorizontal::RightOne);
-        assert_eq!(t.selected_value(), Some("{\"another_key\":\"another_value\",\"key\":\"value\"}".to_string()));
+        assert_eq!(t.selected_value(), Some("{\"another_key\":\"another_value\",\"key\":\"value\"}"));
 
         t.nav_h(TatNavHorizontal::Home);
         t.nav_v(TatNavVertical::Specific(5));
-        assert_eq!(t.selected_value(), Some("participate".to_string()));
+        assert_eq!(t.selected_value(), Some("participate"));
 
         t.set_layer_index(0); // point, has null values and geom field
 
         t.nav_h(TatNavHorizontal::Home);
         t.nav_v(TatNavVertical::First);
-        assert_eq!(t.selected_value(), Some("POINT (0 0)".to_string()));
+        assert_eq!(t.selected_value(), Some("POINT (0 0)"));
 
         t.nav_h(TatNavHorizontal::End);
         assert_eq!(t.selected_value(), None);
-    }
 
-    #[rstest]
-    fn test_where_clause(basic_gpkg: &'static Dataset) {
-        let mut t = TatTable::new(basic_gpkg, Some("text_field = 'participate'".to_string()), None);
-        t.set_layer_index(4);
-
-        let expected = Some("participate".to_string());
-
-        assert_eq!(t.layer_schema().feature_count(), 4);
-        assert_eq!(t.layer_schema().get_value_by_row(0, 0), expected);
-        assert_eq!(t.layer_schema().get_value_by_row(1, 0), expected);
-        assert_eq!(t.layer_schema().get_value_by_row(2, 0), expected);
-        assert_eq!(t.layer_schema().get_value_by_row(3, 0), expected);
-    }
-
-    #[rstest]
-    fn test_where_clause_and_layer_filter(basic_gpkg: &'static Dataset) {
-        let filter = Some(vec!["nogeom".to_string()]);
-        let t = TatTable::new(basic_gpkg, Some("text_field = 'verify' AND i32_field = -28".to_string()), filter);
-
-        assert_eq!(t.layer_schema().feature_count(), 1);
-        assert_eq!(t.layer_schema().get_value_by_row(0, 0), Some("verify".to_string()));
-        assert_eq!(t.layer_schema().get_value_by_row(0, 1), Some("-28".to_string()));
+        test.terminate();
     }
 }

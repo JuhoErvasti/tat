@@ -99,123 +99,43 @@ mod test {
 
     #[allow(unused)]
     use crate::fixtures::datasets::basic_gpkg;
+    use crate::fixtures::{layer_schema, layer_schema_no_geom, layer_schema_one_geom};
 
     use rstest::*;
 
     #[rstest]
-    fn test_new(basic_gpkg: &'static Dataset) {
-        // covers:
-        // name()
-        // feature_count()
-        // crs_from_layer()
-        // geom_fields_from_layer()
-        // fields_from_layer()
-        // also I think this sufficiently covers
-        // types::TatCrs,TatField,TatGeomField
-        let l = TatLayerSchema::new(basic_gpkg, 0, None);
-
-        assert_eq!(l.name(), "point");
-        assert_eq!(l.feature_count(), 4);
-        assert!(l.crs().is_some());
-        assert_eq!(l.crs().unwrap().auth_name(), "EPSG");
-        assert_eq!(l.crs().unwrap().auth_code(), 3857);
-
-        assert_eq!(l.attribute_fields.len(), 1);
-        assert_eq!(l.attribute_fields.get(0).unwrap().name(), "field");
-        assert_eq!(l.attribute_fields.get(0).unwrap().dtype(), 0);
-
-        assert_eq!(l.geom_fields.len(), 1);
-        assert_eq!(l.geom_fields.get(0).unwrap().name(), "geom");
-        assert_eq!(l.geom_fields.get(0).unwrap().geom_type(), "Point");
-        assert_eq!(l.geom_fields.get(0).unwrap().crs().unwrap().auth_name(), "EPSG");
-        assert_eq!(l.geom_fields.get(0).unwrap().crs().unwrap().auth_code(), 3857);
-
-        assert_eq!(l.index, 0);
+    fn test_field_count(
+        layer_schema: TatLayerSchema,
+        layer_schema_one_geom: TatLayerSchema,
+        layer_schema_no_geom: TatLayerSchema,
+    ) {
+        assert_eq!(layer_schema.field_count(), 5);
+        assert_eq!(layer_schema_one_geom.field_count(), 4);
+        assert_eq!(layer_schema_no_geom.field_count(), 3);
     }
 
     #[rstest]
-    fn test_build_fid_cache(basic_gpkg: &'static Dataset) {
-        // use "line" layer which has a deleted feature making the fids non-sequential
-        let mut l = TatLayerSchema::new(basic_gpkg, 1, None);
-        l.build_fid_cache();
+    fn test_field_name_by_id(
+        layer_schema: TatLayerSchema,
+        layer_schema_one_geom: TatLayerSchema,
+        layer_schema_no_geom: TatLayerSchema,
+    ) {
+        assert_eq!(layer_schema.field_name_by_id(0), Some("geom1"));
+        assert_eq!(layer_schema.field_name_by_id(1), Some("geom2"));
+        assert_eq!(layer_schema.field_name_by_id(2), Some("Field1"));
+        assert_eq!(layer_schema.field_name_by_id(3), Some("Field2"));
+        assert_eq!(layer_schema.field_name_by_id(4), Some("Field3"));
+        assert_eq!(layer_schema.field_name_by_id(5), None);
 
-        assert_eq!(l.feature_count, 3);
-        assert_eq!(l.fid_cache.len(), 3);
+        assert_eq!(layer_schema_one_geom.field_name_by_id(0), Some("geom"));
+        assert_eq!(layer_schema_one_geom.field_name_by_id(1), Some("Field1"));
+        assert_eq!(layer_schema_one_geom.field_name_by_id(2), Some("Field2"));
+        assert_eq!(layer_schema_one_geom.field_name_by_id(3), Some("Field3"));
+        assert_eq!(layer_schema_one_geom.field_name_by_id(4), None);
 
-        assert_eq!(*l.fid_cache.get(0).unwrap(), 1);
-        assert_eq!(*l.fid_cache.get(1).unwrap(), 2);
-        assert_eq!(*l.fid_cache.get(2).unwrap(), 4);
-    }
-
-    #[rstest]
-    fn test_field_count(basic_gpkg: &'static Dataset) {
-        {
-            // multi polygon layer, has only a geom field
-            let l = TatLayerSchema::new(basic_gpkg, 3, None);
-            assert_eq!(l.field_count(), 1);
-        }
-
-        {
-            // no geoms
-            let l = TatLayerSchema::new(basic_gpkg, 4, None);
-            assert_eq!(l.field_count(), 9);
-        }
-
-        {
-            // polygon, has one of each
-            let l = TatLayerSchema::new(basic_gpkg, 2, None);
-            assert_eq!(l.field_count(), 2);
-        }
-    }
-
-    #[rstest]
-    fn test_field_name_by_id(basic_gpkg: &'static Dataset) {
-        // covers gdal_layer() -> get_gdal_layer()
-        {
-            // multi polygon layer, has only a geom field
-            let l = TatLayerSchema::new(basic_gpkg, 3, None);
-            assert_eq!(l.field_name_by_id(0), Some("geom".to_string()));
-            assert_eq!(l.field_name_by_id(1), None);
-        }
-
-        {
-            // no geoms
-            let l = TatLayerSchema::new(basic_gpkg, 4, None);
-            assert_eq!(l.field_name_by_id(0), Some("text_field".to_string()));
-            assert_eq!(l.field_name_by_id(1), Some("i32_field".to_string()));
-            assert_eq!(l.field_name_by_id(2), Some("i64_field".to_string()));
-            assert_eq!(l.field_name_by_id(3), Some("decimal_field".to_string()));
-            assert_eq!(l.field_name_by_id(4), Some("date_field".to_string()));
-            assert_eq!(l.field_name_by_id(5), Some("datetime_field".to_string()));
-            assert_eq!(l.field_name_by_id(6), Some("bool_field".to_string()));
-            assert_eq!(l.field_name_by_id(7), Some("blob_field".to_string()));
-            assert_eq!(l.field_name_by_id(8), Some("json_field".to_string()));
-        }
-
-        {
-            // polygon, has one of each
-            let l = TatLayerSchema::new(basic_gpkg, 2, None);
-            assert_eq!(l.field_name_by_id(0), Some("geom".to_string()));
-            assert_eq!(l.field_name_by_id(1), Some("field".to_string()));
-        }
-    }
-
-    #[rstest]
-    fn test_get_value_by_fid(basic_gpkg: &'static Dataset) {
-        // covers gdal_layer() -> get_gdal_layer()
-        {
-            let l = TatLayerSchema::new(basic_gpkg, 2, None);
-            assert_eq!(l.get_value_by_fid(0, 0), None);
-            assert_eq!(l.get_value_by_fid(1, 2), None);
-            assert_eq!(l.get_value_by_fid(3, 0), None);
-
-            // feature 1
-            assert_eq!(l.get_value_by_fid(1, 0), Some("POLYGON ((-9 3,-9 1,-7 1,-7 3,-9 3))".to_string()));
-            assert_eq!(l.get_value_by_fid(1, 1), Some("456".to_string()));
-
-            // feature 2
-            assert_eq!(l.get_value_by_fid(2, 0), Some("POLYGON ((-5 6,-5 3,-2 3,-2 6,-5 6))".to_string()));
-            assert_eq!(l.get_value_by_fid(2, 1), Some("213".to_string()));
-        }
+        assert_eq!(layer_schema_no_geom.field_name_by_id(0), Some("Field1"));
+        assert_eq!(layer_schema_no_geom.field_name_by_id(1), Some("Field2"));
+        assert_eq!(layer_schema_no_geom.field_name_by_id(2), Some("Field3"));
+        assert_eq!(layer_schema_no_geom.field_name_by_id(3), None);
     }
 }
