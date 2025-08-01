@@ -364,7 +364,6 @@ impl TatApp {
 
     /// Handles incoming mouse events and delegates to other widgets
     fn handle_mouse(&mut self, event: MouseEvent) {
-        info!("HANDLING MOUSE");
         match event.kind {
             MouseEventKind::ScrollUp => self.delegate_nav_v(TatNavVertical::MouseScrollUp),
             MouseEventKind::ScrollDown => self.delegate_nav_v(TatNavVertical::MouseScrollDown),
@@ -482,7 +481,7 @@ impl TatApp {
         let value = if let Some(_value) = self.table.selected_value() {
             _value
         } else {
-            crate::shared::MISSING_VALUE
+            crate::shared::MISSING_VALUE.to_string()
         };
 
         let title = format!(

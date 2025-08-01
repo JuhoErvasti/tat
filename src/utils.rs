@@ -1,6 +1,6 @@
 use std::{env::temp_dir, fs::OpenOptions};
 use std::io::prelude::Write;
-use cli_log::debug;
+use cli_log::{debug, error};
 
 use gdal::errors::CplErrType;
 
@@ -21,12 +21,12 @@ pub fn error_handler(class: CplErrType, number: i32, message: &str) {
             match writeln!(file, "{class} [{number}] {message}") {
                 Ok(()) => return,
                 Err(e) => {
-                    debug!("Could not write to log at \"{path}\": {}", e.to_string());
+                    error!("Could not write to log at \"{path}\": {}", e.to_string());
                 }
             }
         },
         Err(e) => {
-            debug!("Could not open log at \"{path}\" for writing: {}", e.to_string());
+            error!("Could not open log at \"{path}\" for writing: {}", e.to_string());
         },
     }
 }

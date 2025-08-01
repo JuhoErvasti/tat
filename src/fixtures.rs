@@ -8,12 +8,35 @@ use std::sync::mpsc;
 
 use crate::{app::{TatApp, TatEvent}, dataset::{DatasetRequest, DatasetResponse, TatDataset}, layerlist::TatLayerInfo, layerschema::TatLayerSchema, navparagraph::TatNavigableParagraph, table::{TableRects, TatTable}, types::{TatCrs, TatField, TatGeomField}};
 
+const N_TAT_TABLE_INIT_EVENTS: u8 = 2;
+const N_TAT_APP_INIT_EVENTS: u8 = 5;
+
+pub struct TatTestUtils {}
+
+impl TatTestUtils {
+    pub fn set_layer_index_and_update(index: usize, table: &mut TatTable, rx: &Receiver<TatEvent>) {
+        table.set_layer_index(index);
+
+        match rx.recv().unwrap() {
+            TatEvent::Dataset(ds_r) => {
+                match ds_r {
+                    DatasetResponse::AttributeViewUpdated => {
+                    },
+                        _ => panic!(),
+                }
+            },
+            _ => panic!(),
+        };
+    }
+}
+
+
 pub type DatasetChannels = (Sender<TatEvent>, Receiver<DatasetRequest>);
 
 pub struct TatTestStructure {
-    ds_request_tx: Sender<DatasetRequest>,
-    ds_join_handle: JoinHandle<()>,
-    tatevent_rx: Receiver<TatEvent>,
+    pub ds_request_tx: Sender<DatasetRequest>,
+    pub ds_join_handle: JoinHandle<()>,
+    pub tatevent_rx: Receiver<TatEvent>,
 }
 
 impl TatTestStructure {
@@ -46,18 +69,6 @@ pub fn init_test_dataset(uri: String) -> TatTestStructure {
         }
     });
 
-    dataset_request_tx.send(DatasetRequest::BuildLayers).unwrap();
-
-    match tatevent_rx.recv().unwrap() {
-        TatEvent::Dataset(dataset_response) => {
-            match dataset_response {
-                DatasetResponse::LayersBuilt => {
-                },
-                _ => panic!(),
-            }
-        },
-        _ => panic!(),
-    }
 
     TatTestStructure::new(dataset_request_tx, ds_handle, tatevent_rx)
 }
@@ -76,28 +87,43 @@ pub fn table_rects() -> TableRects {
     TatApp::table_rects(rect, false)
 }
 
+
 #[fixture]
 pub fn basic_table(basic_gpkg: TatTestStructure, table_rects: TableRects) -> (TatTestStructure, TatTable) {
-    let mut t = TatTable::new(basic_gpkg.ds_request_tx.clone());
-
+    basic_gpkg.ds_request_tx.send(DatasetRequest::BuildLayers).unwrap();
     match basic_gpkg.tatevent_rx.recv().unwrap() {
-        TatEvent::Dataset(ds_r) => {
-            match ds_r {
-                DatasetResponse::LayerSchemas(tat_layer_schemas) => {
-                    t.set_layer_schemas(tat_layer_schemas);
+        TatEvent::Dataset(dataset_response) => {
+            match dataset_response {
+                DatasetResponse::LayersBuilt => {
                 },
                 _ => panic!(),
             }
         },
         _ => panic!(),
-    };
+    }
+
+    let mut t = TatTable::new(basic_gpkg.ds_request_tx.clone());
+    for _ in 0..N_TAT_TABLE_INIT_EVENTS {
+        match basic_gpkg.tatevent_rx.recv().unwrap() {
+            TatEvent::Dataset(ds_r) => {
+                match ds_r {
+                    DatasetResponse::LayerSchemas(tat_layer_schemas) => {
+                        t.set_layer_schemas(tat_layer_schemas);
+                    },
+                    DatasetResponse::AttributeView(view) => {
+                        t.set_attribute_view(view);
+                    },
+                    _ => panic!(),
+                }
+            },
+            _ => panic!(),
+        };
+    }
 
     t.set_rects(table_rects);
 
     (basic_gpkg, t)
 }
-
-const N_TAT_APP_INIT_EVENTS: u8 = 5;
 
 #[fixture]
 pub fn basic_app(basic_gpkg: TatTestStructure) -> (TatTestStructure, TatApp) {

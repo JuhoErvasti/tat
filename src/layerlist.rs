@@ -178,9 +178,6 @@ impl TatLayerList {
     }
 
     pub fn available_rows(&self) -> usize {
-        for l in self.layer_infos.iter() {
-            println!("{}", l.0);
-        }
         self.available_rows
     }
 }

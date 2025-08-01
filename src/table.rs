@@ -260,7 +260,16 @@ impl TatTable {
     }
 
     /// Returns the currently selected cell's value as a string (if any)
-    pub fn selected_value(&self) -> Option<&str> {
+    pub fn selected_value(&self) -> Option<String> {
+        if let Some(_view) = self.attribute_view.as_ref() {
+            let view = _view.lock().unwrap();
+
+            let row = view.get(self.current_row() as usize - 1).unwrap();
+            let value = row.get(self.relative_highlighted_column() as usize).unwrap();
+
+            return Some(value.clone());
+        }
+
         None
         // self.layer_schema()?.get_value_by_row(self.current_row() as usize, self.current_column() as usize)
     }
@@ -334,7 +343,6 @@ impl TatTable {
 
     /// Renders the table fully
     pub fn render(&mut self, frame: &mut Frame) {
-        info!("render");
         self.render_feature_column(frame, false);
 
         let vert_scrollbar = Scrollbar::default()
@@ -398,7 +406,7 @@ impl TatTable {
         Some(self.layer_schemas.get(self.layer_index)?)
     }
 
-    fn current_attribute_view(&self) -> TatAttributeViewRequest {
+    pub fn current_attribute_view(&self) -> TatAttributeViewRequest {
         TatAttributeViewRequest {
             layer_index: self.layer_index,
             top_row: self.top_row,
@@ -410,7 +418,6 @@ impl TatTable {
     }
 
     fn on_visible_attributes_changed(&self) {
-        info!("visible attributes changed!");
         self.dataset_request_tx.send(
             DatasetRequest::UpdateAttributeView(
                 self.current_attribute_view(),
@@ -729,7 +736,7 @@ mod test {
     #[allow(unused)]
     use super::*;
 
-    use crate::fixtures::{basic_table, TatTestStructure};
+    use crate::fixtures::{basic_table, TatTestStructure, TatTestUtils};
 
     use rstest::*;
 
@@ -1035,43 +1042,44 @@ mod test {
     #[rstest]
     fn test_selected_value(basic_table: (TatTestStructure, TatTable)) {
         let (test, mut t) = basic_table;
-        t.set_layer_index(4);
 
-        assert_eq!(t.selected_value(), Some("text"));
+        TatTestUtils::set_layer_index_and_update(4, &mut t, &test.tatevent_rx);
 
-        t.nav_h(TatNavHorizontal::RightOne);
-        assert_eq!(t.selected_value(), Some("10"));
+        assert_eq!(t.selected_value(), Some("text".to_string()));
 
         t.nav_h(TatNavHorizontal::RightOne);
-        assert_eq!(t.selected_value(), Some("100"));
+        assert_eq!(t.selected_value(), Some("10".to_string()));
 
         t.nav_h(TatNavHorizontal::RightOne);
-        assert_eq!(t.selected_value(), Some("1.541"));
+        assert_eq!(t.selected_value(), Some("100".to_string()));
 
         t.nav_h(TatNavHorizontal::RightOne);
-        assert_eq!(t.selected_value(), Some("1970/07/10"));
+        assert_eq!(t.selected_value(), Some("1.541".to_string()));
 
         t.nav_h(TatNavHorizontal::RightOne);
-        assert_eq!(t.selected_value(), Some("2025/07/19 20:45:45+00"));
+        assert_eq!(t.selected_value(), Some("1970/07/10".to_string()));
 
         t.nav_h(TatNavHorizontal::RightOne);
-        assert_eq!(t.selected_value(), Some("1"));
+        assert_eq!(t.selected_value(), Some("2025/07/19 20:45:45+00".to_string()));
 
         t.nav_h(TatNavHorizontal::RightOne);
-        assert_eq!(t.selected_value(), Some("626C6F620A"));
+        assert_eq!(t.selected_value(), Some("1".to_string()));
 
         t.nav_h(TatNavHorizontal::RightOne);
-        assert_eq!(t.selected_value(), Some("{\"another_key\":\"another_value\",\"key\":\"value\"}"));
+        assert_eq!(t.selected_value(), Some("626C6F620A".to_string()));
+
+        t.nav_h(TatNavHorizontal::RightOne);
+        assert_eq!(t.selected_value(), Some("{\"another_key\":\"another_value\",\"key\":\"value\"}".to_string()));
 
         t.nav_h(TatNavHorizontal::Home);
         t.nav_v(TatNavVertical::Specific(5));
-        assert_eq!(t.selected_value(), Some("participate"));
+        assert_eq!(t.selected_value(), Some("participate".to_string()));
 
         t.set_layer_index(0); // point, has null values and geom field
 
         t.nav_h(TatNavHorizontal::Home);
         t.nav_v(TatNavVertical::First);
-        assert_eq!(t.selected_value(), Some("POINT (0 0)"));
+        assert_eq!(t.selected_value(), Some("POINT (0 0)".to_string()));
 
         t.nav_h(TatNavHorizontal::End);
         assert_eq!(t.selected_value(), None);

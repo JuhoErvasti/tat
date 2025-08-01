@@ -198,16 +198,13 @@ impl<'layers> TatDataset<'layers> {
 
                             let layer = self.layers.get_mut(request.layer_index).unwrap();
 
-                            info!("============================================================UPDATING============================================================");
                             let mut current_row = request.top_row;
                             for feature in layer.features()
-                                .skip(request.top_row as usize)
+                                .skip(request.top_row as usize - 1)
                             {
-
                                 if current_row == request.bottom_row + 1 {
                                     break;
                                 }
-
 
                                 let mut row = vec![];
                                 for current_column in request.first_column..=request.last_column {
@@ -236,7 +233,6 @@ impl<'layers> TatDataset<'layers> {
                             );
                         },
                         DatasetRequest::BuildLayers => {
-                            debug!("total layers: {}", self.gdal_ds.layers().count());
                             for mut layer in self.gdal_ds.layers() {
                                 if let Some(lf) = self.layer_filter.as_ref() {
                                     if lf.contains(&layer.name()) {
