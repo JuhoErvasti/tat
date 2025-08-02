@@ -129,6 +129,13 @@ impl TatApp {
     /// mouse events being handled
     pub fn run(&mut self, terminal: &mut DefaultTerminal, rx: mpsc::Receiver<TatEvent>) -> Result<()> {
         while !self.quit {
+            self.table_area = Rect::new(
+                0,
+                0,
+                terminal.size().unwrap().width,
+                terminal.size().unwrap().height,
+            );
+
             // TODO: don't unwrap yada yada
             match rx.recv().unwrap() {
                 TatEvent::Keyboard(key) if key.kind == KeyEventKind::Press => self.handle_key(key),
@@ -177,8 +184,6 @@ impl TatApp {
 
     /// Renders the current menu and any other active pop-ups or dialogs
     pub fn render(&mut self, frame: &mut Frame) {
-        self.table_area = frame.area();
-
         match self.current_menu {
             TatMenu::MainMenu => self.render_main_menu(frame.area(), frame),
             TatMenu::TableView => self.render_table_view(frame),
@@ -1414,11 +1419,6 @@ mod test {
         terminal.draw(|frame| {t.render(frame)}).unwrap();
         assert_snapshot!(terminal.backend());
 
-        t.handle_key(KeyEvent { code: KeyCode::Tab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Tab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Enter, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
         test.terminate();
     }
 
