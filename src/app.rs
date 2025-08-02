@@ -39,6 +39,8 @@ use crate::{
 };
 use crate::table::TatTable;
 
+// FIXME: there's a bug with jumping to first/last where the attributes don't update!
+
 const BORDER_LAYER_INFO: symbols::border::Set = symbols::border::Set {
     top_left: symbols::line::ROUNDED.horizontal_down,
     top_right: symbols::line::NORMAL.horizontal_down,
