@@ -45,8 +45,27 @@ impl TatTestUtils {
         };
     }
 
-    pub fn refresh_table_attribute_view(table: &mut TatTable, rx: &Receiver<TatEvent>) {
+    pub fn refresh_table_attribute_view(table: &TatTable, rx: &Receiver<TatEvent>) {
         table.on_visible_attributes_changed();
+        TatTestUtils::wait_attribute_view_update(rx);
+    }
+
+    pub fn prepare_table_attribute_view_all_features(table: &TatTable, rx: &Receiver<TatEvent>, tx: Sender<DatasetRequest>) {
+        let ls = table.layer_schema().unwrap();
+        let feature_count = ls.feature_count();
+        let field_count = ls.field_count();
+
+        let request = TatAttributeViewRequest {
+            layer_index: ls.index(),
+            top_row: 1,
+            bottom_row: feature_count,
+            first_column: 0,
+            last_column: field_count,
+            total_geom_fields: ls.geom_fields().len(),
+        };
+
+        tx.send(DatasetRequest::UpdateAttributeView(request)).unwrap();
+
         TatTestUtils::wait_attribute_view_update(rx);
     }
 }
@@ -121,8 +140,15 @@ pub fn app_rect() -> Rect {
 
 #[fixture]
 pub fn basic_table(basic_gpkg: TatTestStructure, table_rects: TableRects) -> (TatTestStructure, TatTable) {
-    basic_gpkg.ds_request_tx.send(DatasetRequest::BuildLayers).unwrap();
-    match basic_gpkg.tatevent_rx.recv().unwrap() {
+    let (tts, mut table) = init_table(basic_gpkg);
+    table.set_rects(table_rects);
+
+    (tts, table)
+}
+
+pub fn init_table(tts: TatTestStructure) -> (TatTestStructure, TatTable) {
+    tts.ds_request_tx.send(DatasetRequest::BuildLayers).unwrap();
+    match tts.tatevent_rx.recv().unwrap() {
         TatEvent::Dataset(dataset_response) => {
             match dataset_response {
                 DatasetResponse::LayersBuilt => {
@@ -133,9 +159,9 @@ pub fn basic_table(basic_gpkg: TatTestStructure, table_rects: TableRects) -> (Ta
         _ => panic!(),
     }
 
-    let mut t = TatTable::new(basic_gpkg.ds_request_tx.clone());
+    let mut t = TatTable::new(tts.ds_request_tx.clone());
     for _ in 0..N_TAT_TABLE_INIT_EVENTS {
-        match basic_gpkg.tatevent_rx.recv().unwrap() {
+        match tts.tatevent_rx.recv().unwrap() {
             TatEvent::Dataset(ds_r) => {
                 match ds_r {
                     DatasetResponse::LayerSchemas(tat_layer_schemas) => {
@@ -151,17 +177,15 @@ pub fn basic_table(basic_gpkg: TatTestStructure, table_rects: TableRects) -> (Ta
         };
     }
 
-    t.set_rects(table_rects);
 
-    (basic_gpkg, t)
+    (tts, t)
 }
 
-#[fixture]
-pub fn basic_app(basic_gpkg: TatTestStructure) -> (TatTestStructure, TatApp) {
-    let mut t = TatApp::new(basic_gpkg.ds_request_tx.clone());
+pub fn init_app(tts: TatTestStructure) -> (TatTestStructure, TatApp) {
+    let mut t = TatApp::new(tts.ds_request_tx.clone());
 
     for _ in 0..N_TAT_APP_INIT_EVENTS {
-        match basic_gpkg.tatevent_rx.recv().unwrap() {
+        match tts.tatevent_rx.recv().unwrap() {
             TatEvent::Dataset(response) => {
                 t.handle_dataset(response);
             }
@@ -169,7 +193,12 @@ pub fn basic_app(basic_gpkg: TatTestStructure) -> (TatTestStructure, TatApp) {
         }
     }
 
-    (basic_gpkg, t)
+    (tts, t)
+}
+
+#[fixture]
+pub fn basic_app(basic_gpkg: TatTestStructure) -> (TatTestStructure, TatApp) {
+    init_app(basic_gpkg)
 }
 
 #[fixture]

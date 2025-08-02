@@ -1,4 +1,4 @@
-use std::{default, sync::{mpsc::Sender, Arc, Mutex}};
+use std::{default, fmt::Display, sync::{mpsc::Sender, Arc, Mutex}};
 
 use cli_log::{error, info};
 use ratatui::{
@@ -34,6 +34,41 @@ pub const FEATURE_COLUMN_BORDER_PREVIEW: symbols::border::Set = symbols::border:
 
 const MIN_COLUMN_LENGTH: i32 = 30;
 const THEORETICAL_MAX_COLUMN_UTF8_BYTE_SIZE: i32 = MIN_COLUMN_LENGTH * 4;
+
+impl Display for TatTable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let _view = self.attribute_view.as_ref().unwrap();
+        let view = _view.lock().unwrap();
+
+        let field_count = self.layer_schema().unwrap().field_count() as i32;
+
+        for field_idx in 0..field_count {
+            let field_name = self.layer_schema().unwrap().field_name_by_id(field_idx as i32).unwrap();
+
+            write!(f, "{}", field_name)?;
+
+            if field_idx < field_count - 1 {
+                write!(f, ",")?;
+            }
+        }
+
+        writeln!(f)?;
+
+        for row in view.iter() {
+            for _attr in 0..row.len() {
+                let attr = row.get(_attr).unwrap();
+                write!(f, "{}", attr)?;
+
+                if _attr < row.len() - 1 {
+                    write!(f, ",")?;
+                }
+            }
+            writeln!(f)?;
+        }
+
+        Ok(())
+    }
+}
 
 
 pub type TableRects = (Rect, Rect, Rect, Rect);

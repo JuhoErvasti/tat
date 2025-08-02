@@ -1430,7 +1430,6 @@ mod test {
         t.set_table_area(Rect::new(0, 0, 100, 40));
         t.table.set_rects(t.current_table_rects(true));
 
-        // TatTestUtils::refresh_table_attribute_view(&mut t.table, &test.tatevent_rx);
         t.open_table();
         terminal.draw(|frame| {t.render(frame)}).unwrap();
         assert_snapshot!("open_table", terminal.backend());
@@ -1460,6 +1459,7 @@ mod test {
 
         t.open_table();
         t.show_help();
+        TatTestUtils::refresh_table_attribute_view(&t.table(), &test.tatevent_rx);
         terminal.draw(|frame| {t.render(frame)}).unwrap();
         assert_snapshot!("open_table_again", terminal.backend());
 

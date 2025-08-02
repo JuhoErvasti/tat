@@ -208,7 +208,7 @@ impl<'layers> TatDataset<'layers> {
                                 }
 
                                 let mut row = vec![];
-                                for current_column in request.first_column..=request.last_column {
+                                for current_column in request.first_column..request.last_column {
                                     let value = TatDataset::get_attribute_from_feature(&feature, current_column as i32, request.total_geom_fields);
                                     row.push(value.unwrap_or(crate::shared::MISSING_VALUE.to_string()));
                                 }
