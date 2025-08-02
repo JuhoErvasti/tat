@@ -223,8 +223,9 @@ mod test {
         let mut ni = TatNumberInput::new();
 
         ni.handle_char('0');
-        assert!(ni.string.is_empty()); // should empty because starting number with 0 not
-        // allowed
+
+        // should empty because starting number with 0 not allowed
+        assert!(ni.string.is_empty());
         ni.reset();
         ni.handle_char('1');
         ni.handle_char('0');
