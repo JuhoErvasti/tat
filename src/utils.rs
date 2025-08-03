@@ -1,6 +1,8 @@
+#![allow(unused_imports)]
+use cli_log::*;
+
 use std::{env::temp_dir, fs::OpenOptions};
 use std::io::prelude::Write;
-use cli_log::{debug, error};
 
 use gdal::errors::CplErrType;
 

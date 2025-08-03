@@ -1,8 +1,10 @@
+#![allow(unused_imports)]
+use cli_log::*;
+
 use std::fmt::{Display, Write};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
 
-use cli_log::{debug, error, info};
 use gdal::vector::{field_type_to_name, Feature};
 use gdal::Dataset;
 use gdal::{vector::{geometry_type_to_name, Layer, LayerAccess}, Metadata};
@@ -21,6 +23,19 @@ pub struct TatAttributeViewRequest {
     pub first_column: u64,
     pub last_column: u64,
     pub total_geom_fields: usize,
+}
+
+impl Display for TatAttributeViewRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "layer_index: {}", self.layer_index)?;
+        writeln!(f, "top_row: {}", self.top_row)?;
+        writeln!(f, "bottom_row: {}", self.bottom_row)?;
+        writeln!(f, "first_column: {}", self.first_column)?;
+        writeln!(f, "last_column: {}", self.last_column)?;
+        writeln!(f, "layer_index: {}", self.layer_index)?;
+
+        Ok(())
+    }
 }
 
  // TODO: see if you can make this &str, and also not Vec<Vec

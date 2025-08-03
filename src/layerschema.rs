@@ -1,6 +1,6 @@
-use gdal::{vector::{geometry_type_to_name, Layer, LayerAccess}, Dataset};
+#![allow(unused_imports)]
+use cli_log::*;
 
-use cli_log::error;
 use crate::types::{TatCrs, TatField, TatGeomField};
 
 /// A struct which holds information about a layer in a GDAL Dataset and can also fetch infromation

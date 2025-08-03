@@ -1,6 +1,7 @@
-use std::{default, fmt::Display, sync::{mpsc::Sender, Arc, Mutex}};
+use std::{fmt::Display, sync::{mpsc::Sender, Arc, Mutex}};
 
-use cli_log::{error, info};
+#[allow(unused_imports)]
+use cli_log::*;
 use ratatui::{
     layout::{
         Constraint, Rect
@@ -551,20 +552,20 @@ impl TatTable {
         }
 
         if self.max_top_row() <= 1 {
-            self.on_visible_attributes_changed();
             self.top_row = 1;
+            self.on_visible_attributes_changed();
             return;
         }
 
         if row >= self.max_top_row() {
-            self.on_visible_attributes_changed();
             self.top_row = self.max_top_row() as u64;
+            self.on_visible_attributes_changed();
             return;
         }
 
         if row <= 1 {
-            self.on_visible_attributes_changed();
             self.top_row = 1;
+            self.on_visible_attributes_changed();
             return;
         }
 

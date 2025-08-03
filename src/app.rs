@@ -1,4 +1,5 @@
-use cli_log::{error, info};
+#[allow(unused_imports)]
+use cli_log::*;
 use std::{
     env::temp_dir, fs::File, io::{
         BufRead,
@@ -9,7 +10,7 @@ use std::{
 use cli_clipboard::{ClipboardContext, ClipboardProvider};
 
 use crossterm::event::{
-    KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind
+    EnableMouseCapture, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind
 };
 use ratatui::{
     layout::{
@@ -38,8 +39,6 @@ use crate::{
     dataset::{DatasetRequest, DatasetResponse}, layerlist::TatLayerList, navparagraph::TatNavigableParagraph, numberinput::{TatNumberInput, TatNumberInputResult}, table::TableRects, types::{TatNavHorizontal, TatNavVertical}
 };
 use crate::table::TatTable;
-
-// FIXME: there's a bug with jumping to first/last where the attributes don't update!
 
 const BORDER_LAYER_INFO: symbols::border::Set = symbols::border::Set {
     top_left: symbols::line::ROUNDED.horizontal_down,
@@ -109,8 +108,7 @@ impl TatApp {
         dataset_request_tx.send(DatasetRequest::DatasetInfo).unwrap();
         dataset_request_tx.send(DatasetRequest::BuildLayers).unwrap();
 
-        // TODO: disable for now
-        // crossterm::execute!(std::io::stdout(), EnableMouseCapture).unwrap();
+        crossterm::execute!(std::io::stdout(), EnableMouseCapture).unwrap();
 
         Self {
             current_menu: TatMenu::MainMenu,

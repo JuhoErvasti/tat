@@ -1,6 +1,8 @@
-use cli_log::{info, init_cli_log};
-use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
-use tat::dataset::{DatasetRequest, DatasetResponse, TatDataset};
+#[allow(unused_imports)]
+use cli_log::*;
+
+use crossterm::event::DisableMouseCapture;
+use tat::dataset::{DatasetRequest, TatDataset};
 use std::sync::mpsc::{self, SendError};
 use std::thread;
 use std::{env::temp_dir, fs::File};
@@ -91,9 +93,8 @@ fn main() {
     init_cli_log!();
     let mut terminal = ratatui::init();
 
-    // TODO: maybe we do rendering 30fps or something
-
-    let event_handle = thread::spawn(move || {
+    // FIXME: JOIN THIS THREAD
+    thread::spawn(move || {
         handle_events(tatevent_tx).unwrap();
     });
 
@@ -107,6 +108,6 @@ fn main() {
     // event_handle.join().unwrap();
 
     // FIXME: if the program panics or is killed this will not happen
-    // crossterm::execute!(std::io::stdout(), DisableMouseCapture).unwrap();
+    crossterm::execute!(std::io::stdout(), DisableMouseCapture).unwrap();
     ratatui::restore();
 }

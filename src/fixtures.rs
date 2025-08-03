@@ -1,9 +1,10 @@
 use std::{sync::mpsc::{Receiver, Sender}, thread::{self, JoinHandle}};
 
-use cli_log::info;
+#[allow(unused_imports)]
+use cli_log::*;
+
 use ratatui::layout::Rect;
-use rstest::{fixture, rstest};
-use gdal::Dataset;
+use rstest::fixture;
 use std::sync::mpsc;
 
 use crate::{app::{TatApp, TatEvent}, dataset::{DatasetRequest, DatasetResponse, TatAttributeViewRequest, TatDataset}, layerlist::TatLayerInfo, layerschema::TatLayerSchema, navparagraph::TatNavigableParagraph, table::{TableRects, TatTable}, types::{TatCrs, TatField, TatGeomField}};
@@ -16,12 +17,12 @@ pub struct TatTestUtils {}
 impl TatTestUtils {
     pub fn request_attribute_view_update_mocked(layer_index: usize, total_geom_fields: usize, tx: Sender<DatasetRequest>) {
         let r = TatAttributeViewRequest {
-            layer_index: layer_index,
+            layer_index,
             top_row: 1,
             bottom_row: 10,
             first_column: 0,
             last_column: 4,
-            total_geom_fields: total_geom_fields,
+            total_geom_fields,
         };
         tx.send(DatasetRequest::UpdateAttributeView(r)).unwrap();
     }
