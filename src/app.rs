@@ -10,7 +10,7 @@ use std::{
 use cli_clipboard::{ClipboardContext, ClipboardProvider};
 
 use crossterm::event::{
-    EnableMouseCapture, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind
+    KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind
 };
 use ratatui::{
     layout::{
@@ -91,6 +91,7 @@ pub struct TatApp {
     number_input: Option<TatNumberInput>,
     clipboard_feedback: Option<String>,
     dataset_info_text: String,
+    ds_request_tx: Sender<DatasetRequest>,
 }
 
 impl TatApp {
@@ -108,8 +109,6 @@ impl TatApp {
         dataset_request_tx.send(DatasetRequest::DatasetInfo).unwrap();
         dataset_request_tx.send(DatasetRequest::BuildLayers).unwrap();
 
-        crossterm::execute!(std::io::stdout(), EnableMouseCapture).unwrap();
-
         Self {
             current_menu: TatMenu::MainMenu,
             quit: false,
@@ -122,6 +121,7 @@ impl TatApp {
             number_input: None,
             clipboard_feedback: None,
             dataset_info_text: String::default(),
+            ds_request_tx: dataset_request_tx,
         }
     }
 
@@ -132,8 +132,8 @@ impl TatApp {
             self.table_area = Rect::new(
                 0,
                 0,
-                terminal.size().unwrap().width,
-                terminal.size().unwrap().height,
+                terminal.size()?.width,
+                terminal.size()?.height,
             );
 
             // TODO: don't unwrap yada yada
@@ -175,6 +175,12 @@ impl TatApp {
             },
             DatasetResponse::LayersBuilt => {
             },
+            DatasetResponse::InvalidDataset => {
+                // should never happen
+                panic!()
+            }
+            DatasetResponse::DatasetCreated => {
+            }
         }
     }
 
@@ -365,6 +371,10 @@ impl TatApp {
 
     /// Terminates the program
     fn close(&mut self) {
+        self.ds_request_tx.send(
+            DatasetRequest::Terminate,
+        ).unwrap();
+
         self.quit = true;
     }
 

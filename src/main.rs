@@ -1,8 +1,8 @@
 #[allow(unused_imports)]
 use cli_log::*;
 
-use crossterm::event::DisableMouseCapture;
-use tat::dataset::{DatasetRequest, TatDataset};
+use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
+use tat::dataset::{DatasetRequest, DatasetResponse, TatDataset};
 use std::sync::mpsc::{self, SendError};
 use std::thread;
 use std::{env::temp_dir, fs::File};
@@ -70,7 +70,7 @@ fn main() {
 
     let ds_handle = thread::spawn(move || {
         if let Some(mut ds) = TatDataset::new(
-            cp_tatevent_tx,
+            cp_tatevent_tx.clone(),
             dataset_request_rx,
             uri.to_string(),
             cli.all_drivers,
@@ -79,33 +79,49 @@ fn main() {
         ) {
             ds.handle_requests();
         } else {
-            return;
+            cp_tatevent_tx.send(
+                TatEvent::Dataset(
+                    DatasetResponse::InvalidDataset,
+                )
+            ).unwrap();
         }
     });
 
-    // TODO: really not sure this works at all
-    // maybe we need to send a GdalResponse to confirm the dataset was opened or something
-    if ds_handle.is_finished() {
-        Cli::command().print_help().unwrap();
-        return;
+    let mut ds_okay = false;
+    while !ds_okay {
+        match tatevent_rx.recv().unwrap() {
+            TatEvent::Dataset(dataset_response) => {
+                match dataset_response {
+                    DatasetResponse::InvalidDataset => {
+                        Cli::command().print_help().unwrap();
+                        ds_handle.join().unwrap();
+                        return;
+                    },
+                    DatasetResponse::DatasetCreated => {
+                        ds_okay = true;
+                    },
+                    _ => (),
+                }
+            }
+            _ => (),
+        };
     }
+
 
     init_cli_log!();
     let mut terminal = ratatui::init();
+    crossterm::execute!(std::io::stdout(), EnableMouseCapture).unwrap();
 
-    // FIXME: JOIN THIS THREAD
-    thread::spawn(move || {
+    let event_handle = thread::spawn(move || {
         handle_events(tatevent_tx).unwrap();
     });
 
     let _result = TatApp::new(dataset_request_tx.clone())
         .run(&mut terminal, tatevent_rx);
 
-    dataset_request_tx.send(DatasetRequest::Terminate).unwrap();
-    ds_handle.join().unwrap();
-
-    // ds_handle.join().unwrap();
+    // FIXME: handle joining this
     // event_handle.join().unwrap();
+    ds_handle.join().unwrap();
 
     // FIXME: if the program panics or is killed this will not happen
     crossterm::execute!(std::io::stdout(), DisableMouseCapture).unwrap();

@@ -62,6 +62,8 @@ pub enum DatasetResponse {
     AttributeViewUpdated,
     DatasetInfo(String),
     LayersBuilt,
+    InvalidDataset,
+    DatasetCreated,
 }
 
 /// Struct for handling interfacing with GDAL in a separate thread
@@ -152,6 +154,10 @@ impl<'layers> TatDataset<'layers> {
                 }
             },
         };
+
+        response_tx.send(TatEvent::Dataset(
+            DatasetResponse::DatasetCreated,
+        )).unwrap();
 
         Some(
             Self {

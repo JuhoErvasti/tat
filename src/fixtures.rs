@@ -10,7 +10,7 @@ use std::sync::mpsc;
 use crate::{app::{TatApp, TatEvent}, dataset::{DatasetRequest, DatasetResponse, TatAttributeViewRequest, TatDataset}, layerlist::TatLayerInfo, layerschema::TatLayerSchema, navparagraph::TatNavigableParagraph, table::{TableRects, TatTable}, types::{TatCrs, TatField, TatGeomField}};
 
 const N_TAT_TABLE_INIT_EVENTS: u8 = 2;
-const N_TAT_APP_INIT_EVENTS: u8 = 6;
+const N_TAT_APP_INIT_EVENTS: u8 = 7;
 
 pub struct TatTestUtils {}
 
@@ -149,15 +149,20 @@ pub fn basic_table(basic_gpkg: TatTestStructure, table_rects: TableRects) -> (Ta
 
 pub fn init_table(tts: TatTestStructure) -> (TatTestStructure, TatTable) {
     tts.ds_request_tx.send(DatasetRequest::BuildLayers).unwrap();
-    match tts.tatevent_rx.recv().unwrap() {
-        TatEvent::Dataset(dataset_response) => {
-            match dataset_response {
-                DatasetResponse::LayersBuilt => {
-                },
-                _ => panic!(),
-            }
-        },
-        _ => panic!(),
+
+    for _ in 0..2 {
+        match tts.tatevent_rx.recv().unwrap() {
+            TatEvent::Dataset(dataset_response) => {
+                match dataset_response {
+                    DatasetResponse::LayersBuilt => {
+                    },
+                    DatasetResponse::DatasetCreated => {
+                    },
+                    _ => panic!(),
+                }
+            },
+            _ => panic!(),
+        }
     }
 
     let mut t = TatTable::new(tts.ds_request_tx.clone());
