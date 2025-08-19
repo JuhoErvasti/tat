@@ -58,7 +58,12 @@ impl Display for TatTable {
         for row in view.iter() {
             for _attr in 0..row.len() {
                 let attr = row.get(_attr).unwrap();
-                write!(f, "{}", attr)?;
+                let value = match attr {
+                    Some(val) => val,
+                    None => &crate::shared::MISSING_VALUE.to_string(),
+                };
+
+                write!(f, "{}", value)?;
 
                 if _attr < row.len() - 1 {
                     write!(f, ",")?;
@@ -303,7 +308,7 @@ impl TatTable {
             let row = view.get(self.relative_highlighted_row() as usize).unwrap();
             let value = row.get(self.relative_highlighted_column() as usize).unwrap();
 
-            return Some(value.clone());
+            return value.clone();
         }
 
         None
@@ -622,20 +627,24 @@ impl TatTable {
 
             for feature in v.iter() {
                 rows.push(Row::new(feature.iter().map(|attr| {
-                    let squish: bool = if attr.len() > THEORETICAL_MAX_COLUMN_UTF8_BYTE_SIZE as usize {
-                        true
-                    } else if attr.chars().count() > MIN_COLUMN_LENGTH as usize {
-                        true
-                    } else {
-                        false
-                    };
+                    if let Some(attribute) = attr {
+                        let squish: bool = if attribute.len() > THEORETICAL_MAX_COLUMN_UTF8_BYTE_SIZE as usize {
+                            true
+                        } else if attribute.chars().count() > MIN_COLUMN_LENGTH as usize {
+                            true
+                        } else {
+                            false
+                        };
 
-                    if squish {
-                        let graph = attr.graphemes(true);
-                        let substr: String = graph.into_iter().take(MIN_COLUMN_LENGTH as usize).collect();
-                        return format!("{substr}…");
+                        if squish {
+                            let graph = attribute.graphemes(true);
+                            let substr: String = graph.into_iter().take(MIN_COLUMN_LENGTH as usize).collect();
+                            return format!("{substr}…");
+                        } else {
+                            attribute.to_string()
+                        }
                     } else {
-                        attr.to_string()
+                        return crate::shared::MISSING_VALUE.to_string();
                     }
                 })));
             }
@@ -1132,7 +1141,7 @@ mod test {
         assert_eq!(t.selected_value(), Some("POINT (0 0)".to_string()));
 
         t.nav_h(TatNavHorizontal::End);
-        assert_eq!(t.selected_value(), Some("NULL".to_string()));
+        assert_eq!(t.selected_value(), None);
 
         test.terminate();
     }

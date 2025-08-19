@@ -39,8 +39,7 @@ impl Display for TatAttributeViewRequest {
 }
 
  // TODO: see if you can make this &str, and also not Vec<Vec
-// FIXME: at least make it an option, for null values
-pub type TatAttributeView = Vec<Vec<String>>;
+pub type TatAttributeView = Vec<Vec<Option<String>>>;
 
 #[derive(Debug)]
 pub enum DatasetRequest {
@@ -231,7 +230,7 @@ impl<'layers> TatDataset<'layers> {
                                 let mut row = vec![];
                                 for current_column in request.first_column..request.last_column {
                                     let value = TatDataset::get_attribute_from_feature(&feature, current_column as i32, request.total_geom_fields);
-                                    row.push(value.unwrap_or(crate::shared::MISSING_VALUE.to_string()));
+                                    row.push(value);
                                 }
 
                                 v.push(row);
