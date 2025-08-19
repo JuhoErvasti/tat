@@ -65,6 +65,8 @@ pub enum DatasetResponse {
     DatasetCreated,
 }
 
+type TatFidCache = Vec<u64>;
+
 /// Struct for handling interfacing with GDAL in a separate thread
 pub struct TatDataset<'layers> {
     gdal_ds: Dataset,
@@ -72,7 +74,7 @@ pub struct TatDataset<'layers> {
     request_rx: Receiver<DatasetRequest>,
     layer_filter: Option<Vec<String>>,
     where_clause: Option<String>,
-    layers: Vec<Layer<'layers>>, // make hashmap
+    layers: Vec<(Layer<'layers>, TatFidCache)>,
     attribute_view: Arc<Mutex<TatAttributeView>>,
 }
 
@@ -191,9 +193,9 @@ impl<'layers> TatDataset<'layers> {
                         DatasetRequest::LayerInfos => {
                             let infos = self.layers.iter().enumerate().map(|(i, layer)| {
                                 (
-                                    layer.name().to_string(),
+                                    layer.0.name().to_string(),
                                     TatNavigableParagraph::new(
-                                        self.layer_info_text(i, &layer)
+                                        self.layer_info_text(i, &layer.0)
                                     )
                                 )
 
@@ -207,7 +209,7 @@ impl<'layers> TatDataset<'layers> {
                         },
                         DatasetRequest::LayerSchemas => {
                             let schemas = self.layers.iter().enumerate().map(|(i, layer)| {
-                                self.schema_from_gdal_layer(i, layer)
+                                self.schema_from_gdal_layer(i, &layer.0)
 
                             }).collect();
 
@@ -223,23 +225,17 @@ impl<'layers> TatDataset<'layers> {
 
                             let layer = self.layers.get_mut(request.layer_index).unwrap();
 
-                            let mut current_row = request.top_row;
-                            for feature in layer.features()
-                                .skip(request.top_row as usize - 1)
-                            {
-                                if current_row == request.bottom_row + 1 {
-                                    break;
+                            for _row in request.top_row..=request.bottom_row {
+                                if let Some(fid) = layer.1.get(_row as usize - 1) {
+                                    let feature = layer.0.feature(*fid).unwrap();
+                                    let mut row = vec![];
+                                    for current_column in request.first_column..request.last_column {
+                                        let value = TatDataset::get_attribute_from_feature(&feature, current_column as i32, request.total_geom_fields);
+                                        row.push(value);
+                                    }
+
+                                    v.push(row);
                                 }
-
-                                let mut row = vec![];
-                                for current_column in request.first_column..request.last_column {
-                                    let value = TatDataset::get_attribute_from_feature(&feature, current_column as i32, request.total_geom_fields);
-                                    row.push(value);
-                                }
-
-                                v.push(row);
-
-                                current_row += 1;
                             }
 
                             self.send_response(
@@ -270,7 +266,16 @@ impl<'layers> TatDataset<'layers> {
                                     layer.set_attribute_filter(wc.as_str()).unwrap();
                                 }
 
-                                self.layers.push(layer);
+                                let fid_cache = layer.features()
+                                    .map(|feature| {
+                                        if let Some(fid) = feature.fid() {
+                                            return fid;
+                                        } else {
+                                            panic!();
+                                        }
+                                    }).collect();
+
+                                self.layers.push((layer, fid_cache));
                             }
 
                             self.send_response(
