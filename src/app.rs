@@ -1,19 +1,17 @@
-use cli_log::error;
+#[allow(unused_imports)]
+use cli_log::*;
 use std::{
     env::temp_dir, fs::File, io::{
         BufRead,
         Result,
-    }
+    }, sync::mpsc::{self, Sender}
 };
 
 use cli_clipboard::{ClipboardContext, ClipboardProvider};
 
 use crossterm::event::{
-    self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind
+    KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind
 };
-use gdal::
-    Dataset
-;
 use ratatui::{
     layout::{
         Constraint,
@@ -38,10 +36,9 @@ use ratatui::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 use crate::{
-    layerlist::TatLayerList, navparagraph::TatNavigableParagraph, numberinput::{TatNumberInput, TatNumberInputResult}, table::TableRects, types::{TatNavHorizontal, TatNavVertical}
+    dataset::{DatasetRequest, DatasetResponse}, layerlist::TatLayerList, navparagraph::TatNavigableParagraph, numberinput::{TatNumberInput, TatNumberInputResult}, table::TableRects, types::{TatNavHorizontal, TatNavVertical}
 };
 use crate::table::TatTable;
-
 
 const BORDER_LAYER_INFO: symbols::border::Set = symbols::border::Set {
     top_left: symbols::line::ROUNDED.horizontal_down,
@@ -72,6 +69,14 @@ enum TatMainMenuSectionFocus {
     PreviewTable,
 }
 
+/// Custom event enum which also wraps Crossterm events
+#[derive(Debug)]
+pub enum TatEvent {
+    Keyboard(KeyEvent),
+    Mouse(MouseEvent),
+    Dataset(DatasetResponse),
+}
+
 /// This is the main widget of the program, initiating the rendering and primarily handling
 /// key/mouse events.
 pub struct TatApp {
@@ -85,11 +90,13 @@ pub struct TatApp {
     table_area: Rect,
     number_input: Option<TatNumberInput>,
     clipboard_feedback: Option<String>,
+    dataset_info_text: String,
+    ds_request_tx: Sender<DatasetRequest>,
 }
 
 impl TatApp {
     /// Constructs a new object
-    pub fn new(ds: &'static Dataset, where_clause: Option<String>, layers: Option<Vec<String>>) -> Self {
+    pub fn new(dataset_request_tx: Sender<DatasetRequest>) -> Self {
         let mut ls = ListState::default();
         ls.select_first();
 
@@ -99,41 +106,90 @@ impl TatApp {
             Err(_) => None
         };
 
+        dataset_request_tx.send(DatasetRequest::DatasetInfo).unwrap();
+        dataset_request_tx.send(DatasetRequest::BuildLayers).unwrap();
+
         Self {
             current_menu: TatMenu::MainMenu,
             quit: false,
             modal_popup: None,
-            table: TatTable::new(&ds, where_clause, layers.clone()),
-            layerlist: TatLayerList::new(&ds, layers),
+            layerlist: TatLayerList::new(dataset_request_tx.clone()),
+            table: TatTable::new(dataset_request_tx.clone()),
             focused_section: TatMainMenuSectionFocus::LayerList,
             clip,
             table_area: Rect::default(),
             number_input: None,
             clipboard_feedback: None,
+            dataset_info_text: String::default(),
+            ds_request_tx: dataset_request_tx,
         }
     }
 
     /// Main execution loop of the program. The state of the program is rendered along with key and
     /// mouse events being handled
-    pub fn run(mut self, terminal: &mut DefaultTerminal) -> Result<()> {
+    pub fn run(&mut self, terminal: &mut DefaultTerminal, rx: mpsc::Receiver<TatEvent>) -> Result<()> {
         while !self.quit {
+            self.table_area = Rect::new(
+                0,
+                0,
+                terminal.size()?.width,
+                terminal.size()?.height,
+            );
+
+            // TODO: don't unwrap yada yada
+            match rx.recv().unwrap() {
+                TatEvent::Keyboard(key) if key.kind == KeyEventKind::Press => self.handle_key(key),
+                TatEvent::Mouse(mouse) => self.handle_mouse(mouse),
+                TatEvent::Dataset(dataset_response) => self.handle_dataset(dataset_response),
+                _ => continue,
+            };
+
             terminal.draw(|frame| {
                 self.render(frame);
             })?;
-            match event::read()? {
-                Event::Key(key) => self.handle_key(key),
-                Event::Mouse(mouse) => self.handle_mouse(mouse),
-                _ => (),
-            }
         }
 
         Ok(())
     }
 
+    pub fn handle_dataset(&mut self, response: DatasetResponse) {
+        match response {
+            DatasetResponse::LayerInfos(layer_info) => {
+                self.layerlist.set_infos(layer_info);
+
+                if self.layerlist.current_layer_info_paragraph().is_none() {
+                    self.layerlist.nav(TatNavVertical::First);
+                }
+            },
+            DatasetResponse::DatasetInfo(info) => {
+                self.dataset_info_text = info;
+            },
+            DatasetResponse::LayerSchemas(tat_layer_schemas) => {
+                self.table.set_layer_schemas(tat_layer_schemas);
+            },
+            DatasetResponse::AttributeView(view) => {
+                self.table.set_attribute_view(view);
+                self.table.on_visible_attributes_changed();
+            },
+            DatasetResponse::AttributeViewUpdated => {
+            },
+            DatasetResponse::LayersBuilt => {
+            },
+            DatasetResponse::InvalidDataset => {
+                // should never happen
+                panic!()
+            }
+            DatasetResponse::DatasetCreated => {
+            }
+        }
+    }
+
+    pub fn set_table_area(&mut self, area: Rect) {
+        self.table_area = area;
+    }
+
     /// Renders the current menu and any other active pop-ups or dialogs
     pub fn render(&mut self, frame: &mut Frame) {
-        self.table_area = frame.area();
-
         match self.current_menu {
             TatMenu::MainMenu => self.render_main_menu(frame.area(), frame),
             TatMenu::TableView => self.render_table_view(frame),
@@ -147,6 +203,7 @@ impl TatApp {
     /// Opens the table view menu
     pub fn open_table(&mut self) {
         self.table.set_rects(self.current_table_rects(false));
+        self.table.on_visible_attributes_changed();
         self.current_menu = TatMenu::TableView;
     }
 
@@ -177,7 +234,7 @@ impl TatApp {
 
             frame.render_widget(Clear, cleared_area);
             frame.render_widget(block, block_area);
-            frame.render_widget(feedback.clone(), text_area);
+            frame.render_widget(feedback.as_str(), text_area);
         }
     }
 
@@ -221,14 +278,15 @@ impl TatApp {
                 popup.total_lines() as i64,
             );
 
-            let title = if let Some(title) = popup.title() {
-                title.clone()
-            } else {
-                "UNTITLED".to_string()
-            };
-
             popup.set_visible_rows(visible_rows as usize);
             popup.set_visible_cols(visible_cols as usize);
+
+            let title: &str = if let Some(title) = popup.title() {
+                title.as_str()
+            } else {
+                "UNTITLED"
+            };
+
 
             let block = popup.paragraph()
                 .block(
@@ -285,7 +343,7 @@ impl TatApp {
     fn copy_table_value_to_clipboard(&mut self) {
         if let Some(clip) = self.clip.as_mut() {
             if let Some(text_to_copy) = self.table.selected_value() {
-                match clip.set_contents(text_to_copy.clone()) {
+                match clip.set_contents(text_to_copy.to_string()) {
                     Ok(()) => {
                         let postscript = " copied to clipboard!";
                         let max_len = 50;
@@ -313,6 +371,10 @@ impl TatApp {
 
     /// Terminates the program
     fn close(&mut self) {
+        self.ds_request_tx.send(
+            DatasetRequest::Terminate,
+        ).unwrap();
+
         self.quit = true;
     }
 
@@ -332,10 +394,6 @@ impl TatApp {
 
     /// Handles incoming key events and delegates to other widgets
     fn handle_key(&mut self, key: KeyEvent) {
-        if key.kind != KeyEventKind::Press {
-            return;
-        }
-
         let ctrl_down: bool = key.modifiers.contains(KeyModifiers::CONTROL);
         let in_layer_list: bool = matches!(self.current_menu, TatMenu::MainMenu) && matches!(self.focused_section, TatMainMenuSectionFocus::LayerList);
         let in_table: bool = matches!(self.current_menu, TatMenu::TableView);
@@ -405,7 +463,7 @@ impl TatApp {
             KeyCode::Enter => {
                 match self.current_menu {
                     TatMenu::MainMenu => {
-                        if !in_table && !popup_open && (in_preview_table || in_layer_list) {
+                        if !in_table && !popup_open && (in_preview_table || in_layer_list && self.layerlist.layer_index().is_some()) {
                             self.open_table();
                         }
                     },
@@ -450,7 +508,7 @@ impl TatApp {
         let title = format!(
                 " Feature {} - Value of \"{}\" ",
                 self.table.current_row(),
-                self.table.current_column_name(),
+                self.table.current_column_name().unwrap_or("UNKNOWN COLUMN"),
             );
 
         self.modal_popup = Some(
@@ -579,10 +637,16 @@ impl TatApp {
                     TatMainMenuSectionFocus::LayerList => {
                         self.layerlist.nav(conf);
 
-                        self.table.set_layer_index(self.layerlist.layer_index());
+                        if let Some(lyr_i) = self.layerlist.layer_index() {
+                            self.table.set_layer_index(lyr_i);
+                        }
                         self.table.reset();
                     },
-                    TatMainMenuSectionFocus::LayerInfo => self.layerlist.current_layer_info_paragraph().nav_v(conf),
+                    TatMainMenuSectionFocus::LayerInfo => {
+                        if let Some(para) = self.layerlist.current_layer_info_paragraph() {
+                            para.nav_v(conf);
+                        }
+                    },
                     TatMainMenuSectionFocus::PreviewTable => {
                         self.table.nav_v(conf);
                     }
@@ -603,7 +667,11 @@ impl TatApp {
             TatMenu::MainMenu => {
                 match self.focused_section {
                     TatMainMenuSectionFocus::LayerList => return,
-                    TatMainMenuSectionFocus::LayerInfo => self.layerlist.current_layer_info_paragraph().nav_h(conf),
+                    TatMainMenuSectionFocus::LayerInfo => {
+                        if let Some(para) = self.layerlist.current_layer_info_paragraph() {
+                            para.nav_h(conf);
+                        }
+                    },
                     TatMainMenuSectionFocus::PreviewTable => {
                         self.table.nav_h(conf);
                     }
@@ -664,7 +732,7 @@ impl TatApp {
             .title_top(Line::raw(crate::shared::SHOW_HELP).centered());
 
         frame.render_widget(
-            Paragraph::new(self.table.dataset_info_text())
+            Paragraph::new(self.dataset_info_text.as_str())
                 .fg(crate::shared::palette::DEFAULT.default_fg)
                 .block(block),
             area
@@ -694,60 +762,60 @@ impl TatApp {
             .border_set(BORDER_LAYER_INFO)
             .border_style(border_style);
 
-        let info = self.layerlist.current_layer_info_paragraph();
+        if let Some(info) = self.layerlist.current_layer_info_paragraph() {
+            frame.render_widget(
+                info.paragraph().block(block),
+                area,
+            );
 
-        frame.render_widget(
-            info.paragraph().block(block),
-            area,
-        );
+            let (
+                visible_cols,
+                has_h_scrollbar,
+                visible_rows,
+                has_v_scrollbar,
+            ) = TatApp::text_area_dimensions(
+                &area,
+                info.max_line_len() as i64,
+                info.total_lines() as i64,
+            );
 
-        let (
-            visible_cols,
-            has_h_scrollbar,
-            visible_rows,
-            has_v_scrollbar,
-        ) = TatApp::text_area_dimensions(
-            &area,
-            info.max_line_len() as i64,
-            info.total_lines() as i64,
-        );
+            info.set_visible_rows(visible_rows as usize);
+            info.set_visible_cols(visible_cols as usize);
 
-        info.set_visible_rows(visible_rows as usize);
-        info.set_visible_cols(visible_cols as usize);
+            if has_v_scrollbar {
+                let scrollbar = Scrollbar::default()
+                    .orientation(ScrollbarOrientation::VerticalRight)
+                    .style(border_style)
+                    .begin_symbol(Some(DOUBLE_VERTICAL.begin))
+                    .end_symbol(Some(DOUBLE_VERTICAL.end));
 
-        if has_v_scrollbar {
-            let scrollbar = Scrollbar::default()
-                .orientation(ScrollbarOrientation::VerticalRight)
-                .style(border_style)
-                .begin_symbol(Some(DOUBLE_VERTICAL.begin))
-                .end_symbol(Some(DOUBLE_VERTICAL.end));
+                let scrollbar_area = area.inner(Margin { horizontal: 1, vertical: 1 });
 
-            let scrollbar_area = area.inner(Margin { horizontal: 1, vertical: 1 });
-
-            if !scrollbar_area.is_empty() {
-                frame.render_stateful_widget(
-                    scrollbar,
-                    scrollbar_area,
-                    &mut info.scroll_state_v(),
-                );
+                if !scrollbar_area.is_empty() {
+                    frame.render_stateful_widget(
+                        scrollbar,
+                        scrollbar_area,
+                        &mut info.scroll_state_v(),
+                    );
+                }
             }
-        }
 
-        if has_h_scrollbar {
-            let scrollbar = Scrollbar::default()
-                .orientation(ScrollbarOrientation::HorizontalBottom)
-                .begin_symbol(Some(DOUBLE_HORIZONTAL.begin))
-                .style(crate::shared::palette::DEFAULT.highlighted_style())
-                .end_symbol(Some(DOUBLE_HORIZONTAL.end));
+            if has_h_scrollbar {
+                let scrollbar = Scrollbar::default()
+                    .orientation(ScrollbarOrientation::HorizontalBottom)
+                    .begin_symbol(Some(DOUBLE_HORIZONTAL.begin))
+                    .style(crate::shared::palette::DEFAULT.highlighted_style())
+                    .end_symbol(Some(DOUBLE_HORIZONTAL.end));
 
-            let scrollbar_area = area.inner(Margin { horizontal: 1, vertical: 1 });
+                let scrollbar_area = area.inner(Margin { horizontal: 1, vertical: 1 });
 
-            if !scrollbar_area.is_empty() {
-                frame.render_stateful_widget(
-                    scrollbar,
-                    scrollbar_area,
-                    &mut info.scroll_state_h(),
-                );
+                if !scrollbar_area.is_empty() {
+                    frame.render_stateful_widget(
+                        scrollbar,
+                        scrollbar_area,
+                        &mut info.scroll_state_h(),
+                    );
+                }
             }
         }
     }
@@ -884,14 +952,14 @@ mod test {
     #[allow(unused)]
     use super::*;
 
-    use crate::fixtures::{basic_tat, table_rects, datasets::basic_gpkg};
+    use crate::fixtures::{basic_app, table_rects, TatTestStructure, TatTestUtils};
 
     use crossterm::event::KeyEventState;
     use rstest::*;
 
     #[rstest]
-    fn test_new(basic_tat: TatApp) {
-        let t = basic_tat;
+    fn test_new(basic_app: (TatTestStructure, TatApp)) {
+        let (test, t) = basic_app;
 
         assert_eq!(t.current_menu, TatMenu::MainMenu);
         assert_eq!(t.quit, false);
@@ -900,11 +968,12 @@ mod test {
         assert!(t.table_area.is_empty());
         assert_eq!(t.number_input, None);
         assert_eq!(t.clipboard_feedback, None);
+        test.terminate();
     }
 
     #[rstest]
-    fn test_copy_table_value_to_clipboard(basic_tat: TatApp) {
-        let mut t = basic_tat;
+    fn test_copy_table_value_to_clipboard(basic_app: (TatTestStructure, TatApp)) {
+        let (test, mut t) = basic_app;
 
         if t.clip.is_none() {
             return;
@@ -918,6 +987,8 @@ mod test {
         }
 
         {
+            TatTestUtils::request_attribute_view_update_mocked(0, 1, test.ds_request_tx.clone());
+            TatTestUtils::wait_attribute_view_update(&test.tatevent_rx);
             t.copy_table_value_to_clipboard();
             let clip = t.clip.as_mut().unwrap();
             let contents = clip.get_contents().unwrap();
@@ -928,17 +999,18 @@ mod test {
             let clip = t.clip.as_mut().unwrap();
             clip.set_contents(old_contents).unwrap();
         }
+        test.terminate();
     }
 
     #[rstest]
-    fn test_handle_mouse(basic_tat: TatApp, table_rects: TableRects) {
-        let mut t = basic_tat;
+    fn test_handle_mouse(basic_app: (TatTestStructure, TatApp), table_rects: TableRects) {
+        let (test, mut t) = basic_app;
         t.layerlist.set_available_rows(10);
 
         t.handle_mouse(MouseEvent { kind: MouseEventKind::ScrollDown, column: 0, row: 0, modifiers: KeyModifiers::NONE });
-        assert_eq!(t.layerlist.layer_index(), 3);
+        assert_eq!(t.layerlist.layer_index(), Some(3));
         t.handle_mouse(MouseEvent { kind: MouseEventKind::ScrollUp, column: 0, row: 0, modifiers: KeyModifiers::NONE });
-        assert_eq!(t.layerlist.layer_index(), 0);
+        assert_eq!(t.layerlist.layer_index(), Some(0));
         t.handle_mouse(MouseEvent { kind: MouseEventKind::ScrollDown, column: 0, row: 0, modifiers: KeyModifiers::NONE });
         t.handle_mouse(MouseEvent { kind: MouseEventKind::ScrollDown, column: 0, row: 0, modifiers: KeyModifiers::NONE });
 
@@ -950,25 +1022,29 @@ mod test {
         assert_eq!(t.table.current_row(), 6);
         t.handle_mouse(MouseEvent { kind: MouseEventKind::ScrollUp, column: 0, row: 0, modifiers: KeyModifiers::NONE });
         assert_eq!(t.table.current_row(), 1);
+        test.terminate();
     }
 
     #[rstest]
-    fn test_show_full_value_popup(basic_tat: TatApp) {
-        let mut t = basic_tat;
+    fn test_show_full_value_popup(basic_app: (TatTestStructure, TatApp)) {
+        let (test, mut t) = basic_app;
+        TatTestUtils::request_attribute_view_update_mocked(0, 1, test.ds_request_tx.clone());
+        TatTestUtils::wait_attribute_view_update(&test.tatevent_rx);
         t.show_full_value_popup();
 
         assert!(t.modal_popup.is_some());
         assert_eq!(t.modal_popup.as_ref().unwrap().text(), "POINT (0 0)".to_string());
         let title = t.modal_popup.unwrap().title().unwrap().clone();
         assert_eq!(title, " Feature 1 - Value of \"geom\" ".to_string());
+        test.terminate();
     }
 
     #[rstest]
-    fn test_show_gdal_log(basic_tat: TatApp) {
+    fn test_show_gdal_log(basic_app: (TatTestStructure, TatApp)) {
         {
             use std::io::prelude::Write;
 
-            let mut t = basic_tat;
+            let (test, mut t) = basic_app;
 
 
             let path = format!("{}/tat_gdal.log", temp_dir().display());
@@ -993,33 +1069,34 @@ mod test {
             let expected = "\noutput from gdal";
             assert!(t.modal_popup.is_some());
             assert_eq!(t.modal_popup.as_ref().unwrap().text(), expected);
+
+            test.terminate();
         }
     }
 
     #[rstest]
-    fn test_show_help(basic_tat: TatApp, basic_gpkg: &'static Dataset) {
-        {
-            let mut t = basic_tat;
-            t.show_help();
+    fn test_show_help(basic_app: (TatTestStructure, TatApp)) {
+        let (test, mut t) = basic_app;
+        t.show_help();
 
-            assert!(t.modal_popup.is_some());
-            assert!(t.modal_popup.as_ref().unwrap().text().starts_with("Keybinds for Main Menu"));
-            let title = t.modal_popup.unwrap().title().unwrap().clone();
-            assert_eq!(title, " Help ".to_string());
-        }
+        assert!(t.modal_popup.is_some());
+        assert!(t.modal_popup.as_ref().unwrap().text().starts_with("Keybinds for Main Menu"));
 
-        {
-            let mut t = TatApp::new(basic_gpkg, None, None);
-            t.current_menu = TatMenu::TableView;
-            t.show_help();
+        let popup = t.modal_popup.as_ref().unwrap();
+        let title = popup.title().unwrap();
+        assert_eq!(title.as_str(), " Help ");
 
-            assert!(t.modal_popup.as_ref().unwrap().text().starts_with("Keybinds for Attribute Table"));
-        }
+        t.current_menu = TatMenu::TableView;
+        t.show_help();
+
+        assert!(t.modal_popup.as_ref().unwrap().text().starts_with("Keybinds for Attribute Table"));
+
+        test.terminate();
     }
 
     #[rstest]
-    fn test_previous_menu(basic_tat: TatApp) {
-        let mut t = basic_tat;
+    fn test_previous_menu(basic_app: (TatTestStructure, TatApp)) {
+        let (test, mut t) = basic_app;
 
         t.show_help();
         assert!(t.modal_popup.is_some());
@@ -1033,15 +1110,16 @@ mod test {
 
         t.previous_menu();
         assert_eq!(t.quit, true);
+        test.terminate();
     }
 
     #[rstest]
-    fn test_delegate_nav_v(basic_tat: TatApp, table_rects: TableRects) {
-        let mut t = basic_tat;
+    fn test_delegate_nav_v(basic_app: (TatTestStructure, TatApp), table_rects: TableRects) {
+        let (test, mut t) = basic_app;
         t.layerlist.set_available_rows(10);
 
         t.delegate_nav_v(TatNavVertical::DownParagraph);
-        assert_eq!(t.layerlist.layer_index(), 4);
+        assert_eq!(t.layerlist.layer_index(), Some(4));
 
         t.table.set_rects(table_rects);
         t.current_menu = TatMenu::TableView;
@@ -1049,22 +1127,24 @@ mod test {
         assert_eq!(t.table.current_row(), 1);
         t.delegate_nav_v(TatNavVertical::DownParagraph);
         assert_eq!(t.table.current_row(), 16);
+        test.terminate();
     }
 
     #[rstest]
-    fn test_delegate_nav_h(basic_tat: TatApp, table_rects: TableRects) {
-        let mut t = basic_tat;
+    fn test_delegate_nav_h(basic_app: (TatTestStructure, TatApp), table_rects: TableRects) {
+        let (test, mut t) = basic_app;
         t.table.set_rects(table_rects);
         t.current_menu = TatMenu::TableView;
 
-        assert_eq!(t.table.current_column_name(), "geom");
+        assert_eq!(t.table.current_column_name(), Some("geom"));
         t.delegate_nav_h(TatNavHorizontal::RightOne);
-        assert_eq!(t.table.current_column_name(), "field");
+        assert_eq!(t.table.current_column_name(), Some("field"));
+        test.terminate();
     }
 
     #[rstest]
-    fn test_table_rect(basic_tat: TatApp) {
-        let mut t = basic_tat;
+    fn test_table_rect(basic_app: (TatTestStructure, TatApp)) {
+        let (test, mut t) = basic_app;
         t.table_area = Rect {
             x: 0,
             y: 0,
@@ -1142,6 +1222,7 @@ mod test {
             assert!(scroll_v_area.is_empty());
             assert!(scroll_h_area.is_empty());
         }
+        test.terminate();
     }
 
     #[rstest]
@@ -1252,10 +1333,14 @@ mod test {
     use ratatui::{backend::TestBackend, Terminal};
 
     #[rstest]
-    fn test_render_main_menu(basic_tat: TatApp) {
-        let mut t = basic_tat;
+    fn test_render_main_menu(basic_app: (TatTestStructure, TatApp)) {
+        let (test, mut t) = basic_app;
         let mut terminal = Terminal::new(TestBackend::new(100, 40)).unwrap();
 
+        t.set_table_area(Rect::new(0, 0, 100, 40));
+        t.table.set_rects(t.current_table_rects(true));
+
+        TatTestUtils::refresh_table_attribute_view(&mut t.table, &test.tatevent_rx);
         terminal.draw(|frame| {t.render(frame)}).unwrap();
         assert_snapshot!(terminal.backend());
 
@@ -1284,6 +1369,8 @@ mod test {
         t.handle_key(KeyEvent { code: KeyCode::BackTab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         t.handle_key(KeyEvent { code: KeyCode::BackTab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         t.handle_key(KeyEvent { code: KeyCode::Char('j'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+        t.table.set_rects(t.current_table_rects(true));
+        TatTestUtils::refresh_table_attribute_view(&mut t.table, &test.tatevent_rx);
         terminal.draw(|frame| {t.render(frame)}).unwrap();
         assert_snapshot!(terminal.backend());
 
@@ -1342,129 +1429,79 @@ mod test {
         terminal.draw(|frame| {t.render(frame)}).unwrap();
         assert_snapshot!(terminal.backend());
 
-        t.handle_key(KeyEvent { code: KeyCode::Tab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Tab, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Enter, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!(terminal.backend());
+        test.terminate();
     }
 
     #[rstest]
-    fn test_render_table(basic_tat: TatApp) {
-        let mut t = basic_tat;
+    fn test_render_open_table(basic_app: (TatTestStructure, TatApp)) {
+        let (test, mut t) = basic_app;
         let mut terminal = Terminal::new(TestBackend::new(100, 40)).unwrap();
 
+        t.set_table_area(Rect::new(0, 0, 100, 40));
+        t.table.set_rects(t.current_table_rects(true));
         t.open_table();
+        TatTestUtils::refresh_table_attribute_view(&mut t.table, &test.tatevent_rx);
+
         terminal.draw(|frame| {t.render(frame)}).unwrap();
         assert_snapshot!("open_table", terminal.backend());
+
+        test.terminate();
+    }
+
+    #[rstest]
+    fn test_render_show_value_popup(basic_app: (TatTestStructure, TatApp)) {
+        let (test, mut t) = basic_app;
+        let mut terminal = Terminal::new(TestBackend::new(100, 40)).unwrap();
+
+        t.set_table_area(Rect::new(0, 0, 100, 40));
+        t.table.set_rects(t.current_table_rects(true));
+        t.open_table();
+        TatTestUtils::refresh_table_attribute_view(&mut t.table, &test.tatevent_rx);
 
         t.show_full_value_popup();
         terminal.draw(|frame| {t.render(frame)}).unwrap();
         assert_snapshot!("show_value_popup", terminal.backend());
 
-        if t.clip.is_some() {
-            t.copy_table_value_to_clipboard();
-            terminal.draw(|frame| {t.render(frame)}).unwrap();
-            assert_snapshot!("copied_to_clipboard", terminal.backend());
+        test.terminate();
+    }
 
-            t.handle_key(KeyEvent { code: KeyCode::Char('b'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-            terminal.draw(|frame| {t.render(frame)}).unwrap();
-            assert_snapshot!("any_key_closed_clipboard_feedback", terminal.backend());
+    #[rstest]
+    fn test_render_copied_to_clipboard(basic_app: (TatTestStructure, TatApp)) {
+        let (test, mut t) = basic_app;
+
+        if t.clip.is_none() {
+            return;
         }
 
 
-        t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("close_value_popup", terminal.backend());
+        let mut terminal = Terminal::new(TestBackend::new(100, 40)).unwrap();
 
-        t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("back_to_main_menu", terminal.backend());
-
+        t.set_table_area(Rect::new(0, 0, 100, 40));
+        t.table.set_rects(t.current_table_rects(true));
         t.open_table();
-        t.show_help();
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("open_table_again", terminal.backend());
+        TatTestUtils::refresh_table_attribute_view(&mut t.table, &test.tatevent_rx);
 
-        t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Char('G'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
+        t.copy_table_value_to_clipboard();
         terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("select_last_layer", terminal.backend());
+        assert_snapshot!("copied_to_clipboard", terminal.backend());
 
+        test.terminate();
+    }
+
+    #[rstest]
+    fn test_render_open_jump_to_line(basic_app: (TatTestStructure, TatApp)) {
+        let (test, mut t) = basic_app;
+        let mut terminal = Terminal::new(TestBackend::new(100, 40)).unwrap();
+
+        t.set_table_area(Rect::new(0, 0, 100, 40));
+        t.table.set_rects(t.current_table_rects(true));
         t.open_table();
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("open_table_with_last_layer", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('G'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("goto_last_feature", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('g'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("goto_first_feature", terminal.backend());
+        TatTestUtils::refresh_table_attribute_view(&mut t.table, &test.tatevent_rx);
 
         t.handle_key(KeyEvent { code: KeyCode::Char(':'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
         terminal.draw(|frame| {t.render(frame)}).unwrap();
         assert_snapshot!("open_jump_to_line", terminal.backend());
 
-        t.handle_key(KeyEvent { code: KeyCode::Char('5'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("type_5_to_jump_to_line", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('2'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("type_2_to_jump_to_line", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Enter, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("execute_jump_to_line", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char(':'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Char('q'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("close_jump_to_line", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char(':'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Char('0'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("try_enter_0_as_first_in_jump_to_line", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('9'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("type_9_to_jump_to_line", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Char('8'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Char('7'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Char('6'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Char('5'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Char('4'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("long_number_in_jump_to_line", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Backspace, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("backspace_in_jump_to_line", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Left, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Left, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Delete, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("delete_in_jump_to_line", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Home, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Delete, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("home_in_jump_to_line", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::End, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Backspace, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("end_in_jump_to_line", terminal.backend());
-
-        t.handle_key(KeyEvent { code: KeyCode::Home, modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        t.handle_key(KeyEvent { code: KeyCode::Char('5'), modifiers: KeyModifiers::NONE, kind: KeyEventKind::Press, state: KeyEventState::NONE });
-        terminal.draw(|frame| {t.render(frame)}).unwrap();
-        assert_snapshot!("enter_in_middle_in_jump_to_line", terminal.backend());
+        test.terminate();
     }
 }

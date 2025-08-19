@@ -46,7 +46,7 @@ impl TatNavigableParagraph {
 
     /// Constructs a ratatui Parapraph based on the state
     pub fn paragraph(&self) -> Paragraph {
-        Paragraph::new(self.text.clone())
+        Paragraph::new::<&str>(&self.text)
         .scroll((self.scroll_offset_v as u16, self.scroll_offset_h as u16))
     }
 
