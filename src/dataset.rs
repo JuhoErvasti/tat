@@ -171,6 +171,7 @@ impl<'layers> TatDataset<'layers> {
         )
     }
 
+    /// Convenience function for sending a TatEvent::Dataset response
     fn send_response(&self, r: DatasetResponse) {
         self.response_tx.send(
             TatEvent::Dataset(
@@ -179,6 +180,9 @@ impl<'layers> TatDataset<'layers> {
         ).unwrap();
     }
 
+    /// Main loop for the dataset. Handles incoming requests.
+    /// The function terminates once a DatasetRequest::Terminate
+    /// is received.
     pub fn handle_requests(&'layers mut self) {
         loop {
             match self.request_rx.recv() {
@@ -342,6 +346,7 @@ impl<'layers> TatDataset<'layers> {
         fields
     }
 
+    /// Returns an attribute from a feature
     fn get_attribute_from_feature(f: &Feature, field_idx: i32, total_geom_fields: usize) -> Option<String> {
         if total_geom_fields == 0 {
             return f.field_as_string(field_idx as usize)
