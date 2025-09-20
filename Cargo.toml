@@ -12,7 +12,7 @@ repository = "https://github.com/JuhoErvasti/tat"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-gdal = "0.18.0"
+gdal = { version = "0.18.0", features = ["bindgen"] }
 crossterm = "0.29.0"
 ratatui = "0.29.0"
 cli-log = "2.1.0"
@@ -22,4 +22,4 @@ clap = { version = "4.5.41", features = ["derive"] }
 rstest = "0.25.0"
 
 [dev-dependencies]
-insta = "1.43.1"
+insta = "1.43.2"
